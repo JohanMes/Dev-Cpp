@@ -23,9 +23,9 @@ interface
 
 uses 
 {$IFDEF WIN32}
-  Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs, CodeCompletion, CppParser,
-  Menus, ImgList, ComCtrls, StdCtrls, ExtCtrls, SynEdit, SynEditKeyCmds, version, SynEditCodeFolding,
-  SynCompletionProposal, SynEditTextBuffer, Math, StrUtils, SynEditTypes, SynEditHighlighter, DateUtils, CodeToolTip;
+  Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs, CodeCompletion, CppParser, SynExportTeX, SynEditExport, SynExportRTF,
+  Menus, ImgList, ComCtrls, StdCtrls, ExtCtrls, SynEdit, SynEditKeyCmds, version, SynEditCodeFolding, SynExportHTML,
+  SynEditTextBuffer, Math, StrUtils, SynEditTypes, SynEditHighlighter, DateUtils, CodeToolTip;
 {$ENDIF}
 {$IFDEF LINUX}
   SysUtils, Classes, Graphics, QControls, QForms, QDialogs, CodeCompletion, CppParser,
@@ -90,7 +90,6 @@ type
     procedure MouseOverTimer(Sender : TObject);
 
     procedure SetEditorText(Key: Char);
-    function EvaluationPhrase(p : TBufferCoord): AnsiString;
     procedure CompletionTimer(Sender: TObject);
 
     function FunctionTipAllowed : boolean;
@@ -100,7 +99,7 @@ type
     procedure SetFileName(const value: AnsiString);
     procedure EditorPaintTransient(Sender: TObject; Canvas: TCanvas; TransientType: TTransientType);
   public
-    procedure Init(InProject : boolean;const Caption, Filename : AnsiString;DoOpen : boolean;IsRes: boolean = FALSE);
+    constructor Create(InProject : boolean;const Caption, Filename : AnsiString;DoOpen : boolean;IsRes: boolean = FALSE);
     destructor Destroy; override;
 
     // Recoded breakpoint stuff
@@ -114,7 +113,11 @@ type
     procedure Activate;
     procedure GotoLine;
     procedure SetCaretPos(line,col : integer;settopline : boolean = true); // takes folds into account
-    procedure Exportto(filetype: integer);
+
+    procedure ExportToHTML(const OverwriteFileName : AnsiString);
+    procedure ExportToRTF(const OverwriteFileName : AnsiString);
+    procedure ExportToTEX(const OverwriteFileName : AnsiString);
+
     procedure InsertString(Value: AnsiString;MoveCursor: boolean);
     procedure SetErrorFocus(Col, Line: integer);
     procedure SetActiveBreakpointFocus(Line: integer);
@@ -123,6 +126,7 @@ type
     procedure InsertDefaultText;
     procedure PaintMatchingBrackets(TransientType: TTransientType);
 
+    function EvaluationPhrase(p : TBufferCoord): AnsiString;
     function CompletionPhrase(p : TBufferCoord): AnsiString;
 
     procedure CommentSelection;
@@ -199,7 +203,7 @@ end;
 
 { TEditor }
 
-procedure TEditor.Init(InProject : boolean;const Caption, Filename : AnsiString;DoOpen : boolean;IsRes: boolean = FALSE);
+constructor TEditor.Create(InProject : boolean;const Caption, Filename : AnsiString;DoOpen : boolean;IsRes: boolean = FALSE);
 var
 	s: AnsiString;
 begin
@@ -236,7 +240,6 @@ begin
 	end else
 		fNew := True;
 
-	fText.UseCodeFolding := true;
 	fText.Parent := fTabSheet;
 	fText.Visible := True;
 	fText.Align := alClient;
@@ -293,7 +296,7 @@ end;
 
 destructor TEditor.Destroy;
 var
-	I,curactive: integer;
+	I, curactive: integer;
 begin
 	// Deactivate the file change monitor
 	I := MainForm.devFileMonitor.Files.IndexOf(fFileName);
@@ -312,19 +315,12 @@ begin
 	// Delete breakpoints in this editor
 	MainForm.fDebugger.DeleteBreakPointsOf(self);
 
-	SendMessage(MainForm.Handle,WM_SETREDRAW,0,0);
-
 	// Open up the previous tab, not the first one...
 	with fTabSheet.PageControl do begin
 		curactive := ActivePageIndex;
-		fTabSheet.Free; // sets activepageindex to 0, causes lots of flicker???
+		fTabSheet.Free; // sets activepageindex to 0, causes lots of flicker...
 		ActivePageIndex := max(0,curactive - 1);
 	end;
-
-	SendMessage(MainForm.Handle,WM_SETREDRAW,1,0);
-
-	// Repaint!
-	RedrawWindow(MainForm.PageControl.Handle, nil, 0, RDW_FRAME or RDW_INVALIDATE or RDW_ALLCHILDREN);
 
 	inherited;
 end;
@@ -342,8 +338,9 @@ begin
 
 	if fText.Visible then
 		fText.SetFocus;
-	if MainForm.ClassBrowser.Enabled then
-		MainForm.PageControlChange(MainForm.PageControl); // this makes sure that the classbrowser is consistent
+
+	// this makes sure that the classbrowser is consistent
+	MainForm.PageControlChange(MainForm.PageControl);
 end;
 
 procedure TEditor.EditorGutterClick(Sender: TObject; Button: TMouseButton;x, y, Line: integer; mark: TSynEditMark);
@@ -563,38 +560,121 @@ begin
 		fFunctionTip.Show;
 end;
 
-procedure TEditor.Exportto(filetype: integer);
+procedure TEditor.ExportToHTML(const OverwriteFileName : AnsiString);
+var
+	SynExporterHTML : TSynExporterHTML;
+	SaveFileName : AnsiString;
 begin
-	if filetype = 0 then begin
-		with dmMain.SaveDialog do begin
-			Filter:= dmMain.SynExporterHTML.DefaultFilter;
-			Title:= Lang[ID_NV_EXPORT];
-			DefaultExt := HTML_EXT;
-			if Execute then begin
-				dmMain.ExportToHtml(fText.UnCollapsedLines, dmMain.SaveDialog.FileName);
-				fText.BlockEnd:= fText.BlockBegin;
+	SynExporterHTML := TSynExporterHTML.Create(nil);
+	try
+		if OverwriteFileName = '' then begin
+			with TSaveDialog.Create(Application) do try
+
+				Filter := SynExporterHTML.DefaultFilter;
+				Title := Lang[ID_NV_EXPORT];
+				DefaultExt := HTML_EXT;
+				FileName := ChangeFileExt(fFileName,HTML_EXT);
+				Options := Options + [ofOverwritePrompt];
+
+				if Execute then
+					SaveFileName := FileName
+				else
+					Exit; // automatically gotos finally
+			finally
+				Free;
 			end;
-		end;
-	end else if filetype = 1 then begin
-		with dmMain.SaveDialog do begin
-			Filter:= dmMain.SynExporterRTF.DefaultFilter;
-			Title:= Lang[ID_NV_EXPORT];
-			DefaultExt := RTF_EXT;
-			if Execute then begin
-				dmMain.ExportToRtf(fText.UnCollapsedLines, dmMain.SaveDialog.FileName);
-				fText.BlockEnd:= fText.BlockBegin;
+		end else
+			SaveFileName := OverwriteFileName;
+
+		SynExporterHTML.Title := ExtractFileName(SaveFileName);
+		SynExporterHTML.CreateHTMLFragment := False;
+		SynExporterHTML.ExportAsText := True;
+		SynExporterHTML.UseBackground := True;
+		SynExporterHTML.Font := fText.Font;
+		SynExporterHTML.Highlighter := fText.Highlighter;
+
+		SynExporterHTML.ExportAll(fText.UnCollapsedLines);
+		SynExporterHTML.SaveToFile(SaveFileName);
+	finally
+		SynExporterHTML.Free;
+	end;
+end;
+
+procedure TEditor.ExportToRTF(const OverwriteFileName : AnsiString);
+var
+	SynExporterRTF : TSynExporterRTF;
+	SaveFileName : AnsiString;
+begin
+	SynExporterRTF := TSynExporterRTF.Create(nil);
+	try
+		if OverwriteFileName = '' then begin
+			with TSaveDialog.Create(Application) do try
+
+				Filter:= SynExporterRTF.DefaultFilter;
+				Title:= Lang[ID_NV_EXPORT];
+				DefaultExt := RTF_EXT;
+				FileName := ChangeFileExt(fFileName,RTF_EXT);
+				Options := Options + [ofOverwritePrompt];
+
+				if Execute then
+					SaveFileName := FileName
+				else
+					Exit;
+			finally
+				Free;
 			end;
-		end;
-	end else begin
-		with dmMain.SaveDialog do begin
-			Filter:= dmMain.SynExporterTex.DefaultFilter;
-			Title:= Lang[ID_NV_EXPORT];
-			DefaultExt := TEX_EXT;
-			if Execute then begin
-				dmMain.ExportToTex(fText.UnCollapsedLines, dmMain.SaveDialog.FileName);
-				fText.BlockEnd:= fText.BlockBegin;
+		end else
+			SaveFileName := OverwriteFileName;
+
+		SynExporterRTF.Title := ExtractFileName(SaveFileName);
+		SynExporterRTF.ExportAsText := True;
+		SynExporterRTF.UseBackground := True;
+		SynExporterRTF.Font := fText.Font;
+		SynExporterRTF.Highlighter := fText.Highlighter;
+
+		SynExporterRTF.ExportAll(fText.UnCollapsedLines);
+		SynExporterRTF.SaveToFile(SaveFileName);
+	finally
+		SynExporterRTF.Free;
+	end;
+end;
+
+procedure TEditor.ExportToTEX(const OverwriteFileName : AnsiString);
+var
+	SynExporterTEX : TSynExporterTEX;
+	SaveFileName : AnsiString;
+begin
+	SynExporterTEX := TSynExporterTEX.Create(nil);
+	try
+		if OverwriteFileName = '' then begin
+			with TSaveDialog.Create(Application) do try
+
+				Filter:= SynExporterTEX.DefaultFilter;
+				Title:= Lang[ID_NV_EXPORT];
+				DefaultExt := TEX_EXT;
+				FileName := ChangeFileExt(fFileName,TEX_EXT);
+				Options := Options + [ofOverwritePrompt];
+
+				if Execute then
+					SaveFileName := FileName
+				else
+					Exit;
+			finally
+				Free;
 			end;
-		end;
+		end else
+			SaveFileName := OverwriteFileName;
+
+		SynExporterTex.Title := ExtractFileName(SaveFileName);
+		SynExporterTex.ExportAsText := True;
+		SynExporterTex.UseBackground := True;
+		SynExporterTex.Font := fText.Font;
+		SynExporterTex.Highlighter := fText.Highlighter;
+
+		SynExporterTex.ExportAll(fText.UnCollapsedLines);
+		SynExporterTex.SaveToFile(SaveFileName);
+	finally
+		SynExporterTEX.Free;
 	end;
 end;
 
@@ -766,7 +846,7 @@ begin
 					fText.SelStart := fText.SelStart - 1;
 					fText.SelEnd := fText.SelStart + 1;
 					fText.SelText := '';
-					fCompletionBox.Search(nil, CompletionPhrase(fText.CaretXY), fFileName);
+					fCompletionBox.Search(CompletionPhrase(fText.CaretXY), fFileName);
 				end;
 			end;
 
@@ -784,7 +864,7 @@ begin
 			// Continue filtering
 			else begin
 				fText.SelText := Key;
-				fCompletionBox.Search(nil, CompletionPhrase(fText.CaretXY), fFileName);
+				fCompletionBox.Search(CompletionPhrase(fText.CaretXY), fFileName);
 			end;
 		end;
 	end;
@@ -983,21 +1063,17 @@ begin
 
 	fCompletionBox.OnKeyPress := CompletionKeyPress;
 
-	M:=TMemoryStream.Create;
+	M := TMemoryStream.Create;
 	try
-
-		// Scan the file and corresponding header, ignore function bodies
-		//if fText.Modified then
-		//	MainForm.CppParser.ReParseFile(fFileName,InProject);
 
 		// Scan the current function
 		fText.UnCollapsedLines.SaveToStream(M);
-		fCompletionBox.CurrentClass:=MainForm.CppParser.FindAndScanBlockAt(fFileName, fText.CaretY, M);
+		fCompletionBox.CurrentIndex := MainForm.CppParser.FindAndScanBlockAt(fFileName, fText.CaretY, M)
 	finally
 		M.Free;
 	end;
 
-	fCompletionBox.Search(nil, CompletionPhrase(fText.CaretXY), fFileName);
+	fCompletionBox.Search(CompletionPhrase(fText.CaretXY), fFileName);
 end;
 
 procedure TEditor.DestroyCompletion;
@@ -1013,7 +1089,7 @@ end;
 procedure TEditor.InitCompletion;
 begin
 	fCompletionBox := MainForm.CodeCompletion;
-	fCompletionBox.Enabled := devClassBrowsing.Enabled and devCodeCompletion.Enabled;
+	fCompletionBox.Enabled := devCodeCompletion.Enabled;
 
 	// This way symbols and tabs are also completed without code completion
 	fText.OnKeyPress := EditorKeyPress;
@@ -1059,7 +1135,7 @@ end;
 
 function TEditor.EvaluationPhrase(p : TBufferCoord): AnsiString;
 var
-	phrasebegin,phraseend,len,braceindent : integer;
+	phrasebegin,phraseend,len : integer;
 	s : AnsiString;
 begin
 	result := '';
@@ -1067,82 +1143,77 @@ begin
 	if (p.Line >= 1) and (p.Line <= fText.Lines.Count) then begin
 		s := fText.Lines[p.Line-1];
 		len := Length(s);
-		if len = 0 then Exit;
 
-		phrasebegin := p.Char;
-		phraseend := p.Char;
+		phrasebegin := p.Char - 1;
+		phraseend := p.Char - 1;
 
-		// Copy forward until end of identifier
-		while((phraseend <= len) and (s[phraseend] in fText.IdentChars)) do
-			Inc(phraseend);
-
-		braceindent := 0;
+		// Copy forward until end of identifier, accept array stuff at the end
+		while(phraseend + 1 <= len) do begin
+			if s[phraseend + 1] = '[' then begin
+				if not FindComplement(s,'[',']',phraseend,1) then break;
+			end else if (s[phraseend + 1] in fText.IdentChars) then
+				Inc(phraseend)
+			else
+				break;
+		end;
 
 		// Copy backward until some chars
-		while(phrasebegin > 1) do begin
+		while(phrasebegin > 0) and (phrasebegin <= len) do begin
 
-			if s[phrasebegin-1] = '[' then begin
-				if braceindent = 0 then break;
-				Dec(braceindent);
-			end else if s[phrasebegin-1] = ']' then begin
-				Inc(braceindent);
+			// Accept array and function stuff
+			if s[phrasebegin] = ']' then begin
+				if FindComplement(s,']','[',phrasebegin,-1) then
+					Dec(phrasebegin)
+				else
+					break;
+			end else if s[phrasebegin] = ')' then begin
+				if FindComplement(s,')','(',phrasebegin,-1) then
+					Dec(phrasebegin)
+				else
+					break;
 			end;
 
-			if (s[phrasebegin-1] in fText.IdentChars) or (s[phrasebegin-1] in ['.','&',':','[',']']) then
+			// Accept -> :: & .
+			if (s[phrasebegin] in fText.IdentChars) or (s[phrasebegin] in ['.','&',':']) then
 				Dec(phrasebegin)
-			else if (phrasebegin > 2) and (s[phrasebegin-2] = '-') and (s[phrasebegin-1] = '>') then
-				Dec(phrasebegin)
-			else if (s[phrasebegin-1] = '-') and (s[phrasebegin] = '>') then
-				Dec(phrasebegin)
+			else if (phrasebegin > 1) and (s[phrasebegin-1] = '-') and (s[phrasebegin] = '>') then
+				Dec(phrasebegin,2)
 			else
 				break;
 		end;
 
 		if phraseend > phrasebegin then
-			result := Copy(s,phrasebegin,phraseend-phrasebegin);
+			result := Copy(s,phrasebegin + 1,phraseend-phrasebegin);
 	end;
 end;
 
 function TEditor.CompletionPhrase(P : TBufferCoord): AnsiString;
 var
-	braceindent,stripptr,len,curpos,arraybegin,arrayend : integer;
+	len,curpos,stripbeg : integer;
 begin
 	Result := EvaluationPhrase(p);
-
 	len := Length(result);
+
+	// strip array and function bits
 	curpos := 1;
-	braceindent := 0;
-	arraybegin := 1;
-	arrayend := 1;
-
-	// Strip array bits
 	while (curpos <= len) do begin
-
 		if result[curpos] = '[' then begin
-			if braceindent = 0 then
-				arraybegin := curpos;
-			Inc(braceindent);
-		end else if result[curpos] = ']' then begin
-			Dec(braceindent);
-			if braceindent = 0 then begin
-				arrayend := curpos;
-				break;
-			end;
+			stripbeg := curpos;
+			if FindComplement(Result,'[',']',curpos,1) then
+				Delete(Result,stripbeg,curpos - stripbeg + 1);
+		end else if result[curpos] = '(' then begin
+			stripbeg := curpos;
+			if FindComplement(Result,'(',')',curpos,1) then
+				Delete(Result,stripbeg,curpos - stripbeg + 1);
 		end;
-
 		Inc(curpos);
 	end;
 
-	if arrayend <> arraybegin then
-		Delete(Result,arraybegin,arrayend-arraybegin+1);
-
-	// Strip &'s too
-	stripptr := 1;
-	while (stripptr <= len) and (result[stripptr] = '&') do
-		Inc(stripptr);
-
-	if stripptr > 1 then
-		Delete(Result,1,stripptr-1);
+	// strip pointer bits
+	curpos := 1;
+	while (curpos <= len) and (result[curpos] in ['*','&']) do
+		Inc(curpos);
+	Delete(Result,1,curpos-1);
 end;
 
 procedure TEditor.SetEditorText(Key: Char);
@@ -1200,14 +1271,17 @@ var
 	procedure CancelHint;
 	begin
 		MainForm.fDebugger.OnEvalReady := nil;
-		fCurrentWord := '';
-		fText.Cursor := crIBeam;
+
+		// disable editor hint
 		Application.CancelHint;
+		fCurrentWord := '';
 		fText.Hint := '';
+
+		// disable page control hint
+		MainForm.fCurrentPageHint := '';
+		MainForm.PageControl.Hint := '';
 	end;
 begin
-
-	fTabSheet.PageControl.Hint := '';
 
 	// If the mouse can be found INSIDE the window
 	if HandpointAllowed(p) then begin
@@ -1259,8 +1333,10 @@ begin
 					fText.Hint := '';
 			end;
 		end;
-	end else
+	end else begin
+		fText.Cursor:=crIBeam;
 		CancelHint;
+	end;
 end;
 
 procedure TEditor.IndentSelection;
@@ -1304,10 +1380,10 @@ begin
 			if(localcopy[CurPos] in [#13,#10]) then begin
 				repeat
 					Inc(CurPos);
-				until (CurPos = len) or not (localcopy[CurPos] in [#13,#10]);
+				until (CurPos = len + 1) or not (localcopy[CurPos] in [#13,#10]);
 
 				// and comment only when this enter isn't trailing
-				if CurPos < len then begin
+				if (CurPos <= len) then begin
 					Inc(len,2);
 					Insert('//',localcopy,CurPos); // 1 based
 				end;
@@ -1459,7 +1535,7 @@ begin
 			// reset the cursor
 			fText.Cursor:=crIBeam;
 
-			line:=fText.Lines[p.Row-1];
+			line := Trim(fText.Lines[p.Row-1]);
 			if StartsStr('#include',line) then begin
 
 				// We've clicked an #include...

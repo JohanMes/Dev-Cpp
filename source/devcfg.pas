@@ -100,13 +100,14 @@ type
 		// Set stuff
 		procedure LoadSet(Index: integer);
 		procedure SaveSet(Index: integer);
+		procedure EraseSet(Index: integer);
 		procedure ClearSet;
 
 		procedure ReadSets;
 		procedure WriteSets;
 
 		property Sets: TStrings read fSets write fSets;
-		property CurrentIndex: integer read fCurrentSet write fCurrentSet;
+		property CurrentSet: integer read fCurrentSet write fCurrentSet;
 
 		// Option utils
 		procedure AddDefaultOptions;
@@ -153,6 +154,8 @@ type
     fEnabled: boolean;
     fUseCacheFiles: boolean;
     fCacheFiles: TStrings;
+    fParseLocalHeaders: boolean;
+    fParseGlobalHeaders: boolean;
   public
     constructor Create;
     destructor Destroy; override;
@@ -167,17 +170,15 @@ type
     property Enabled: boolean read fEnabled write fEnabled;
     property UseCacheFiles: boolean read fUseCacheFiles write fUseCacheFiles;
     property CacheFiles: TStrings read fCacheFiles write fCacheFiles;
+    property ParseLocalHeaders: boolean read fParseLocalHeaders write fParseLocalHeaders;
+    property ParseGlobalHeaders: boolean read fParseGlobalHeaders write fParseGlobalHeaders;
   end;
 
   // class-browsing view style
   TdevClassBrowsing = class(TPersistent)
   private
     fCBViewStyle: integer;
-    fEnabled: boolean;
-    fParseLocalHeaders: boolean;
-    fParseGlobalHeaders: boolean;
     fShowFilter: integer; // 0 - show all, 1 - show project, 2 - show current
-    fUseColors: boolean;
     fShowInheritedMembers: boolean;
   public
     constructor Create;
@@ -185,12 +186,8 @@ type
     procedure SaveSettings;
     procedure LoadSettings;
   published
-    property Enabled: boolean read fEnabled write fEnabled;
     property ViewStyle: integer read fCBViewStyle write fCBViewStyle;
-    property ParseLocalHeaders: boolean read fParseLocalHeaders write fParseLocalHeaders;
-    property ParseGlobalHeaders: boolean read fParseGlobalHeaders write fParseGlobalHeaders;
     property ShowFilter: integer read fShowFilter write fShowFilter;
-    property UseColors: boolean read fUseColors write fUseColors;
     property ShowInheritedMembers: boolean read fShowInheritedMembers write fShowInheritedMembers;
   end;
 
@@ -251,8 +248,6 @@ type
     procedure SettoDefaults;
     procedure SaveSettings;
     procedure LoadSettings;
-
-    property OriginalPath: AnsiString read fOldPath write fOldPath;
   published
     property Exec: AnsiString read fExec write fExec;
     property Config: AnsiString read fConfig write fConfig;
@@ -262,6 +257,7 @@ type
     property Lang: AnsiString read fLang write fLang;
     property Templates: AnsiString read fTemp write fTemp;
     property Themes: AnsiString read fThemes write fThemes;
+    property OriginalPath: AnsiString read fOldPath write fOldPath;
   end;
 
   // editor options -- syntax, synedit options, etc...
@@ -461,11 +457,11 @@ type
 		fAssociateDev: boolean;
 		fAssociateRc: boolean;
 		fAssociateTemplate: boolean;
-
+		fCheckAssocs : boolean;
+    
 		// More misc stuff
 		fShowTipsOnStart: boolean;
 		fLastTip: integer;
-		fFileDate : integer;              // Dev-C++ File Date for checking old configurations
 		fShowProgress : boolean;          // Show progress window during compile
 		fAutoCloseProgress : boolean;     // Auto close progress bar window after compile
 
@@ -494,7 +490,7 @@ type
 		fDirBackward : boolean;
 
   public
-    constructor Create(aOwner: TComponent); override;
+    constructor Create;
     destructor Destroy; override;
     procedure SettoDefaults; override;
 
@@ -567,11 +563,11 @@ type
     property AssociateDev: boolean read fAssociateDev write fAssociateDev;
     property AssociateRc: boolean read fAssociateRc write fAssociateRc;
     property AssociateTemplate: boolean read fAssociateTemplate write fAssociateTemplate;
-
+    property CheckAssocs : boolean read fCheckAssocs write fCheckAssocs;
+  
     // tip of the day
     property ShowTipsOnStart: boolean read fShowTipsOnStart write fShowTipsOnStart;
     property LastTip: integer read fLastTip write fLastTip;
-    property FileDate: integer read fFileDate write fFileDate;
 
     // progress window
     property ShowProgress: boolean read fShowProgress write fShowProgress;
@@ -706,7 +702,7 @@ end;
 
 procedure SaveOptions;
 begin
-  devData.SaveConfigData;
+  devData.SaveSelf;
   devDirs.SaveSettings;
   // devCompiler saving is done by CompOptForm
   devEditor.SaveSettings;
@@ -768,7 +764,7 @@ begin
 	if not assigned(fdevData) and not DontRecreateSingletons then begin
 		fExternal:= FALSE;
 		try
-			fdevData:= TdevData.Create(nil);
+			fdevData:= TdevData.Create;
 		finally
 			fExternal:= TRUE;
 		end;
@@ -788,16 +784,14 @@ end;
 *)
 
 // add strings to lang file
-constructor TdevData.Create(aOwner: Tcomponent);
+constructor TdevData.Create;
 begin
 	if assigned(fdevData) then
 		raise Exception.Create('devData already created');
 	if fExternal then
 		raise Exception.Create('devData Externally Created');
-	inherited Create(aOwner);
-	IgnoreProperties.Add('Style');
-	IgnoreProperties.Add('Exec');
-	IgnoreProperties.Add('Config');
+	inherited Create;
+
 	SettoDefaults;
 end;
 
@@ -827,7 +821,7 @@ begin
   fMRUMax:= 10;
   fMinOnRun:= FALSE;
   fBackup:= FALSE;
-  fAutoOpen:= 0;
+  fAutoOpen:= 2; // Reopen
   fShowProject:= TRUE;
   fClassView:= FALSE;
   fProjectWidth:=161;
@@ -880,10 +874,10 @@ begin
   fAssociateDev := getAssociation(4);
   fAssociateRc := getAssociation(5);
   fAssociateTemplate := getAssociation(6);
+  fCheckAssocs := false;
 
   fShowTipsOnStart := TRUE;
   fLastTip := 0;
-  fFileDate := 0;
   fShowProgress := TRUE;
   fAutoCloseProgress := FALSE;
   fPrintColors := TRUE;
@@ -974,13 +968,13 @@ begin
 	key := 'CompilerSets_' + IntToStr(Index);
 
 	// Programs
-	fgccName     := devData.LoadSettingS(key, GCC_PROGRAM);
-	fgppName     := devData.LoadSettingS(key, GPP_PROGRAM);
-	fgdbName     := devData.LoadSettingS(key, GDB_PROGRAM);
-	fmakeName    := devData.LoadSettingS(key, MAKE_PROGRAM);
-	fwindresName := devData.LoadSettingS(key, WINDRES_PROGRAM);
-	fdllwrapName := devData.LoadSettingS(key, DLLWRAP_PROGRAM);
-	fgprofName   := devData.LoadSettingS(key, GPROF_PROGRAM);
+	fgccName     := devData.ReadS(key, GCC_PROGRAM);
+	fgppName     := devData.ReadS(key, GPP_PROGRAM);
+	fgdbName     := devData.ReadS(key, GDB_PROGRAM);
+	fmakeName    := devData.ReadS(key, MAKE_PROGRAM);
+	fwindresName := devData.ReadS(key, WINDRES_PROGRAM);
+	fdllwrapName := devData.ReadS(key, DLLWRAP_PROGRAM);
+	fgprofName   := devData.ReadS(key, GPROF_PROGRAM);
 
 	// If nothing was found, select defaults
 	if fgccName=''     then fgccName:=     GCC_PROGRAM;
@@ -992,26 +986,26 @@ begin
 	if fgprofName=''   then fgprofName:=   GPROF_PROGRAM;
 
 	// Load the option string
-	fOptionString := devData.LoadSettingS(key, 'Options');
+	fOptionString := devData.ReadS(key, 'Options');
 
 	// Convert to better list format
 	OptionStringToList(fOptionString);
 
 	// Extra parameters
-	fCompOpt := devData.LoadSettingS(key, 'CompOpt');
-	fLinkOpt := devData.LoadSettingS(key, 'LinkOpt');
-	fCompAdd := devData.LoadSettingB(key, 'CompAdd');
-	fLinkAdd := devData.LoadSettingB(key, 'LinkAdd');
+	fCompOpt := devData.ReadS(key, 'CompOpt');
+	fLinkOpt := devData.ReadS(key, 'LinkOpt');
+	fCompAdd := devData.ReadB(key, 'CompAdd');
+	fLinkAdd := devData.ReadB(key, 'LinkAdd');
 
 	// Misc. (general tab)
-	fDelay :=   StrToIntDef(devData.LoadSettingS(key, 'Delay'),0);
-	fFastDep := devData.LoadSettingB(key, 'FastDep','1');
+	fDelay :=   devData.ReadDefaultI(key, 'Delay',0);
+	fFastDep := devData.ReadDefaultB(key, 'FastDep',true);
 
 	// Directories
-	fBinDir := devData.LoadSettingS(key, 'Bins');
-	fCDir   := devData.LoadSettingS(key, 'C');
-	fCppDir := devData.LoadSettingS(key, 'Cpp');
-	fLibDir := devData.LoadSettingS(key, 'Lib');
+	fBinDir := devData.ReadS(key, 'Bins');
+	fCDir   := devData.ReadS(key, 'C');
+	fCppDir := devData.ReadS(key, 'Cpp');
+	fLibDir := devData.ReadS(key, 'Lib');
 
 	// Directories
 	fBinDir := ReplaceFirstStr(fBinDir, '%path%\',devDirs.Exec);
@@ -1019,10 +1013,7 @@ begin
 	fCppDir := ReplaceFirstStr(fCppDir, '%path%\',devDirs.Exec);
 	fLibDir := ReplaceFirstStr(fLibDir, '%path%\',devDirs.Exec);
 
-	devCompiler.CurrentIndex := Index;
-
-	if devDirs.OriginalPath = '' then // first time only
-		devDirs.OriginalPath := GetEnvironmentVariable('PATH');
+	CurrentSet := Index;
 
 	SetPath(fBinDir);
 end;
@@ -1031,36 +1022,39 @@ procedure TdevCompiler.SaveSet(Index: integer);
 var
 	key: AnsiString;
 begin
-	with devData do begin
-		key := 'CompilerSets_' + IntToStr(Index);
+	key := 'CompilerSets_' + IntToStr(Index);
 
-		// Programs
-		SaveSettingS(key, GCC_PROGRAM,     fgccName);
-		SaveSettingS(key, GPP_PROGRAM,     fgppName);
-		SaveSettingS(key, GDB_PROGRAM,     fgdbName);
-		SaveSettingS(key, MAKE_PROGRAM,    fmakeName);
-		SaveSettingS(key, WINDRES_PROGRAM, fwindresName);
-		SaveSettingS(key, DLLWRAP_PROGRAM, fdllwrapName);
-		SaveSettingS(key, GPROF_PROGRAM,   fgprofName);
+	// Programs
+	devData.Write(key, GCC_PROGRAM,     fgccName);
+	devData.Write(key, GPP_PROGRAM,     fgppName);
+	devData.Write(key, GDB_PROGRAM,     fgdbName);
+	devData.Write(key, MAKE_PROGRAM,    fmakeName);
+	devData.Write(key, WINDRES_PROGRAM, fwindresName);
+	devData.Write(key, DLLWRAP_PROGRAM, fdllwrapName);
+	devData.Write(key, GPROF_PROGRAM,   fgprofName);
 
-		// Save option string
-		SaveSettingS(key, 'Options',       fOptionString);
+	// Save option string
+	devData.Write(key, 'Options',       fOptionString);
 
-		// Save extra 'general' options
-		SaveSettingS(key, 'CompOpt',       fCompOpt);
-		SaveSettingS(key, 'LinkOpt',       fLinkOpt);
-		SaveSettingB(key, 'CompAdd',       fCompAdd);
-		SaveSettingB(key, 'LinkAdd',       fLinkAdd);
+	// Save extra 'general' options
+	devData.Write(key, 'CompOpt',       fCompOpt);
+	devData.Write(key, 'LinkOpt',       fLinkOpt);
+	devData.Write(key, 'CompAdd',       fCompAdd);
+	devData.Write(key, 'LinkAdd',       fLinkAdd);
 
-		SaveSettingS(key, 'Delay',         inttostr(fDelay));
-		SaveSettingB(key, 'FastDep',       fFastDep);
+	devData.Write(key, 'Delay',         inttostr(fDelay));
+	devData.Write(key, 'FastDep',       fFastDep);
 
-		// Paths
-		SaveSettingS(key, 'Bins',  ReplaceFirstStr(fBinDir,devDirs.fExec,'%path%\'));
-		SaveSettingS(key, 'C',     ReplaceFirstStr(fCDir,  devDirs.fExec,'%path%\'));
-		SaveSettingS(key, 'Cpp',   ReplaceFirstStr(fCppDir,devDirs.fExec,'%path%\'));
-		SaveSettingS(key, 'Lib',   ReplaceFirstStr(fLibDir,devDirs.fExec,'%path%\'));
-	end;
+	// Paths
+	devData.Write(key, 'Bins',  ReplaceFirstStr(fBinDir,devDirs.fExec,'%path%\'));
+	devData.Write(key, 'C',     ReplaceFirstStr(fCDir,  devDirs.fExec,'%path%\'));
+	devData.Write(key, 'Cpp',   ReplaceFirstStr(fCppDir,devDirs.fExec,'%path%\'));
+	devData.Write(key, 'Lib',   ReplaceFirstStr(fLibDir,devDirs.fExec,'%path%\'));
+end;
+
+procedure TdevCompiler.EraseSet(Index: integer);
+begin
+	devData.EraseSection('CompilerSets_' + IntToStr(Index));
 end;
 
 procedure TdevCompiler.ClearSet;
@@ -1152,47 +1146,34 @@ end;
 
 procedure TdevCompiler.ReadSets;
 var
-	Ini: TIniFile;
-	sl: TStringList;
 	I: integer;
+	sl : TStringList;
 begin
-	fSets.Clear;
-	Ini:=TIniFile.Create(devData.INIFile);
-	sl:=TStringList.Create;
+	sl := TStringList.Create;
 	try
+		// First list, then current index
+		devData.ReadStrings('CompilerSets',sl);
 
-		// Read current list of sets
-		Ini.ReadSectionValues('CompilerSets', sl);
 		for I := 0 to sl.Count - 1 do
 			if not SameStr(sl.Names[I],'Current') then
 				fSets.Add(sl.Values[sl.Names[I]])
 			else
-				CurrentIndex := StrToInt(sl.Values[sl.Names[I]]);
-
+				CurrentSet := StrToInt(sl.Values[sl.Names[I]]);
 	finally
 		sl.Free;
-		Ini.Free;
 	end;
 end;
 
 procedure TdevCompiler.WriteSets;
-var
-	Ini: TIniFile;
-	I: integer;
 begin
-	Ini:=TIniFile.Create(devData.INIFile);
-	try
-		Ini.EraseSection('CompilerSets');
+	// Compiler list first
+	devData.WriteStrings('CompilerSets',fSets);
 
-		// Save the list of compilers
-		for I := 0 to fSets.Count-1 do
-			Ini.WriteString('CompilerSets', IntToStr(I), fSets[I]);
-
-		// Save the current index
-		Ini.WriteInteger('CompilerSets','Current',devCompiler.CurrentIndex);
-	finally
-		Ini.Free;
-	end;
+	// Then current index
+	if fCurrentSet < fSets.Count then
+		devData.Write('CompilerSets','Current',fCurrentSet)
+	else
+		devData.Write('CompilerSets','Current',-1);
 end;
 
 function TdevCompiler.GetGCC : AnsiString;
@@ -1455,9 +1436,9 @@ end;
 
 procedure TdevDirs.LoadSettings;
 begin
-	devData.LoadObject(Self,'Directories');
+	devData.ReadObject('Directories',Self);
 
-	fConfig := ExtractFilePath(devData.INIFile);
+	fConfig := ExtractFilePath(devData.INIFileName);
 	fHelp   := ReplaceFirstStr(fHelp,  '%path%\',fExec);
 	fIcons  := ReplaceFirstStr(fIcons, '%path%\',fExec);
 	fLang   := ReplaceFirstStr(fLang,  '%path%\',fExec);
@@ -1473,7 +1454,7 @@ begin
   fTemp:=   ReplaceFirstStr(fTemp,  fExec,'%path%\');
   fThemes:= ReplaceFirstStr(fThemes,fExec,'%path%\');
 
-  devData.SaveObject(Self,'Directories');
+  devData.WriteObject('Directories',Self);
 
   fHelp :=  ReplaceFirstStr(fHelp,  '%path%\',fExec);
   fIcons:=  ReplaceFirstStr(fIcons, '%path%\',fExec);
@@ -1505,12 +1486,12 @@ end;
 
 procedure TdevEditor.LoadSettings;
 begin
-	devData.LoadObject(Self,'Editor');
+	devData.ReadObject('Editor',Self);
 end;
 
 procedure TdevEditor.SaveSettings;
 begin
-	devData.SaveObject(Self,'Editor');
+	devData.WriteObject('Editor',Self);
 end;
 
 procedure TdevEditor.SettoDefaults;
@@ -1593,8 +1574,13 @@ begin
 	with Editor do begin
 		BeginUpdate;
 		try
+
+			// Select a highlighter
+			Highlighter := dmMain.GetHighlighter(FileName);
+
 			TabWidth:= fTabSize;
 			Font.Assign(fFont);
+
 			with Gutter do begin
 				Font.Assign(fGutterFont);
 				DigitCount:= fGutterSize;
@@ -1603,9 +1589,6 @@ begin
 				ShowLineNumbers:= fLineNumbers;
 				LeadingZeros:= fLeadZero;
 				ZeroStart:= fFirstisZero;
-
-				// Select a highlighter
-				Highlighter := dmMain.GetHighlighter(FileName);
 
 				// Set gutter color
 				if Assigned(Highlighter) then begin
@@ -1632,8 +1615,9 @@ begin
 			if Assigned(Highlighter) then begin
 				StrtoPoint(pt, devEditor.Syntax.Values[cFld]);
 				CodeFolding.FolderBarLinesColor := pt.y;
-			end else begin // editor not colored, pick defaults
-				CodeFolding.FolderBarLinesColor := clBlack;
+				UseCodeFolding := true;
+			end else begin
+				UseCodeFolding := false;
 			end;
 
 			if fMarginVis then
@@ -1707,19 +1691,19 @@ end;
 
 procedure TdevCodeCompletion.LoadSettings;
 begin
-  devData.LoadObject(Self,'CodeCompletion');
+  devData.ReadObject('CodeCompletion',Self);
 end;
 
 procedure TdevCodeCompletion.SaveSettings;
 begin
-  devData.SaveObject(Self,'CodeCompletion');
+  devData.WriteObject('CodeCompletion',Self);
 end;
 
 procedure TdevCodeCompletion.SettoDefaults;
 begin
 	fWidth:=320;
 	fHeight:=240;
-	fDelay:=400;
+	fDelay:=300;
 	fBackColor:=clWindow;
 	fEnabled:=True;
 	fUseCacheFiles:=False;
@@ -1736,23 +1720,18 @@ end;
 
 procedure TdevClassBrowsing.LoadSettings;
 begin
-  devData.LoadObject(Self,'ClassBrowsing');
+  devData.ReadObject('ClassBrowsing',Self);
 end;
 
 procedure TdevClassBrowsing.SaveSettings;
 begin
-  devData.SaveObject(Self,'ClassBrowsing');
+  devData.WriteObject('ClassBrowsing',Self);
 end;
 
 procedure TdevClassBrowsing.SettoDefaults;
 begin
-	fEnabled:=True;
 	fCBViewStyle:=0;
-
-	fParseLocalHeaders:=False;
-	fParseGlobalHeaders:=False;
 	fShowFilter:=0;
-	fUseColors:=True;
 	fShowInheritedMembers:=False;
 end;
 
@@ -1773,12 +1752,12 @@ end;
 
 procedure TdevCVSHandler.LoadSettings;
 begin
-  devData.LoadObject(Self,'CVSHandler');
+  devData.ReadObject('CVSHandler',Self);
 end;
 
 procedure TdevCVSHandler.SaveSettings;
 begin
-  devData.SaveObject(Self,'CVSHandler');
+  devData.WriteObject('CVSHandler',Self);
 end;
 
 procedure TdevCVSHandler.SettoDefaults;
@@ -1840,12 +1819,12 @@ end;
 
 procedure TdevExternalPrograms.LoadSettings;
 begin
-  devData.LoadObject(Self,'ExternalPrograms');
+  devData.ReadObject('ExternalPrograms',Self);
 end;
 
 procedure TdevExternalPrograms.SaveSettings;
 begin
-  devData.SaveObject(Self,'ExternalPrograms');
+  devData.WriteObject('ExternalPrograms',Self);
 end;
 
 procedure TdevExternalPrograms.SetToDefaults;

@@ -24,10 +24,9 @@ interface
 uses
 {$IFDEF WIN32}
   SysUtils, Classes, Menus, Dialogs, ImgList, Controls,
-  SynEditExport, SynExportHTML, SynExportRTF,
-  SynEditHighlighter, SynHighlighterCpp, SynEditPrint,
-  CodeInsFrm, SynHighlighterRC, SynCompletionProposal,
-  SynEditMiscClasses, SynEditSearch, SynExportTeX;
+  SynEditHighlighter, SynHighlighterCpp,
+  CodeInsList, SynHighlighterRC,
+  SynEditMiscClasses, SynEditSearch;
 {$ENDIF}
 {$IFDEF LINUX}
   SysUtils, Classes, QMenus, QDialogs, QImgList, QControls,
@@ -40,28 +39,14 @@ uses
 type
   TdmMain = class(TDataModule)
     Cpp: TSynCppSyn;
-    SynExporterRTF: TSynExporterRTF;
-    SynExporterHTML: TSynExporterHTML;
-    SynExporterTeX: TSynExporterTeX;
-    PrinterSetupDialog: TPrinterSetupDialog;
-    SynEditPrint: TSynEditPrint;
-    OpenDialog: TOpenDialog;
-    SaveDialog: TSaveDialog;
     ProjectImage_Gnome: TImageList;
     MenuImages_Gnome: TImageList;
-    HelpImages_Gnome: TImageList;
     Res: TSynRCSyn;
     MenuImages_NewLook: TImageList;
     ProjectImage_NewLook: TImageList;
-    HelpImages_NewLook: TImageList;
-    SpecialImages_Gnome: TImageList;
-    SpecialImages_NewLook: TImageList;
     GutterImages: TImageList;
     MenuImages_Blue: TImageList;
-    HelpImages_Blue: TImageList;
     ProjectImage_Blue: TImageList;
-    Specialimages_Blue: TImageList;
-    ResourceDialog: TOpenDialog;
     ClassImages: TImageList;
     procedure DataModuleCreate(Sender: TObject);
     procedure DataModuleDestroy(Sender: TObject);
@@ -75,7 +60,6 @@ type
     fCodeOffset: byte;
     procedure LoadCodeIns;
   public
-    function InsertList: TStrings;
     property CodeMenu: TMenuItem read fCodeMenu write fCodeMenu;
     property CodePop: TMenuItem read fCodePop write fCodePop;
     property CodeClick: TNotifyEvent read fCodeEvent write fCodeEvent;
@@ -110,10 +94,6 @@ type
     procedure InitHighlighterFirstTime(index : integer);
     procedure UpdateHighlighter;
     function GetHighlighter(const FileName: AnsiString): TSynCustomHighlighter;
-
-    procedure ExportToHtml(FileLines: TStrings;const ExportFilename: AnsiString);
-    procedure ExportToRtf(FileLines: TStrings;const ExportFilename: AnsiString);
-    procedure ExportToTex(FileLines: TStrings;const ExportFilename: AnsiString);
   end;
 
 var
@@ -316,43 +296,27 @@ end;
 
 procedure TdmMain.LoadHistory;
 var
-	ini: TINIFile;
 	I: integer;
 begin
 	ClearHistory;
-	ini:= TiniFile.Create(devData.iniFile);
-	with ini do
-		try
-			if not SectionExists('History') then exit;
-			ReadSectionValues('History', fMRU);
-			if fMRU.Count = 0 then exit;
 
-			// Delete files that don't exist anymore
-			for I := fMRU.Count - 1 downto 0 do
-				if not FileExists(fMRU.ValueFromIndex[I]) then
-					fMRU.Delete(I);
-		finally
-			Free;
-		end;
+	// Use already open file handle
+	devData.ReadStrings('History',fMRU);
+
+	// Delete files that don't exist anymore
+	for I := fMRU.Count - 1 downto 0 do
+		if not FileExists(fMRU.ValueFromIndex[I]) then
+			fMRU.Delete(I);
+
 	RebuildMRU;
 end;
 
 procedure TdmMain.SaveHistory;
-var
-	ini: TINIFile;
-	idx: integer;
 begin
 	if not assigned(fMRU) then exit;
 
-	ini:= TINIFile.Create(devData.INIFile);
-	with ini do
-		try
-			EraseSection('History');
-			for idx:= 0 to pred(fMRU.Count) do
-				WriteString('History', inttostr(idx), fMRU.ValueFromIndex[idx]);
-		finally
-			Free;
-		end;
+	// Use already open file handle
+	devData.WriteStrings('History',fMRU);
 end;
 
 procedure TdmMain.RebuildMRU;
@@ -454,19 +418,6 @@ end;
 
 { ---------- Code Insert Methods ---------- }
 
-function TdmMain.InsertList: TStrings;
-var
- idx: integer;
-begin
-  result:= TStringList.Create;
-  try
-   for idx:= 0 to pred(fCodeList.Count) do
-    result.Append(fCodeList[idx].Caption);
-  except
-   FreeandNIL(Result);
-  end;
-end;
-
 // Loads code inserts, when sep value changes a separator is
 // insert only if sep is a higher value then previous sep value.
 procedure TdmMain.LoadCodeIns;
@@ -503,41 +454,6 @@ begin
   fCodeMenu.Visible:= fCodeMenu.Count> 0;
   if assigned(fCodePop) then
    CloneMenu(fCodeMenu, fCodePop);
-end;
-
-{ ---------- Exports ---------- }
-
-procedure TdmMain.ExportToHtml(FileLines: TStrings;const  ExportFilename: AnsiString);
-begin
-  if (not Assigned(FileLines)) or (FileLines.Count=0) or (ExportFilename='') then
-    Exit;
-
-  SynExporterHTML.Title := ExtractFileName(ExportFileName);
-  SynExporterHTML.CreateHTMLFragment := False;
-  SynExporterHTML.ExportAsText := True;
-  SynExporterHTML.Color:=Cpp.SpaceAttri.Background;
-
-  SynExporterHTML.ExportAll(FileLines);
-  SynExporterHTML.SavetoFile(ExportFileName);
-end;
-
-procedure TdmMain.ExportToRtf(FileLines: TStrings;const  ExportFilename: AnsiString);
-begin
-  if (not Assigned(FileLines)) or (FileLines.Count=0) or (ExportFilename='') then
-    Exit;
-
-  SynExporterRTF.ExportAll(FileLines);
-  SynExporterRTF.SavetoFile(ExportFileName);
-end;
-
-procedure TdmMain.ExportToTex(FileLines: TStrings;const ExportFilename: AnsiString);
-begin
-  if (not Assigned(FileLines)) or (FileLines.Count=0) or (ExportFilename='') then
-    Exit;
-
-  SynExporterTex.TabWidth := devEditor.TabSize;
-  SynExporterTex.ExportAll(FileLines);
-  SynExporterTex.SaveToFile(ExportFileName);
 end;
 
 end.

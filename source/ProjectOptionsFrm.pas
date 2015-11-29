@@ -105,7 +105,6 @@ type
     cmbLangID: TComboBox;
     tabCompiler: TTabSheet;
     chkSupportXP: TCheckBox;
-    OpenLibDialog: TOpenDialog;
     chkOverrideBuildCmd: TCheckBox;
     txtOverrideBuildCmd: TMemo;
     lblFname: TLabel;
@@ -144,7 +143,7 @@ type
     lblLogOutput: TLabel;
     btnLogOutputDir: TSpeedButton;
     chkLogOutput: TCheckBox;
-    Label1: TLabel;
+    lblOverrideOutput: TLabel;
     OptionsTip: TLabel;
     OptionsLink: TLabel;
     chkDefCpp: TCheckBox;
@@ -342,7 +341,8 @@ end;
 procedure TfrmProjectOptions.ListClick(Sender: TObject);
 begin
 	UpdateDirButtons;
-	edDirEntry.Text:= lstDirList.Items[lstDirList.Itemindex];
+	if lstDirList.Itemindex <> -1 then
+		edDirEntry.Text:= lstDirList.Items[lstDirList.Itemindex];
 end;
 
 procedure TfrmProjectOptions.UpDownClick(Sender: TObject);
@@ -405,7 +405,7 @@ begin
 
 		// Compiler
 		CompilerOptions := devCompiler.fOptionString;
-		devCompiler.LoadSet(devCompiler.CurrentIndex);
+		devCompiler.LoadSet(devCompiler.CurrentSet);
 
 		// General
 		SupportXPThemes:=chkSupportXP.Checked;
@@ -655,9 +655,10 @@ begin
   SubTabs.Tabs.Append(Lang[ID_POPT_RESDIRS]);
 
   //output tab
-  lblExeOutput.Caption:=     Lang[ID_POPT_EXEOUT];
-  lblObjOutput.Caption:=     Lang[ID_POPT_OBJOUT];
-  chkOverrideOutput.Caption:=Lang[ID_POPT_OVERRIDEOUT];
+  lblExeOutput.Caption:=      Lang[ID_POPT_EXEOUT];
+  lblObjOutput.Caption:=      Lang[ID_POPT_OBJOUT];
+  lblLogOutput.Caption:=      Lang[ID_POPT_LOGAUTOSAVE];
+  lblOverrideOutput.Caption:= Lang[ID_POPT_OVERRIDEOUT];
 
   //dialogs
   dlgPic.Title:=        Lang[ID_POPT_OPENICO];
@@ -1062,16 +1063,30 @@ end;
 
 procedure TfrmProjectOptions.AddLibBtnClick(Sender: TObject);
 var
-  s: AnsiString;
-  i: integer;
+	s: AnsiString;
+	i: integer;
+	sl: TStringList;
 begin
-  if OpenLibDialog.Execute then begin
-    for i := 0 to OpenLibDialog.Files.Count - 1 do begin
-      S:=ExtractRelativePath(fProjectCopy.Directory, OpenLibDialog.Files[i]);
-      S:=GenMakePath1(S);
-      edLinker.Lines.Add(S);
-    end;
-  end;
+	with TOpenDialog.Create(Self) do try
+		Filter:=FLT_ALLFILES;
+
+		// Start in the lib folder
+		sl := TStringList.Create;
+		StrToList(devCompiler.LibDir,sl,';');
+		if sl.count > 0 then
+			InitialDir := sl[0];
+		sl.Free;
+
+		if Execute then begin
+			for i := 0 to Files.Count - 1 do begin
+				S:=ExtractRelativePath(fProjectCopy.Directory, Files[i]);
+				S:=GenMakePath1(S);
+				edLinker.Lines.Add(S);
+			end;
+		end;
+	finally
+		Free;
+	end;
 end;
 
 function TfrmProjectOptions.DefaultBuildCommand(idx: integer): AnsiString;

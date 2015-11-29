@@ -32,7 +32,7 @@ uses
 {$ENDIF}
 
 type
-  TfrmIncremental = class(TForm)
+  TIncrementalForm = class(TForm)
     Edit: TEdit;
     btnPrev: TButton;
     btnNext: TButton;
@@ -58,18 +58,19 @@ type
     procedure IncrementalUndoClick(Sender: TObject);
     procedure FormKeyDown(Sender: TObject; var Key: Word;
       Shift: TShiftState);
-  public
-    Editor : TSynEdit;
-    OrgPt : TBufferCoord;
   private
     fOptions : TSynSearchOptions;
     fSearchEngine : TSynEditSearch;
     fOriginalColor : TColor;
+    fEditor : TSynEdit;
     procedure DoSearch;
+    procedure SetEditor(value : TSynEdit);
+  public
+    property Editor : TSynEdit read fEditor write SetEditor;
   end;
 
 var
-	frmIncremental : TFrmIncremental = nil;
+	IncrementalForm : TIncrementalForm = nil;
 
 implementation
 
@@ -83,30 +84,46 @@ uses
   Xlib, main;
 {$ENDIF}
 
-procedure TfrmIncremental.DoSearch;
+procedure TIncrementalForm.SetEditor(value : TSynEdit);
 begin
-	// When the editor changes, search forwards
+	if value <> fEditor then begin
+
+		// remove search engine of old editor
+		if Assigned(fEditor) then
+			fEditor.SearchEngine := nil;
+
+		fEditor := value;
+		fEditor.SearchEngine := fSearchEngine;
+	end;
+end;
+
+procedure TIncrementalForm.DoSearch;
+begin
+
+	// Search forwards...
 	if Editor.SearchReplace(Edit.Text,'',fOptions) = 0 then begin
 
-		// nothing found? wrap around
+		// Nothing found? Start at top
 		Include(fOptions, ssoEntireScope);
-		if Editor.SearchReplace(Edit.Text,'',fOptions) = 0 then
-			Edit.Color := clRed
-		else
+		if Editor.SearchReplace(Edit.Text,'',fOptions) = 0 then begin
+			Edit.Color := clRed;
+			MessageBeep(MB_OK);
+		end else
 			Edit.Color := fOriginalColor;
 	end else
 		Edit.Color := fOriginalColor;
 end;
 
-procedure TfrmIncremental.EditChange(Sender: TObject);
+procedure TIncrementalForm.EditChange(Sender: TObject);
 begin
 	if Length(Edit.Text) > 0 then begin
-		fOptions := [];
 
 		// Stick with the same word when query changes
 		if Editor.SelAvail then
 			Editor.CaretX := Editor.BlockBegin.Char;
 
+		// Search forward
+		fOptions := [];
 		DoSearch;
 	end else begin
 
@@ -115,21 +132,23 @@ begin
 	end;
 end;
 
-procedure TfrmIncremental.btnPrevClick(Sender: TObject);
+procedure TIncrementalForm.btnPrevClick(Sender: TObject);
 begin
 	if Length(Edit.Text) > 0 then begin
+
 		// Step over current word
 		if Editor.SelAvail then
 			Editor.CaretX := Editor.BlockBegin.Char;
 
-		fOptions := [ssoBackWards];
+		fOptions := [ssoBackwards];
 		DoSearch;
 	end;
 end;
 
-procedure TfrmIncremental.btnNextClick(Sender: TObject);
+procedure TIncrementalForm.btnNextClick(Sender: TObject);
 begin
 	if Length(Edit.Text) > 0 then begin
+
 		// Step over current word
 		if Editor.SelAvail then
 			Editor.CaretX := Editor.BlockEnd.Char;
@@ -139,14 +158,14 @@ begin
 	end;
 end;
 
-procedure TfrmIncremental.FormClose(Sender: TObject;var Action: TCloseAction);
+procedure TIncrementalForm.FormClose(Sender: TObject;var Action: TCloseAction);
 begin
 	fSearchEngine.Free;
 	Action := caFree;
-	frmIncremental := nil;
+	IncrementalForm := nil;
 end;
 
-procedure TfrmIncremental.FormCreate(Sender: TObject);
+procedure TIncrementalForm.FormCreate(Sender: TObject);
 begin
 	fSearchEngine := TSynEditSearch.Create(Self);
 
@@ -157,14 +176,13 @@ begin
 	IncrementalSelAll.Caption := Lang[ID_ITEM_SELECTALL];
 end;
 
-procedure TfrmIncremental.FormShow(Sender: TObject);
+procedure TIncrementalForm.FormShow(Sender: TObject);
 begin
-	editor.SearchEngine := fSearchEngine;
 	ActiveControl := Edit;
 	fOriginalColor := Edit.Color;
 end;
 
-procedure TfrmIncremental.FormKeyPress(Sender: TObject; var Key: Char);
+procedure TIncrementalForm.FormKeyPress(Sender: TObject; var Key: Char);
 begin
 	if Key = Chr(VK_ESCAPE) then begin // Esc
 		Key := #0; // Mute beep
@@ -172,38 +190,38 @@ begin
 	end;
 end;
 
-procedure TfrmIncremental.FormKeyDown(Sender: TObject; var Key: Word;Shift: TShiftState);
+procedure TIncrementalForm.FormKeyDown(Sender: TObject; var Key: Word;Shift: TShiftState);
 begin
 	if Key = VK_DOWN then begin
 		btnNextClick(nil);
 		Key := 0; // Stop processing by input window
 	end else if Key = VK_UP then begin
 		btnPrevClick(nil);
-		Key := 0; // Stop processing by input window
+		Key := 0;
 	end;
 end;
 
-procedure TfrmIncremental.IncrementalUndoClick(Sender: TObject);
+procedure TIncrementalForm.IncrementalUndoClick(Sender: TObject);
 begin
 	Edit.Undo;
 end;
 
-procedure TfrmIncremental.IncrementalCutClick(Sender: TObject);
+procedure TIncrementalForm.IncrementalCutClick(Sender: TObject);
 begin
 	Edit.CutToClipboard;
 end;
 
-procedure TfrmIncremental.IncrementalCopyClick(Sender: TObject);
+procedure TIncrementalForm.IncrementalCopyClick(Sender: TObject);
 begin
 	Edit.CopyToClipboard;
 end;
 
-procedure TfrmIncremental.IncrementalPasteClick(Sender: TObject);
+procedure TIncrementalForm.IncrementalPasteClick(Sender: TObject);
 begin
 	Edit.PasteFromClipboard;
 end;
 
-procedure TfrmIncremental.IncrementalSelAllClick(Sender: TObject);
+procedure TIncrementalForm.IncrementalSelAllClick(Sender: TObject);
 begin
 	Edit.SelectAll;
 end;

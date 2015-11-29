@@ -1,19 +1,18 @@
 object MainForm: TMainForm
-  Left = 579
-  Top = 173
+  Left = 481
+  Top = 256
   HorzScrollBar.Visible = False
   VertScrollBar.Visible = False
   AutoScroll = False
   Caption = 'Dev-C++'
   ClientHeight = 616
-  ClientWidth = 836
+  ClientWidth = 896
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
   Font.Height = -11
   Font.Name = 'MS Sans Serif'
   Font.Style = []
-  KeyPreview = True
   Menu = MainMenu
   OldCreateOrder = False
   Position = poDefault
@@ -38,7 +37,7 @@ object MainForm: TMainForm
   object SplitterBottom: TSplitter
     Left = 0
     Top = 410
-    Width = 836
+    Width = 896
     Height = 3
     Cursor = crVSplit
     Align = alBottom
@@ -48,7 +47,7 @@ object MainForm: TMainForm
   object MessageControl: TPageControl
     Left = 0
     Top = 433
-    Width = 836
+    Width = 896
     Height = 183
     ActivePage = DebugSheet
     Align = alBottom
@@ -63,7 +62,7 @@ object MainForm: TMainForm
       object CompilerOutput: TListView
         Left = 0
         Top = 0
-        Width = 828
+        Width = 888
         Height = 155
         Align = alClient
         BevelOuter = bvNone
@@ -106,7 +105,7 @@ object MainForm: TMainForm
       object ResourceOutput: TListBox
         Left = 0
         Top = 0
-        Width = 828
+        Width = 888
         Height = 155
         Align = alClient
         BevelInner = bvNone
@@ -217,13 +216,13 @@ object MainForm: TMainForm
       object DebugSendPanel: TPanel
         Left = 471
         Top = 0
-        Width = 357
+        Width = 417
         Height = 155
         Align = alClient
         BevelOuter = bvNone
         TabOrder = 0
         DesignSize = (
-          357
+          417
           155)
         object lblSendCommandGdb: TLabel
           Left = 4
@@ -235,7 +234,7 @@ object MainForm: TMainForm
         object edGdbCommand: TComboBox
           Left = 136
           Top = 3
-          Width = 217
+          Width = 277
           Height = 21
           Anchors = [akLeft, akTop, akRight]
           ItemHeight = 13
@@ -245,8 +244,8 @@ object MainForm: TMainForm
         object DebugOutput: TMemo
           Left = 4
           Top = 30
-          Width = 350
-          Height = 121
+          Width = 410
+          Height = 112
           Align = alCustom
           Anchors = [akLeft, akTop, akRight, akBottom]
           ReadOnly = True
@@ -428,7 +427,7 @@ object MainForm: TMainForm
           Left = 4
           Top = 127
           Width = 460
-          Height = 22
+          Height = 13
           Align = alCustom
           Anchors = [akLeft, akTop, akRight, akBottom]
           ReadOnly = True
@@ -467,7 +466,7 @@ object MainForm: TMainForm
       object FindOutput: TListView
         Left = 0
         Top = 0
-        Width = 828
+        Width = 888
         Height = 155
         Align = alClient
         BevelOuter = bvNone
@@ -511,7 +510,7 @@ object MainForm: TMainForm
   object Toolbar: TControlBar
     Left = 0
     Top = 16
-    Width = 836
+    Width = 896
     Height = 54
     Align = alTop
     AutoDock = False
@@ -585,12 +584,12 @@ object MainForm: TMainForm
     object tbCompile: TToolBar
       Left = 441
       Top = 2
-      Width = 170
+      Width = 178
       Height = 22
       AutoSize = True
       Caption = 'Compile and Run'
-      Constraints.MaxWidth = 170
-      Constraints.MinWidth = 170
+      Constraints.MaxWidth = 178
+      Constraints.MinWidth = 178
       DragKind = dkDock
       EdgeBorders = []
       EdgeInner = esNone
@@ -634,13 +633,21 @@ object MainForm: TMainForm
         Top = 0
         Action = actDebug
       end
-      object ProfileBtn: TToolButton
+      object ToolButton3: TToolButton
         Left = 123
+        Top = 0
+        Width = 8
+        Caption = 'ToolButton3'
+        ImageIndex = 49
+        Style = tbsSeparator
+      end
+      object ProfileBtn: TToolButton
+        Left = 131
         Top = 0
         Action = actProfileProject
       end
       object ProfilingInforBtn: TToolButton
-        Left = 146
+        Left = 154
         Top = 0
         Action = actDeleteProfileProject
       end
@@ -767,7 +774,7 @@ object MainForm: TMainForm
       end
     end
     object tbSpecials: TToolBar
-      Left = 624
+      Left = 632
       Top = 2
       Width = 71
       Height = 22
@@ -780,7 +787,7 @@ object MainForm: TMainForm
       EdgeInner = esNone
       EdgeOuter = esNone
       Flat = True
-      Images = dmMain.SpecialImages_NewLook
+      Images = dmMain.MenuImages_NewLook
       ParentShowHint = False
       ShowHint = True
       TabOrder = 5
@@ -790,19 +797,16 @@ object MainForm: TMainForm
         Left = 0
         Top = 0
         Action = actInsert
-        ImageIndex = 1
       end
       object ToggleBtn: TToolButton
         Left = 23
         Top = 0
         Action = actToggle
-        ImageIndex = 2
       end
       object GotoBtn: TToolButton
         Left = 46
         Top = 0
         Action = actGoto
-        ImageIndex = 3
       end
     end
     object tbClasses: TToolBar
@@ -812,6 +816,8 @@ object MainForm: TMainForm
       Height = 22
       AutoSize = True
       Caption = 'tbClasses'
+      Constraints.MaxWidth = 700
+      Constraints.MinWidth = 700
       EdgeBorders = []
       EdgeInner = esNone
       EdgeOuter = esNone
@@ -868,7 +874,7 @@ object MainForm: TMainForm
   object Statusbar: TStatusBar
     Left = 0
     Top = 413
-    Width = 836
+    Width = 896
     Height = 20
     Panels = <
       item
@@ -886,7 +892,7 @@ object MainForm: TMainForm
   object PageControl: TPageControl
     Left = 196
     Top = 70
-    Width = 640
+    Width = 700
     Height = 340
     Align = alClient
     HotTrack = True
@@ -903,7 +909,7 @@ object MainForm: TMainForm
   object pnlFull: TPanel
     Left = 0
     Top = 0
-    Width = 836
+    Width = 896
     Height = 16
     Align = alTop
     BevelOuter = bvNone
@@ -913,10 +919,10 @@ object MainForm: TMainForm
     TabOrder = 4
     Visible = False
     DesignSize = (
-      836
+      896
       16)
     object btnFullScrRevert: TSpeedButton
-      Left = 819
+      Left = 879
       Top = 0
       Width = 16
       Height = 16
@@ -1015,16 +1021,13 @@ object MainForm: TMainForm
         ItemImages.VariablePrivate = 2
         ItemImages.VariableProtected = 3
         ItemImages.VariablePublic = 4
-        ItemImages.VariablePublished = 4
         ItemImages.MethodPrivate = 5
         ItemImages.MethodProtected = 6
         ItemImages.MethodPublic = 7
-        ItemImages.MethodPublished = 7
         ItemImages.InheritedMethodProtected = 8
         ItemImages.InheritedMethodPublic = 10
         ItemImages.InheritedVariableProtected = 9
         ItemImages.InheritedVariablePublic = 11
-        UseColors = True
         ShowInheritedMembers = False
       end
     end
@@ -1082,8 +1085,7 @@ object MainForm: TMainForm
           Caption = '-'
         end
         object Class1: TMenuItem
-          Action = actBrowserNewClass
-          Caption = 'Class...'
+          Action = actNewClass
         end
       end
       object N34: TMenuItem
@@ -1297,6 +1299,12 @@ object MainForm: TMainForm
         Action = actReplaceAll
       end
       object N72: TMenuItem
+        Caption = '-'
+      end
+      object actSearchAgain1: TMenuItem
+        Action = actSearchAgain
+      end
+      object N75: TMenuItem
         Caption = '-'
       end
       object IncrementalSearch1: TMenuItem
@@ -1729,10 +1737,10 @@ object MainForm: TMainForm
     end
     object HelpMenu: TMenuItem
       Action = actHelpMenu
-      SubMenuImages = dmMain.HelpImages_Gnome
       GroupIndex = 9
       object HelpMenuItem: TMenuItem
         Caption = '&Help on Dev-C++'
+        ImageIndex = 46
         OnClick = HelpMenuItemClick
       end
       object ShowTipsItem: TMenuItem
@@ -2050,6 +2058,12 @@ object MainForm: TMainForm
       ImageIndex = 3
       OnExecute = actNewTemplateExecute
       OnUpdate = actNewTemplateUpdate
+    end
+    object actNewClass: TAction
+      Category = 'File'
+      Caption = '&Class...'
+      OnExecute = actBrowserNewClassExecute
+      OnUpdate = actBrowserNewClassUpdate
     end
     object actOpen: TAction
       Tag = 1
@@ -2783,12 +2797,6 @@ object MainForm: TMainForm
       Caption = 'Tips'
       OnExecute = actShowTipsExecute
     end
-    object actBrowserUseColors: TAction
-      Category = 'ClassBrowser'
-      Caption = 'Use colors'
-      Checked = True
-      OnExecute = actBrowserUseColorsExecute
-    end
     object actAbortCompilation: TAction
       Category = 'Execute'
       Caption = 'Abort compilation'
@@ -2895,7 +2903,7 @@ object MainForm: TMainForm
     object actDeleteProfileProject: TAction
       Category = 'Execute'
       Caption = 'Delete Profiling information'
-      ImageIndex = 11
+      ImageIndex = 47
       OnExecute = actDeleteProfileProjectExecute
       OnUpdate = actRunUpdate
     end
@@ -3000,6 +3008,13 @@ object MainForm: TMainForm
       Caption = 'Clear'
       OnExecute = actMsgClearExecute
     end
+    object actSearchAgain: TAction
+      Category = 'Search'
+      Caption = 'Search Again'
+      ShortCut = 114
+      OnExecute = actSearchAgainExecute
+      OnUpdate = actUpdateEmptyEditorFindForm
+    end
   end
   object MessagePopup: TPopupMenu
     Left = 203
@@ -3041,6 +3056,7 @@ object MainForm: TMainForm
     Top = 132
   end
   object CppParser: TCppParser
+    BaseIndex = 0
     Enabled = True
     OnTotalProgress = CppParserTotalProgress
     Tokenizer = CppTokenizer
@@ -3053,6 +3069,7 @@ object MainForm: TMainForm
     Top = 196
   end
   object CodeCompletion: TCodeCompletion
+    ShowCount = 100
     Parser = CppParser
     Color = clWhite
     Width = 320
@@ -3064,7 +3081,7 @@ object MainForm: TMainForm
     MaxHeight = 0
     OnResize = CodeCompletionResize
     OnlyGlobals = False
-    CurrentClass = 0
+    CurrentIndex = 0
     Left = 60
     Top = 164
   end
@@ -3126,9 +3143,6 @@ object MainForm: TMainForm
       end
       object N42: TMenuItem
         Caption = '-'
-      end
-      object Usecolors1: TMenuItem
-        Action = actBrowserUseColors
       end
       object Showinheritedmembers1: TMenuItem
         Action = actBrowserShowInherited

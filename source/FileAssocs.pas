@@ -29,12 +29,13 @@ uses
   SysUtils, Classes, QForms;
 {$ENDIF}
 
-procedure CheckAssociations;
+procedure RegisterFiletype(const extension, filetype, description, verb, serverapp, IcoNum: AnsiString);
+procedure RegisterDDEServer(const filetype, verb, topic, servername, macro: AnsiString);
+procedure CheckAssociations(FixAssocs : boolean);
 procedure Associate(Index: integer);
 procedure UnAssociate(Index: integer);
 function IsAssociated(Index: integer): boolean;
-function CheckFiletype(const extension, filetype, description,
-  verb, serverapp: AnsiString): boolean;
+function CheckFiletype(const extension, filetype, description,verb, serverapp: AnsiString): boolean;
 
 var
   DDETopic: AnsiString;
@@ -59,15 +60,11 @@ const
 
 implementation
 
-uses 
+uses
   devcfg;
 
 var
   Associated: array[0..AssociationsCount - 1] of boolean;
-
-// forward decls
-procedure RegisterFiletype(const extension, filetype, description, verb, serverapp, IcoNum: AnsiString); forward;
-procedure RegisterDDEServer(const filetype, verb, topic, servername, macro: AnsiString); forward;
 
 procedure RefreshIcons;
 begin
@@ -161,7 +158,7 @@ begin
   try
     Result := False;
     reg.Rootkey := HKEY_CLASSES_ROOT;
-    if not reg.OpenKey(extension, False) then
+    if not reg.OpenKey(extension, False) then // does not prevent exception throwing
       Exit;
     reg.CloseKey;
     if not reg.OpenKey(filetype, False) then
@@ -212,8 +209,7 @@ begin
   end;
 end;
 
-function CheckDDEServer(const filetype, verb, topic, servername:
-  AnsiString): boolean;
+function CheckDDEServer(const filetype, verb, servername : AnsiString): boolean;
 var
   reg: TRegistry;
   keystring: AnsiString;
@@ -265,7 +261,7 @@ begin
   end;
 end;
 
-procedure CheckAssociations;
+procedure CheckAssociations(FixAssocs : boolean); // if true, write to registry too
 var
   I: integer;
   DdeOK: array[0..AssociationsCount - 1] of boolean;
@@ -277,26 +273,26 @@ begin
       'open',
       Application.Exename + ' "%1"');
 
-  for I := 0 to AssociationsCount - 1 do
-    if (not Associated[I]) and MustAssociate(I) then begin
-      Associate(I);
-    end;
+	// Unsafe
+	if FixAssocs then // set registry to last known values
+		for I := 0 to AssociationsCount - 1 do
+			if (not Associated[I]) and MustAssociate(I) then
+				Associate(I);
 
   for I := 0 to AssociationsCount - 1 do
     DdeOK[I] := (Associations[I, 3] <> '') or CheckDDEServer('DevCpp.' + Associations[I, 0],
       'open',
-      DDETopic,
       Uppercase(ChangeFileExt(ExtractFilename(Application.Exename), EmptyStr)));
 
-  for I := 0 to AssociationsCount - 1 do
-    if (not DdeOK[I]) and MustAssociate(I) then
-      RegisterDDEServer(
-        'DevCpp.' + Associations[I, 0],
-        'open',
-        DDETopic,
-        Uppercase(ChangeFileExt(ExtractFilename(Application.Exename), EmptyStr)),
-        '[Open("%1")]');
+	if FixAssocs then
+		for I := 0 to AssociationsCount - 1 do
+			if (not DdeOK[I]) and MustAssociate(I) then
+				RegisterDDEServer(
+					'DevCpp.' + Associations[I, 0],
+					'open',
+					DDETopic,
+					Uppercase(ChangeFileExt(ExtractFilename(Application.Exename), EmptyStr)),
+					'[Open("%1")]');
 end;
 
 end.
-

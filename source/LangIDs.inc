@@ -504,6 +504,9 @@ const
   ID_EOPT_AUTOSAVEUNIX                  = 27061;
   ID_EOPT_AUTOSAVETIME                  = 27062;
   ID_EOPT_AUTOSAVEMODE                  = 27063;
+  ID_EOPT_AUTOSAVEEXAMPLE               = 27064;
+  ID_EOPT_CLEARCACHE                    = 27065;
+  ID_EOPT_REFRESHHINT                   = 27066;
 
   // new project
   ID_NP_PRJNAME                         = 28001;
@@ -646,6 +649,7 @@ const
 
   ID_ENV_PAUSECONSOLE                   = 38054;
   ID_ENV_AUTOREMEMBER                   = 38055;
+  ID_ENV_CHECKASSOCS                    = 38061;
 
   ID_FIND_REPLACE                       = 38056;
   ID_FIND_REPLACEFILES                  = 38057;
@@ -856,6 +860,7 @@ const
   ID_POPT_OVERRIDEOUT                   = 55027;
   ID_POPT_ADDLIBRARY                    = 55028;
   ID_POPT_UNITSFORMAT                   = 55029;
+  ID_POPT_LOGAUTOSAVE                   = 55030;
 
   //New template form
   ID_NEWTPL_NAME                        = 56001;
@@ -894,11 +899,9 @@ const
   ID_NEWVAR_MSG_NOIMPL                  = 57014;
   ID_NEWVAR_MSG_NOLINE                  = 57015;
 
-  //New member form
+  //New class/member form
   ID_NEWMEMB_MEMBNAME                   = 57016;
   ID_NEWMEMB_ARGS                       = 57017;
-
-  //New class form
   ID_NEWCLASS_NAME                      = 57018;
   ID_NEWCLASS_INHERIT                   = 57019;
   ID_NEWCLASS_INHERITANCE               = 57020;
@@ -907,10 +910,9 @@ const
   ID_NEWCLASS_CPPFILE                   = 57023;
   ID_NEWCLASS_HFILE                     = 57024;
   ID_NEWCLASS_ADDTOPROJ                 = 57025;
-
-  //New member form
   ID_NEWMEMB_ATTRS                      = 57026;
-  // free to 979
+  ID_NEWCLASS_CONSTRUCTOR               = 57027;
+  ID_NEWCLASS_DESTRUCTOR                = 57028;
 
   //File properties form
   ID_PROPS_FILENAME                     = 58001;
@@ -1012,7 +1014,9 @@ const
   ID_STATUSBARPLUS                      = 62019;
   ID_DONEPARSING                        = 62020;
   ID_SEARCHCOUNT                        = 62021;
-
+  ID_DONEPARSINGIN                      = 62022;
+  ID_DONEPARSINGHINT                    = 62023;
+  
 { -- Button Captions -- }
   ID_BTN_OK                             = 63001;
   ID_BTN_CANCEL                         = 63002;
@@ -1036,6 +1040,7 @@ const
   ID_BTN_IMPORT                         = 63020;
   ID_BTN_FLOATDEBUG                     = 63021;
   ID_BTN_CLEAR                          = 63022;
+  ID_BTN_REFRESH                        = 63023;
   // free to 2600
 
 { -- end buttons -- }

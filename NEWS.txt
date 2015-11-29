@@ -1,3 +1,30 @@
+Version 5.4.0 - 14 Februari 2013
+
+- The console pauser will now provide more detailed information when it decides not to work.
+- Startup time has been reduced by an order of magnitude.
+- The class browser now redraws at least numvisibleitems times faster.
+- "Search Again" (F3) is back from the dead.
+- The toolbars now do not get cut off on restart after about the 800th horizontal pixel.
+- The tip of the day form now does not show up anymore when opening files (again).
+- Gutter auto sizing now takes folding into account.
+- Files that aren't highlighted are now loaded much faster.
+- Added a few hardcoded labels to the lang tables.
+- Reworked the Window List form.
+- Fixed some set management issues in the Compiler Options form.
+- Slightly reduced compilation overhead of the IDE shell around GCC.
+- Reduced memory usage.
+- Exporting editors to HTML now provides a perfect copy of the color scheme.
+- Fixed a memory leak in the Tools window.
+- Updated Chinese, Chinese (TW) and Japanese translations.
+- Added an example save file name to Editor Options >> Autosave.
+- More bug fixes and feature additions here and there.
+- One can now refresh the current cache contents.
+- Improved array evaluating under mouse when debugging.
+- Fixed a bug that emerged in code folding and improved its performance thanks to that.
+- Redesigned the code tooltip and code completion: they now support (M)I and multiple levels of parent->member structures.
+- The class browser now supports multiple inheritance.
+- Many more bugfixes here and there.
+
 Version 5.3.0.4 - 31 December 2012
 
 - The class browser now always differentiates between private and public members.
