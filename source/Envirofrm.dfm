@@ -1,6 +1,6 @@
 object EnviroForm: TEnviroForm
-  Left = 849
-  Top = 412
+  Left = 915
+  Top = 348
   BorderStyle = bsDialog
   Caption = 'Environment Options'
   ClientHeight = 403
@@ -77,7 +77,7 @@ object EnviroForm: TEnviroForm
     Top = 8
     Width = 400
     Height = 352
-    ActivePage = tabCVS
+    ActivePage = tabGeneral
     Anchors = [akLeft, akTop, akRight, akBottom]
     HotTrack = True
     TabOrder = 3

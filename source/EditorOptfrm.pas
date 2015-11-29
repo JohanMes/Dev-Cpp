@@ -102,7 +102,6 @@ type
     lblElements: TLabel;
     lblSpeed: TLabel;
     CodeIns: TSynEdit;
-    Panel1: TPanel;
     cbDefaultintoprj: TCheckBox;
     tabClassBrowsing: TTabSheet;
     chkEnableClassBrowser: TCheckBox;
@@ -158,6 +157,13 @@ type
     cbAppendNewline: TCheckBox;
     cbCloseBrace: TCheckBox;
     ScrollHint: TLabel;
+    tabAutosave: TTabSheet;
+    EnableDisableAutosave: TCheckBox;
+    OptionsGroup: TGroupBox;
+    SaveInterval: TLabel;
+    MinutesDelay: TTrackBar;
+    Panel1: TPanel;
+    FileOptions: TRadioGroup;
     procedure FormCreate(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure FormActivate(Sender: TObject);
@@ -204,6 +210,8 @@ type
     procedure chkCBShowInheritedClick(Sender: TObject);
     procedure OnGutterClick(Sender: TObject; Button: TMouseButton; X, Y,Line: Integer; Mark: TSynEditMark);
     procedure cbHighCurrLineClick(Sender: TObject);
+    procedure EnableDisableAutosaveClick(Sender: TObject);
+    procedure MinutesDelayChange(Sender: TObject);
   private
     ffgColor: TColor;
     fbgColor: TColor;
@@ -277,9 +285,16 @@ end;
 
 procedure TEditorOptForm.FormShow(Sender: TObject);
 begin
-  PagesMain.ActivePageIndex:= 0;
-  CodePages.ActivePageIndex:= 0;
-  ClassCodePage.ActivePageIndex:= 0;
+	PagesMain.ActivePageIndex:= 0;
+	CodePages.ActivePageIndex:= 0;
+	ClassCodePage.ActivePageIndex:= 0;
+
+	if MinutesDelay.Position = 1 then
+		SaveInterval.Caption := Lang[ID_EOPT_AUTOSAVEINTERNAL] + ' ' + IntToStr(MinutesDelay.Position) + ' minute'
+	else
+		SaveInterval.Caption := Lang[ID_EOPT_AUTOSAVEINTERNAL] + ' ' + IntToStr(MinutesDelay.Position) + ' minutes';
+
+	lblCompletionDelay.Caption := Lang[ID_EOPT_COMPLETIONDELAY] + ' ' + IntToStr(tbCompletionDelay.Position)+' ms';
 end;
 
 procedure TEditorOptForm.FormActivate(Sender: TObject);
@@ -593,6 +608,14 @@ begin
   btnRemove.Caption:=            Lang[ID_BTN_REMOVE];
 
   ScrollHint.Caption:=           Lang[ID_EOPT_CTRLSCROLLHINT];
+
+  // Autosave
+  EnableDisableAutosave.Caption:=Lang[ID_EOPT_ENABLEAUTOSAVE];
+  SaveInterval.Caption:=         Lang[ID_EOPT_AUTOSAVEINTERNAL];
+  FileOptions.Caption:=          Lang[ID_EOPT_AUTOSAVEFILE];
+  FileOptions.Items[0]:=         Lang[ID_EOPT_SAVEONLYOPENFILE];
+  FileOptions.Items[1]:=         Lang[ID_EOPT_SAVEALLFILES];
+  OptionsGroup.Caption:=         Lang[ID_EOPT_OPTIONS];
 end;
 
 procedure TEditorOptForm.LoadSampleText;
@@ -652,7 +675,7 @@ begin
      cbTabtoSpaces.Checked:=         not TabToSpaces;
      cbSmartTabs.Checked:=           SmartTabs;
      cbSmartUnindent.Checked:=       SmartUnindent;
-     cbTrailingBlanks.Checked:=      not TrailBlank;
+     cbTrailingBlanks.Checked:=      not RemoveTrailBlanks;
      cbGroupUndo.Checked:=           GroupUndo;
      cbEHomeKey.Checked:=            EHomeKey;
      cbPastEOF.Checked:=             PastEOF;
@@ -782,6 +805,18 @@ begin
 	chkEnableCompletion.Enabled:=chkEnableClassBrowser.Checked;
 	tbCompletionDelay.Enabled:=chkEnableClassBrowser.Checked;
 	cpCompletionBackground.Enabled:=chkEnableClassBrowser.Checked;
+
+	// Autosave
+	MinutesDelay.Position := devEditor.Interval;
+	FileOptions.ItemIndex := devEditor.SaveType;
+	EnableDisableAutosave.Checked := devEditor.EnableAutoSave;
+
+	// Autosave
+	MinutesDelay.Enabled := EnableDisableAutosave.Checked;
+	SaveInterval.Enabled := EnableDisableAutosave.Checked;
+	FileOptions.Enabled := EnableDisableAutosave.Checked;
+	OptionsGroup.Enabled := EnableDisableAutosave.Checked;
+	FileOptions.Enabled := EnableDisableAutosave.Checked;
 end;
 
 procedure TEditorOptForm.btnOkClick(Sender: TObject);
@@ -794,16 +829,16 @@ begin
 		AutoIndent:=          cbAutoIndent.Checked;
 		InsertMode:=          cbInsertMode.Checked;
 		TabToSpaces:=         not cbTabtoSpaces.Checked;
-     SmartTabs:=           cbSmartTabs.Checked;
-     SmartUnindent:=       cbSmartUnindent.Checked;
-     TrailBlank:=          not cbTrailingBlanks.Checked;
-     GroupUndo:=           cbGroupUndo.Checked;
-     EHomeKey:=            cbEHomeKey.Checked;
-     PastEOF:=             cbPastEOF.Checked;
-     PastEOL:=             cbPastEOL.Checked;
-     DblClkLine:=          cbDoubleLine.Checked;
-     FindText:=            cbFindText.Checked;
-     Scrollbars:=          cbSmartScroll.Checked;
+		SmartTabs:=           cbSmartTabs.Checked;
+		SmartUnindent:=       cbSmartUnindent.Checked;
+		RemoveTrailBlanks:=   not cbTrailingBlanks.Checked;
+		GroupUndo:=           cbGroupUndo.Checked;
+		EHomeKey:=            cbEHomeKey.Checked;
+		PastEOF:=             cbPastEOF.Checked;
+		PastEOL:=             cbPastEOL.Checked;
+		DblClkLine:=          cbDoubleLine.Checked;
+		FindText:=            cbFindText.Checked;
+		Scrollbars:=          cbSmartScroll.Checked;
      HalfPageScroll:=      cbHalfPage.Checked;
      ScrollHint:=          cbScrollHint.Checked;
      SpecialChars:=        cbSpecialChars.Checked;
@@ -904,18 +939,26 @@ begin
 
   SaveCodeIns;
 
-  // CODE_COMPLETION //
+  // CODE_COMPLETION
   devCodeCompletion.Enabled:=chkEnableCompletion.Checked;
   devCodeCompletion.Delay:=tbCompletionDelay.Position;
   devCodeCompletion.BackColor:=cpCompletionBackground.SelectionColor;
   devCodeCompletion.UseCacheFiles:=chkCCCache.Checked;
 
-  // CLASS_BROWSING //
+  // CLASS_BROWSING
   devClassBrowsing.Enabled:=chkEnableClassBrowser.Checked;
   devClassBrowsing.ParseLocalHeaders:=chkCBParseLocalH.Checked;
   devClassBrowsing.ParseGlobalHeaders:=chkCBParseGlobalH.Checked;
   devClassBrowsing.UseColors:=chkCBUseColors.Checked;
   devClassBrowsing.ShowInheritedMembers:=chkCBShowInherited.Checked;
+
+	// Autosave
+	devEditor.Interval := MinutesDelay.Position;
+	devEditor.SaveType := FileOptions.ItemIndex;
+	devEditor.EnableAutoSave := EnableDisableAutosave.Checked;
+
+	MainForm.AutoSaveTimer.Interval := devEditor.Interval*60*1000;
+	MainForm.AutoSaveTimer.Enabled := devEditor.EnableAutoSave;
 
   SaveOptions;
   dmMain.LoadDataMod;
@@ -1412,7 +1455,7 @@ end;
 
 procedure TEditorOptForm.tbCompletionDelayChange(Sender: TObject);
 begin
-  tbCompletionDelay.Hint:=IntToStr(tbCompletionDelay.Position)+' ms';
+	lblCompletionDelay.Caption := Lang[ID_EOPT_COMPLETIONDELAY] + ' ' + IntToStr(tbCompletionDelay.Position)+' ms';
 end;
 
 procedure TEditorOptForm.chkEnableCompletionClick(Sender: TObject);
@@ -1678,6 +1721,23 @@ end;
 procedure TEditorOptForm.cbHighCurrLineClick(Sender: TObject);
 begin
   cpHighColor.Enabled := cbHighCurrLine.Checked;
+end;
+
+procedure TEditorOptForm.EnableDisableAutosaveClick(Sender: TObject);
+begin
+	MinutesDelay.Enabled := EnableDisableAutosave.Checked;
+	SaveInterval.Enabled := EnableDisableAutosave.Checked;
+	FileOptions.Enabled := EnableDisableAutosave.Checked;
+	OptionsGroup.Enabled := EnableDisableAutosave.Checked;
+	FileOptions.Enabled := EnableDisableAutosave.Checked;
+end;
+
+procedure TEditorOptForm.MinutesDelayChange(Sender: TObject);
+begin
+	if MinutesDelay.Position = 1 then
+		SaveInterval.Caption := Lang[ID_EOPT_AUTOSAVEINTERNAL] + ' ' + IntToStr(MinutesDelay.Position) + ' minute'
+	else
+		SaveInterval.Caption := Lang[ID_EOPT_AUTOSAVEINTERNAL] + ' ' + IntToStr(MinutesDelay.Position) + ' minutes';
 end;
 
 end.

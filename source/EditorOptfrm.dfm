@@ -1,6 +1,6 @@
 object EditorOptForm: TEditorOptForm
-  Left = 902
-  Top = 333
+  Left = 1198
+  Top = 536
   HelpType = htKeyword
   BorderStyle = bsDialog
   Caption = 'Editor Options'
@@ -30,7 +30,7 @@ object EditorOptForm: TEditorOptForm
     Top = 8
     Width = 415
     Height = 365
-    ActivePage = tabClassBrowsing
+    ActivePage = tabDisplay
     Anchors = [akLeft, akTop, akRight, akBottom]
     TabOrder = 0
     OnChange = PagesMainChange
@@ -284,6 +284,9 @@ object EditorOptForm: TEditorOptForm
           Height = 17
           Hint = 'Blanks at end of lines will be saved with file'
           Caption = 'Keep Trailing Blanks'
+          Checked = True
+          Enabled = False
+          State = cbChecked
           TabOrder = 16
         end
         object cbTabtoSpaces: TCheckBox
@@ -477,7 +480,10 @@ object EditorOptForm: TEditorOptForm
           Top = 32
           Width = 190
           Height = 15
+          Hint = 'Gutter width adapts to line number width'
           Caption = 'Auto Size'
+          ParentShowHint = False
+          ShowHint = True
           TabOrder = 1
         end
         object cbGutterFnt: TCheckBox
@@ -511,7 +517,7 @@ object EditorOptForm: TEditorOptForm
           Width = 180
           Height = 21
           Anchors = [akLeft, akRight, akBottom]
-          ItemHeight = 0
+          ItemHeight = 13
           TabOrder = 6
           OnChange = FontChange
           OnDblClick = cboDblClick
@@ -522,7 +528,7 @@ object EditorOptForm: TEditorOptForm
           Width = 86
           Height = 21
           Anchors = [akLeft, akRight, akBottom]
-          ItemHeight = 0
+          ItemHeight = 13
           TabOrder = 7
           OnChange = FontSizeChange
           OnDblClick = cboDblClick
@@ -567,7 +573,7 @@ object EditorOptForm: TEditorOptForm
           Top = 32
           Width = 180
           Height = 21
-          ItemHeight = 0
+          ItemHeight = 13
           TabOrder = 0
           OnDblClick = cboDblClick
           OnSelect = FontChange
@@ -577,7 +583,7 @@ object EditorOptForm: TEditorOptForm
           Top = 32
           Width = 80
           Height = 21
-          ItemHeight = 0
+          ItemHeight = 13
           TabOrder = 1
           OnChange = FontSizeChange
           OnDblClick = cboDblClick
@@ -821,7 +827,7 @@ object EditorOptForm: TEditorOptForm
         Top = 0
         Width = 407
         Height = 337
-        ActivePage = tabCPInserts
+        ActivePage = tabCPDefault
         Align = alClient
         TabOrder = 0
         object tabCPInserts: TTabSheet
@@ -829,7 +835,7 @@ object EditorOptForm: TEditorOptForm
           object lblCode: TLabel
             Left = 0
             Top = 108
-            Width = 28
+            Width = 399
             Height = 13
             Align = alBottom
             Caption = 'Code:'
@@ -933,8 +939,8 @@ object EditorOptForm: TEditorOptForm
           object seDefault: TSynEdit
             Left = 0
             Top = 0
-            Width = 401
-            Height = 288
+            Width = 399
+            Height = 289
             Align = alClient
             Font.Charset = DEFAULT_CHARSET
             Font.Color = clWindowText
@@ -964,11 +970,10 @@ object EditorOptForm: TEditorOptForm
           end
           object Panel1: TPanel
             Left = 0
-            Top = 288
-            Width = 401
+            Top = 289
+            Width = 399
             Height = 20
             Align = alBottom
-            BevelInner = bvLowered
             BevelOuter = bvNone
             TabOrder = 1
             object cbDefaultintoprj: TCheckBox
@@ -1144,16 +1149,16 @@ object EditorOptForm: TEditorOptForm
           object tbCompletionDelay: TTrackBar
             Left = 16
             Top = 52
-            Width = 217
-            Height = 29
-            LineSize = 50
-            Max = 1500
-            PageSize = 50
-            Frequency = 50
-            Position = 500
+            Width = 233
+            Height = 37
+            Max = 10000
+            Min = 1
+            ParentShowHint = False
+            Frequency = 500
+            Position = 1000
+            ShowHint = False
             TabOrder = 1
-            ThumbLength = 16
-            TickMarks = tmTopLeft
+            TickMarks = tmBoth
             OnChange = tbCompletionDelayChange
           end
           object chkEnableCompletion: TCheckBox
@@ -1192,6 +1197,58 @@ object EditorOptForm: TEditorOptForm
             TabOrder = 4
             Visible = False
           end
+        end
+      end
+    end
+    object tabAutosave: TTabSheet
+      Caption = 'Autosave'
+      ImageIndex = 5
+      object EnableDisableAutosave: TCheckBox
+        Left = 8
+        Top = 8
+        Width = 385
+        Height = 17
+        Caption = 'Enable editor autosave'
+        TabOrder = 0
+        OnClick = EnableDisableAutosaveClick
+      end
+      object OptionsGroup: TGroupBox
+        Left = 8
+        Top = 32
+        Width = 393
+        Height = 297
+        Caption = ' Options '
+        TabOrder = 1
+        object SaveInterval: TLabel
+          Left = 16
+          Top = 30
+          Width = 38
+          Height = 13
+          Caption = 'Interval:'
+        end
+        object MinutesDelay: TTrackBar
+          Left = 112
+          Top = 16
+          Width = 273
+          Height = 40
+          Max = 60
+          Min = 1
+          PageSize = 1
+          Position = 1
+          TabOrder = 0
+          TickMarks = tmBoth
+          OnChange = MinutesDelayChange
+        end
+        object FileOptions: TRadioGroup
+          Left = 18
+          Top = 64
+          Width = 239
+          Height = 65
+          Caption = 'Files'
+          Items.Strings = (
+            'Save the currently visible file'
+            'Save all other open files too')
+          TabOrder = 1
         end
       end
     end
