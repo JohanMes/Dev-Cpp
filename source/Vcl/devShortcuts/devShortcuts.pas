@@ -30,32 +30,29 @@ uses
 {$ENDIF}
 
 type
-  TMenuAndShortcut = record
-    Caption: AnsiString;
-    Shortcut: TShortCut;
+  TShortcutItem = record
+    Default: TShortCut;
+    IniEntry: AnsiString; // name in ini file, use untranslated MenuItem.Caption
+    ListEntry: AnsiString; // name in editor form
+    MenuItem: TMenuItem; // apply Current to this
+    Action: TAction; // OR this
   end;
-  PMenuAndShortcut = ^TMenuAndShortcut;
+  PShortcutItem = ^TShortcutItem;
 
   TdevShortcuts = class(TComponent)
   private
-    { Private declarations }
     fOwner: TComponent;
-    fAltColor: TColor;
     fFilename: TFileName;
-    procedure ReadShortcuts;
-    procedure Save;
-  protected
-    { Protected declarations }
+    fShortcuts: TList;
+    function GetTopmostItemAncestor(Item: TMenuItem): AnsiString;
   public
-    { Public declarations }
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
-    procedure Load;
-    procedure Edit;
+    procedure Load(List: TActionList);
+    procedure Edit(const WindowCaption,Column1,Column2,OK,Cancel,Default,ReplaceHint,Button : AnsiString);
+    procedure Save;
   published
-    { Published declarations }
     property Filename: TFilename read fFilename write fFilename;
-    property AlternateColor: TColor read fAltColor write fAltColor;
   end;
 
 procedure Register;
@@ -83,30 +80,20 @@ begin
   inherited;
   fOwner := AOwner;
   fFileName := 'shortcuts.ini'; // DEV_SHORTCUTS_FILE
-  fAltColor := $E0E0E0;
+  fShortcuts := TList.Create;
 end;
 
 destructor TdevShortcuts.Destroy;
+var
+	I : integer;
 begin
-  inherited;
+	for I := 0 to fShortcuts.Count - 1 do
+		Dispose(PShortcutItem(fShortcuts[i]));
+	fShortcuts.Free;
+	inherited;
 end;
 
-procedure TdevShortcuts.Edit;
-begin
-  frmShortcutsEditor := TfrmShortcutsEditor.Create(Self);
-  with frmShortcutsEditor do
-  try
-    AltColor := fAltColor;
-    Clear;
-    ReadShortcuts;
-    if ShowModal = mrOK then
-      Save;
-  finally
-    frmShortcutsEditor.Free;
-  end;
-end;
-
-function GetTopmostItemAncestor(Item: TMenuItem): AnsiString;
+function TdevShortcuts.GetTopmostItemAncestor(Item: TMenuItem): AnsiString;
 var
   CurMenu: TMenu;
 begin
@@ -120,132 +107,158 @@ begin
     end
 end;
 
-procedure TdevShortcuts.Load;
+procedure TdevShortcuts.Load(List: TActionList);
 var
-  I, x: integer;
-  Fini: TIniFile;
-  Entries: TList;
-  ms: PMenuAndShortcut;
-  sct: TShortCut;
-  SmenuOld, SmenuNew, Entry: AnsiString;
-  Found: boolean;
+	I: integer;
+	Fini: TIniFile;
+	value: AnsiString;
+	ShortCut: TShortCut;
+	item: PShortcutItem;
+	MenuItem: TMenuItem;
+	Actions: TStringList;
+	Action: TAction;
 begin
-  if fOwner = nil then
-    Exit;
-  if (fFileName = '') or not FileExists(fFileName) then
-    Exit;
-  Entries:=TList.Create;
-  Fini := TIniFile.Create(fFileName);
-  try
-    for I := 0 to fOwner.ComponentCount - 1 do
-      if (fOwner.Components[I] is TMenuItem) then
-        if not TMenuItem(fOwner.Components[I]).IsLine then
-          if (TMenuItem(fOwner.Components[I]).Count = 0) then begin
-            SmenuOld := StripHotkey(TMenuItem(fOwner.Components[I]).Caption);
-            SmenuNew := StripHotkey(GetTopmostItemAncestor(TMenuItem(fOwner.Components[I])))+':'+SmenuOld;
-            Entry :=Fini.ReadString('Shortcuts', SmenuNew, '');
+	if fOwner = nil then
+		Exit;
 
-            Found:=False;
-            for x:=0 to Entries.Count-1 do begin
-              ms:=Entries[x];
-              if ms^.Caption=SmenuOld then begin
-                TMenuItem(fOwner.Components[I]).ShortCut:=ms^.Shortcut;
-                if Assigned(TMenuItem(fOwner.Components[I]).Action) then
-                  TAction(TMenuItem(fOwner.Components[I]).Action).ShortCut:=ms^.Shortcut;
-                found:=True;
-                Break;
-              end;
-            end;
-            if Found then
-              Continue;
+	// Create a list of all menu items that, UNTRANSLATED!
+	Actions := TStringList.Create;
+	try
 
-            if Entry='' then
-              Entry :=Fini.ReadString('Shortcuts', SmenuOld, ShortCutToText(
-                TMenuItem(fOwner.Components[I]).ShortCut));
-            if Entry <> 'none' then
-              sct := TextToShortCut(Entry)
-            else
-              sct:=0;
-            TMenuItem(fOwner.Components[I]).ShortCut := sct;
-            if Assigned(TMenuItem(fOwner.Components[I]).Action) then
-              TAction(TMenuItem(fOwner.Components[I]).Action).ShortCut:=sct;
+		// Add all main menu items...
+		for I := 0 to fOwner.ComponentCount - 1 do begin
+			if (fOwner.Components[I] is TMenuItem) then begin
+				MenuItem := TMenuItem(fOwner.Components[I]);
+				if (not MenuItem.IsLine) and (MenuItem.Count = 0) then begin // don't process foldouts and separators
 
-            ms:=New(PMenuAndShortcut);
-            ms^.Caption:=SmenuOld;
-            ms^.Shortcut:=sct;
-            Entries.Add(ms);
-          end;
+					// Don't add if the main menu counterpart or their action has been added
+					if Assigned(MenuItem.Action) and (Actions.IndexOf(MenuItem.Action.Name) <> -1) then
+						continue;
+
+					item := new(PShortcutItem);
+					item^.Default := MenuItem.ShortCut;
+					item^.IniEntry := StripHotkey(GetTopmostItemAncestor(MenuItem)) + ':' + StripHotkey(MenuItem.Caption);
+					item^.ListEntry := ''; // to be filled by form (translated)
+					item^.MenuItem := MenuItem;
+					item^.Action := TAction(MenuItem.Action);
+					fShortcuts.Add(item);
+				end;
+
+				// Store action of main menu item, and don't create duplicates for popup menu items with the same action
+				if Assigned(MenuItem.Action) then
+					Actions.Add(MenuItem.Action.Name);
+			end;
+		end;
+
+		// Lastly, add actions without a menu item
+		for I := 0 to List.ActionCount - 1 do begin
+			Action := TAction(List.Actions[i]);
+			if Actions.IndexOf(Action.Name) = -1 then begin // forgot this action...
+
+				item := new(PShortcutItem);
+				item^.Default := Action.ShortCut;
+				item^.IniEntry := Action.Caption;
+				item^.ListEntry := ''; // to be filled by form (translated)
+				item^.MenuItem := nil;
+				item^.Action := Action;
+				fShortcuts.Add(item);
+			end;
+		end;
+	finally
+		Actions.Free;
+	end;
+
+	if (fFileName = '') or not FileExists(fFileName) then
+		Exit;
+
+	// For each menu item in our list, read the shortcut from disk
+	Fini := TIniFile.Create(fFileName);
+	try
+		for I := 0 to fShortcuts.Count - 1 do begin
+			item := PShortcutItem(fShortcuts[i]);
+
+			// Read shortcut, assume ini file is untranslated
+			value := Fini.ReadString('Shortcuts', item^.IniEntry, '');
+			if (value <> 'none') and (value <> '') then begin // only apply when found in file
+				shortcut := TextToShortCut(value);
+
+				// Apply to Menu
+				if Assigned(item^.MenuItem) then
+					item^.MenuItem.ShortCut := shortcut;
+
+				// Apply to action
+				if Assigned(item^.Action) then
+					item^.Action.ShortCut := shortcut;
+			end;
+		end;
 	finally
 		Fini.Free;
-		for I := 0 to Entries.Count - 1 do
-			Dispose(PMenuAndShortcut(Entries[i]));
-		Entries.Free;
 	end;
 end;
 
-procedure TdevShortcuts.ReadShortcuts;
+procedure TdevShortcuts.Edit(const WindowCaption,Column1,Column2,OK,Cancel,Default,ReplaceHint,Button : AnsiString);
 var
-  I: integer;
-  Actions: THashedStringList;
-  MenuItem: TMenuItem;
+	I : integer;
+	item: PShortcutItem;
 begin
-  if fOwner = nil then
-    Exit;
-  Actions:=THashedStringList.Create;
-  for I := 0 to fOwner.ComponentCount - 1 do
-    if fOwner.Components[I] is TMenuItem and
-      (TMenuItem(fOwner.Components[I]).GetParentMenu is TMainMenu) then
-      begin
-        MenuItem:=TMenuItem(fOwner.Components[I]);
-        if not MenuItem.IsLine then
-          if MenuItem.Count = 0 then
-          begin
-            if Assigned(MenuItem.Action) and (MenuItem.Action.Name<>'') and
-               (Actions.IndexOf(MenuItem.Action.Name)=-1) then
-                Actions.Add(MenuItem.Action.Name);
-            frmShortcutsEditor.AddShortcut(TMenuItem(fOwner.Components[I]),
-              GetTopmostItemAncestor(TMenuItem(fOwner.Components[I])));
-          end;
-      end;
-  for I := 0 to fOwner.ComponentCount - 1 do
-    if fOwner.Components[I] is TMenuItem and
-      (TMenuItem(fOwner.Components[I]).GetParentMenu is TPopupMenu)
-      then
-      begin
-        MenuItem:=TMenuItem(fOwner.Components[I]);
-        if not MenuItem.IsLine and (MenuItem.Count=0) and
-           ((not Assigned(MenuItem.Action)) or (MenuItem.Action.Name='') or
-                (Actions.IndexOf(MenuItem.Action.Name)=-1))
-        then
-        begin
-          frmShortcutsEditor.AddShortcut(TMenuItem(fOwner.Components[I]),
-            GetTopmostItemAncestor(TMenuItem(fOwner.Components[I])));
-        end;
-      end;
+	frmShortcutsEditor := TfrmShortcutsEditor.Create(Self);
+	with frmShortcutsEditor do try
+		Clear;
+		LoadText(WindowCaption,Column1,Column2,OK,Cancel,Default,ReplaceHint,Button); // translate on the fly, can't use devMultilanguage here...
+
+		// Use the preloaded list, do not walk the Components list again
+		for I := 0 to fShortcuts.Count - 1 do begin
+			item := PShortcutItem(fShortcuts[i]);
+			if Assigned(item^.MenuItem) then
+				item^.ListEntry := StripHotkey(GetTopmostItemAncestor(item^.MenuItem) + ' >> ' + item^.MenuItem.Caption)
+			else if Assigned(item^.Action) then
+				item^.ListEntry := '(' + Button + ') >> ' + StripHotkey(item^.Action.Caption)
+			else
+				item^.ListEntry := '';
+			AddShortcut(item); // display translated caption
+		end;
+
+		if ShowModal = mrOK then
+			Save;
+	finally
+		frmShortcutsEditor.Free;
+	end;
 end;
 
 procedure TdevShortcuts.Save;
 var
-  I: integer;
-  Fini: TIniFile;
-  Smenu: AnsiString;
-  Scut: AnsiString;
+	I: integer;
+	Fini: TIniFile;
+	entry, value: AnsiString;
+	item: PShortcutItem;
+	MenuItem: TMenuItem;
 begin
 	if fFileName = '' then
 		Exit;
+
 	Fini := TIniFile.Create(fFileName);
-	with frmShortcutsEditor do begin
-		for I := 0 to Count - 1 do begin
-			Items[I].ShortCut := ShortCuts[I];
-			if Assigned(Items[I].Action) then
-				TAction(Items[I].Action).ShortCut := ShortCuts[I];
-			Smenu := StripHotkey(GetTopmostItemAncestor(Items[I]))+':'+
-			StripHotkey(Items[I].Caption);
-			Scut := ShortCutToText(ShortCuts[I]);
-			if Scut = '' then
-				Scut := 'none';
-			Fini.WriteString('Shortcuts', Smenu, Scut);
+	try
+		with frmShortcutsEditor do begin
+			for I := 0 to Count - 1 do begin
+				item := PShortCutItem(fShortcuts[i]);
+				MenuItem := item^.MenuItem;
+
+				// Apply to Menu
+				if Assigned(MenuItem) then
+					MenuItem.ShortCut := ShortCuts[I]; // ShortCuts is the UI list
+
+				// Apply to action
+				if Assigned(item^.Action) then
+					item^.Action.ShortCut := ShortCuts[I];
+
+				// Save untranslated
+				entry := item^.IniEntry;
+				value := ShortCutToText(ShortCuts[I]);
+				Fini.WriteString('Shortcuts', entry, value);
+			end;
 		end;
+	finally
+		Fini.Free;
 	end;
 end;
 

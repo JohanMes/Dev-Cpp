@@ -95,25 +95,45 @@ type
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure FontChange(Sender: TObject);
     procedure cmbIconsChange(Sender: TObject);
-    procedure cmbFontDrawItem(Control: TWinControl; Index: Integer;
-      Rect: TRect; State: TOwnerDrawState);
+    procedure cmbFontDrawItem(Control: TWinControl; Index: Integer;Rect: TRect; State: TOwnerDrawState);
   private
     HasProgressStarted : boolean;
-
     function GetSelected: integer;
     procedure CppParserTotalProgress(Sender: TObject; const FileName: string; Total, Current: Integer);
-
   public
+    procedure LoadText; // call after selecting a language of course
     procedure UpdateList(List: TStrings);
     property Selected: integer read GetSelected;
   end;
 
 implementation
 
-uses 
+uses
   MultiLangSupport, datamod, devcfg, utils, main, version, ImageTheme, SynEditTypes;
 
 {$R *.dfm}
+
+procedure TLangForm.LoadText;
+begin
+	grpThemes.Caption := Lang[ID_LANGFORM_SELECTTHEME];
+	lblFont.Caption := Lang[ID_LANGFORM_FONT];
+	lblColor.Caption := Lang[ID_LANGFORM_COLOR];
+	lblIcons.Caption := Lang[ID_LANGFORM_ICONS];
+	lblEditInfo.Caption := Lang[ID_LANGFORM_THEMCHANGEHINT];
+	CacheInfo1.Caption := Lang[ID_LANGFORM_OPTCODECOMPL1];
+	CacheInfo2.Caption := Lang[ID_LANGFORM_OPTCODECOMPL2];
+	YesCache.Caption := Lang[ID_LANGFORM_CACHEALL];
+	AltCache.Caption := Lang[ID_LANGFORM_CACHESEL];
+	NoCache.Caption := Lang[ID_LANGFORM_CACHENONE];
+	ButtonAddFile.Caption := Lang[ID_LANGFORM_ADDFILE];
+	ButtonAddFolder.Caption := Lang[ID_LANGFORM_ADDFOLDER];
+	ButtonRemove.Caption := Lang[ID_LANGFORM_REMOVE];
+	ParseLabel.Caption := Lang[ID_LANGFORM_PARSING];
+	Finish1.Caption := Lang[ID_LANGFORM_FINISH1];
+	Finish2.Caption := Lang[ID_LANGFORM_FINISH2];
+	Finish3.Caption := Lang[ID_LANGFORM_FINISH3];
+	OkBtn.Caption := Lang[ID_LANGFORM_NEXT];
+end;
 
 procedure TLangForm.UpdateList(List: TStrings);
 var
@@ -141,19 +161,29 @@ begin
 		HasProgressStarted := true;
 	end;
 	pbCCCache.Position := pbCCCache.Position + Current;
-	ParseLabel.Caption := 'Parsing file:' + #13#10 + ReplaceFirstText(FileName,devDirs.Exec,'\');
+	ParseLabel.Caption := Lang[ID_LANGFORM_PARSING] + #13#10 + ReplaceFirstText(FileName,devDirs.Exec,'\');
 	Application.ProcessMessages;
 end;
 
 procedure TLangForm.OkBtnClick(Sender: TObject);
 var
-	s, f : TStringList;
+	sl, f : TStringList;
 	i, j : integer;
 	fullpath : AnsiString;
 begin
 	if OkBtn.Tag = 0 then begin // goto edit page
 		OkBtn.Tag := 1;
 		LangPanel.Visible := false;
+
+		// Update translation
+		if Selected <> -1 then begin
+			Lang.Open(Lang.Langs.Names[Selected]);
+			devData.Language := Lang.FileFromDescription(Lang.Langs.Names[Selected]);
+		end else begin
+			Lang.Open('English.lng'); // never happens...
+		end;
+		LoadText;
+
 		EditPanel.Visible := true;
 	end else if OkBtn.Tag = 1 then begin // goto cache page
 		OkBtn.Tag := 2;
@@ -170,7 +200,7 @@ begin
 			OkBtn.Enabled := false;
 			BuildPanel.Visible := False;
 			ProgressPanel.Visible := True;
-			OkBtn.Caption := 'Please wait...';
+			OkBtn.Caption := Lang[ID_LANGFORM_WAIT];
 			devCodeCompletion.Enabled := true;
 			devCodeCompletion.UseCacheFiles := true;
 			devCodeCompletion.Enabled := true;
@@ -188,37 +218,40 @@ begin
 
 			MainForm.ClassBrowser.SetUpdateOff;
 
-			s := TStringList.Create;
+			sl := TStringList.Create;
 			if AltCache.Checked then begin
 				for I := 0 to AltFileList.Count - 1 do
-					s.Add(AltFileList.Items[I]);
+					sl.Add(AltFileList.Items[I]);
 			end else
-				StrToList(devCompiler.CppDir, s);
+				sl.Assign(devCompiler.CppDir);
 
 			// Make it look busy
 			Screen.Cursor:=crHourglass;
 
 			f := TStringList.Create;
 			if not AltCache.Checked then begin
-				for i := 0 to pred(s.Count) do begin
+				for i := 0 to sl.Count-1 do begin
 
 					// Relative paths make the recursive/loop searcher go nuts
-					s[i] := ReplaceFirstStr(s[i],'%path%\',devDirs.exec);
-					if DirectoryExists(s[i]) then begin
-						FilesFromWildcard(s[i], '*.*', f, false, false, false);
+					sl[i] := ReplaceFirstStr(sl[i],'%path%\',devDirs.exec);
+					if DirectoryExists(sl[i]) then begin
+						FilesFromWildcard(sl[i], '*.*', f, false, false, false);
 						for j := 0 to f.Count - 1 do
 							MainForm.CppParser.AddFileToScan(f[j]);
-					end else
-						MessageDlg('Directory "' + s[i] + '" does not exist', mtWarning, [mbOK], 0);
+					end;
+					//end else
+					//	MessageDlg('Directory "' + sl[i] + '" does not exist', mtWarning, [mbOK], 0);
 				end;
 			end else begin
-				for i := 0 to pred(s.Count) do begin
+				for i := 0 to sl.Count-1 do begin
 
 					// Assemble full path
-					if s[i][1] = ':' then
-						fullpath := s[i]
+					if (Length(sl[i]) > 0) and (sl[i][1] = ':') then
+						fullpath := sl[i]
+					else if devCompiler.CppDir.Count > 0 then
+						fullpath := devCompiler.CppDir[0] + pd + sl[i]
 					else
-						fullpath := devCompiler.CppDir + pd + s[i];
+						fullpath := sl[i];
 
 					// Then check for existance
 					if FileExists(fullpath) then begin
@@ -228,12 +261,12 @@ begin
 					//	MessageDlg('File "' + fullpath + '" does not exist', mtWarning, [mbOK], 0);
 				end;
 			end;
-			s.Free;
+			sl.Free;
 			f.Free;
 
 			MainForm.CppParser.ParseList;
 
-			ParseLabel.Caption := 'Saving...';
+			ParseLabel.Caption := Lang[ID_LANGFORM_SAVING];
 			Application.ProcessMessages;
 
 			MainForm.CppParser.Save(devDirs.Config + DEV_COMPLETION_CACHE,devDirs.Exec);
@@ -272,10 +305,17 @@ begin
 		Filter:= FLT_HEADS;
 		Title:= Lang[ID_NV_OPENFILE];
 		Options := Options + [ofAllowMultiSelect];
-		InitialDir := devCompiler.CppDir;
+
+		// Start in the include folder
+		if devCompiler.CppDir.Count > 0 then
+			InitialDir := devCompiler.CppDir[0];
+
 		if Execute then begin
-			for i:= 0 to pred(Files.Count) do begin
-				s := StringReplace(Files.Strings[i],devCompiler.CppDir + '\','',[rfReplaceAll]);
+			for i:= 0 to Files.Count-1 do begin
+				if devCompiler.CppDir.Count > 0 then
+					s := StringReplace(Files.Strings[i],devCompiler.CppDir[0] + pd,'',[rfReplaceAll])
+				else
+					s := Files.Strings[i];
 				AltFileList.Items.Add(s);
 			end;
 		end;
@@ -297,14 +337,20 @@ var
 	s : AnsiString;
 begin
 	f := TStringList.Create;
-	if SelectDirectory('Select Folder', devDirs.Exec, Dir) then begin
-		FilesFromWildcard(Dir, '*.*', f, false, false, false);
-		for i := 0 to f.Count-1 do begin
-			s := StringReplace(f[i],devCompiler.CppDir + '\','',[rfReplaceAll]);
-			AltFileList.Items.Add(s);
+	try
+		if SelectDirectory('Select Folder', devDirs.Exec, Dir) then begin
+			FilesFromWildcard(Dir, '*.*', f, false, false, false);
+			for i := 0 to f.Count-1 do begin
+				if devCompiler.CppDir.Count > 0 then
+					s := StringReplace(f[i],devCompiler.CppDir[0] + pd,'',[rfReplaceAll])
+				else
+					s := f[i];
+				AltFileList.Items.Add(s);
+			end;
 		end;
+	finally
+		f.Free;
 	end;
-	f.Free;
 end;
 
 procedure TLangForm.FormShow(Sender: TObject);

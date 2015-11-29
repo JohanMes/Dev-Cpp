@@ -24,7 +24,7 @@ interface
 uses
 {$IFDEF WIN32}
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, ExtCtrls, ComCtrls, StdCtrls, Menus;
+  Dialogs, ExtCtrls, ComCtrls, StdCtrls, Menus, devShortcuts;
 {$ENDIF}
 {$IFDEF LINUX}
   SysUtils, Variants, Classes, QGraphics, QControls, QForms,
@@ -36,21 +36,22 @@ type
     lvShortcuts: TListView;
     btnOk: TButton;
     btnCancel: TButton;
+    btnDefault: TButton;
     procedure lvShortcutsKeyDown(Sender: TObject; var Key: Word;Shift: TShiftState);
     procedure lvShortcutsCustomDrawItem(Sender: TCustomListView;Item: TListItem; State: TCustomDrawState; var DefaultDraw: Boolean);
     procedure lvShortcutsExit(Sender: TObject);
+    procedure btnDefaultClick(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
   private
-    { Private declarations }
-    function GetItem(Index: integer): TMenuItem;
+    fReplaceHint: AnsiString;
+    fButtonText: AnsiString;
     function GetShortCut(Index: integer): TShortCut;
   public
-    { Public declarations }
-    AltColor: TColor;
-    procedure AddShortcut(M: TMenuItem; MenuName:AnsiString);
+    procedure AddShortcut(Item : PShortcutItem);
     procedure Clear;
     function Count: integer;
-    property Items[Index: integer]: TMenuItem read GetItem;
     property ShortCuts[Index: integer]: TShortCut read GetShortCut;
+    procedure LoadText(const WindowCaption,Column1,Column2,OK,Cancel,Default,ReplaceHint,Button : AnsiString);
   end;
 
 var
@@ -63,120 +64,154 @@ uses
 
 {$R *.dfm}
 
-procedure TfrmShortcutsEditor.AddShortcut(M: TMenuItem; MenuName:AnsiString);
+procedure TfrmShortcutsEditor.LoadText(const WindowCaption,Column1,Column2,OK,Cancel,Default,ReplaceHint,Button : AnsiString);
 begin
-  If (M.Action<>nil) and (LeftStr(M.Action.Name,6)='dynact') then
-    Exit;
-  with lvShortcuts.Items.Add do begin
-    Caption := StripHotkey(MenuName+':'+(M.Caption));
-    SubItems.Add(ShortCutToText(M.ShortCut));
-    Data := M;
-  end;
+	Caption := WindowCaption;
+	lvShortcuts.Columns[0].Caption := Column1;
+	lvShortcuts.Columns[1].Caption := Column2;
+	btnOk.Caption := OK;
+	btnCancel.Caption := Cancel;
+	btnDefault.Caption := Default;
+	fReplaceHint := ReplaceHint;
+	fButtonText := Button;
+end;
+
+procedure TfrmShortcutsEditor.AddShortcut(Item : PShortcutItem);
+begin
+	with lvShortcuts.Items.Add do begin
+		Caption := Item^.ListEntry;
+		if Assigned(item^.MenuItem) then
+			SubItems.Add(ShortCutToText(Item^.MenuItem.ShortCut))
+		else if Assigned(item^.Action) then
+			SubItems.Add(ShortCutToText(Item^.Action.ShortCut))
+		else
+			SubItems.Add('');
+		Data := Item;
+	end;
 end;
 
 procedure TfrmShortcutsEditor.Clear;
 begin
-  lvShortcuts.Clear;
+	lvShortcuts.Clear;
 end;
 
 function TfrmShortcutsEditor.Count: integer;
 begin
-  Result := lvShortcuts.Items.Count;
-end;
-
-function TfrmShortcutsEditor.GetItem(Index: integer): TMenuItem;
-begin
-  Result := TMenuItem(lvShortcuts.Items[Index].Data);
+	Result := lvShortcuts.Items.Count;
 end;
 
 function TfrmShortcutsEditor.GetShortCut(Index: integer): TShortCut;
 begin
-  Result := TextToShortCut(lvShortcuts.Items[Index].SubItems[0]);
+	Result := TextToShortCut(lvShortcuts.Items[Index].SubItems[0]);
 end;
 
 procedure TfrmShortcutsEditor.lvShortcutsKeyDown(Sender: TObject;var Key: Word; Shift: TShiftState);
 var
-  I: integer;
+  I, oldindex: integer;
   sct: AnsiString;
 begin
-  if lvShortcuts.Selected = nil then
-    Exit;
-  if (Key = 27) and (Shift = []) then begin // clear shortcut if Escape is pressed
-    lvShortcuts.Selected.SubItems[0] := '';
-    Exit;
-  end;
-  if (Key>27) and (Key<=90) and (Shift=[]) then // if "normal" key, expect a shiftstate
-    Exit;
-  if (Key < 27) then // control key by itself, but accept Tab
-    Exit;
+	// Require a selection
+	if lvShortcuts.Selected = nil then
+		Exit;
 
-  sct:=ShortCutToText(ShortCut(Key, Shift));
-  lvShortcuts.Selected.SubItems[0] := sct;
+	// clear shortcut if ONLY Escape or Del is pressed
+	if (Key in [VK_ESCAPE,VK_DELETE]) and (Shift = []) then begin
+		lvShortcuts.Selected.SubItems[0] := '';
+		Exit;
+	end;
 
-  // we do no more check for other entries by the same name, as we used to,
-  // because we 've prepended the menu name so it should be unique...
+	// Don't accept alt shiftstate (messes up menu interaction)
+	if (Shift = [ssAlt]) then
+		Exit;
 
-  // search other entries using this shortcut, and clear them
-  for I:=0 to lvShortcuts.Items.Count-1 do
-    if lvShortcuts.Items[I]<>lvShortcuts.Selected then
-      if lvShortcuts.Items[I].SubItems[0]=sct then
-        lvShortcuts.Items[I].SubItems[0] := '';
+	// Require a key combination when using 'normal' keys
+	if (Shift = []) and ((Key < VK_F1) or (Key > VK_F24)) then
+		Exit; // ... but allow F keys
 
-  // don't let the keystroke propagate...
-  Key:=0;
-  Shift:=[];
+	// Don't accept shift state keys as main keys
+	if (Key in [VK_SHIFT,VK_CONTROL,VK_MENU]) then // VK_MENU is the alt key
+		Exit;
+
+	sct := ShortCutToText(ShortCut(Key, Shift));
+
+ 	oldindex := -1;
+	for I:=0 to lvShortcuts.Items.Count-1 do
+
+		// Don't scan popups, they can contain duplicate shortcuts (they're picked based on focus)
+		if (lvShortcuts.Items[I] <> lvShortcuts.Selected) and (Pos('Popup',lvShortcuts.Items[I].Caption) = 0) then
+			if lvShortcuts.Items[I].SubItems[0] = sct then begin
+				oldindex := i;
+				break;
+			end;
+
+	// Can be written in a more compact form, but I prefer readability
+	if oldindex <> -1 then begin // already in use
+		if MessageDlg(Format(fReplaceHint,[lvShortcuts.Items[oldindex].Caption]),mtConfirmation,[mbYes,mbNo],0) = mrYes then begin // replace...
+			lvShortcuts.Items[oldindex].SubItems[0] := ''; // remove old
+			lvShortcuts.Selected.SubItems[0] := sct; // set new
+		end;
+	end else
+		lvShortcuts.Selected.SubItems[0] := sct;
+
+	// Set new one
+
+	// don't let the keystroke propagate...
+	Key := 0;
 end;
 
-procedure TfrmShortcutsEditor.lvShortcutsCustomDrawItem(
-  Sender: TCustomListView; Item: TListItem; State: TCustomDrawState;
-  var DefaultDraw: Boolean);
+procedure TfrmShortcutsEditor.lvShortcutsCustomDrawItem(Sender: TCustomListView; Item: TListItem; State: TCustomDrawState;var DefaultDraw: Boolean);
 begin
-  with Sender.Canvas do begin
-    if not (cdsSelected in State) then begin
-      if Item.Index mod 2 = 0 then
-        Brush.Color := clWhite
-      else
-        Brush.Color := AltColor;
-      Pen.Color := clBlack;
-    end;
-  end;
+	with Sender.Canvas do begin
+		if not (cdsSelected in State) then begin
+			if Item.Index mod 2 = 0 then
+				Brush.Color := clWhite
+			else
+				Brush.Color := $E0E0E0;
+		end;
+	end;
 end;
 
-// Don't let a tab keystroke make us lose focus, instead, assign tab to the selected item
 procedure TfrmShortcutsEditor.lvShortcutsExit(Sender: TObject);
 var
-	I: integer;
-	sct: AnsiString;
+	key : word;
 	shift : TShiftState;
 	State : TKeyboardState;
 begin
-	// Handle tabs only
+	// Don't let Tab and Alt combinations escape
+	if (GetKeyState(VK_TAB) < 0) then
+		key := VK_TAB
+	//else if (GetKeyState(VK_MENU) < 0) then
+	//	key := VK_MENU
+	else
+		Exit;
+
+	// Get shift state
 	GetKeyboardState(State);
-	if ((State[vk_Tab] and 128) <> 0) then begin
-		// Control / Alt / Shift on the manual
-		if ((State[vk_Control] and 128) <> 0) then
-			shift := shift + [ssCtrl];
-		if ((State[vk_Menu] and 128) <> 0) then
-			shift := shift + [ssAlt];
-		if ((State[vk_Shift] and 128) <> 0) then
-			shift := shift + [ssShift];
+	if ((State[vk_Control] and 128) <> 0) then
+		shift := shift + [ssCtrl];
+	if ((State[vk_Menu] and 128) <> 0) then
+		shift := shift + [ssAlt];
+	if ((State[vk_Shift] and 128) <> 0) then
+		shift := shift + [ssShift];
 
-		// We know we pressed 9 (TAB), but get ctrl/alt/shift manually
-		sct:=ShortCutToText(ShortCut(9, shift));
-		lvShortcuts.Selected.SubItems[0] := sct;
+	lvShortcutsKeyDown(Self,key,Shift);
 
-		// we do no more check for other entries by the same name, as we used to,
-		// because we 've prepended the menu name so it should be unique...
+	lvShortcuts.SetFocus; // retain focus!
+end;
 
-		// search other entries using this shortcut, and clear them
-		for I:=0 to lvShortcuts.Items.Count-1 do
-			if lvShortcuts.Items[I]<>lvShortcuts.Selected then
-				if lvShortcuts.Items[I].SubItems[0]=sct then
-					lvShortcuts.Items[I].SubItems[0] := '';
+procedure TfrmShortcutsEditor.btnDefaultClick(Sender: TObject);
+var
+	I : integer;
+begin
+	lvShortcuts.Items.BeginUpdate;
+	for I := 0 to lvShortcuts.Items.Count -1  do
+		lvShortcuts.Items[I].SubItems[0] := ShortCutToText(PShortcutItem(lvShortcuts.Items[I].Data)^.Default);
+	lvShortcuts.Items.EndUpdate;
+end;
 
-		// No focus changes bitte
-		Abort;
-	end;
+procedure TfrmShortcutsEditor.FormCreate(Sender: TObject);
+begin
+	lvShortcuts.DoubleBuffered := true; // performance hit, but it's worth it
 end;
 
 end.

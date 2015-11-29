@@ -1,6 +1,6 @@
 object MainForm: TMainForm
-  Left = 744
-  Top = 331
+  Left = 479
+  Top = 343
   HorzScrollBar.Visible = False
   VertScrollBar.Visible = False
   AutoScroll = False
@@ -17,8 +17,6 @@ object MainForm: TMainForm
   OldCreateOrder = False
   Position = poDefault
   ShowHint = True
-  WindowState = wsMaximized
-  OnActivate = FormActivate
   OnClose = FormClose
   OnContextPopup = FormContextPopup
   OnCreate = FormCreate
@@ -54,7 +52,7 @@ object MainForm: TMainForm
     Images = dmMain.MenuImages_NewLook
     MultiLine = True
     PopupMenu = MessagePopup
-    TabOrder = 0
+    TabOrder = 3
     OnChange = MessageControlChange
     object CompSheet: TTabSheet
       Caption = 'Compiler'
@@ -96,6 +94,7 @@ object MainForm: TMainForm
         OnAdvancedCustomDraw = CompilerOutputAdvancedCustomDraw
         OnAdvancedCustomDrawItem = CompilerOutputAdvancedCustomDrawItem
         OnDblClick = CompilerOutputDblClick
+        OnDeletion = CompilerOutputDeletion
         OnKeyDown = CompilerOutputKeyDown
       end
     end
@@ -139,6 +138,7 @@ object MainForm: TMainForm
         OnAdvancedCustomDraw = CompilerOutputAdvancedCustomDraw
         OnAdvancedCustomDrawItem = CompilerOutputAdvancedCustomDrawItem
         OnDblClick = CompilerOutputDblClick
+        OnDeletion = ResourceOutputDeletion
         OnKeyDown = CompilerOutputKeyDown
       end
     end
@@ -246,15 +246,15 @@ object MainForm: TMainForm
       Caption = 'Debugging'
       ImageIndex = 32
       object DebugSendPanel: TPanel
-        Left = 471
+        Left = 589
         Top = 0
-        Width = 417
+        Width = 299
         Height = 155
         Align = alClient
         BevelOuter = bvNone
         TabOrder = 0
         DesignSize = (
-          417
+          299
           155)
         object lblSendCommandGdb: TLabel
           Left = 4
@@ -266,7 +266,7 @@ object MainForm: TMainForm
         object edGdbCommand: TComboBox
           Left = 136
           Top = 3
-          Width = 277
+          Width = 159
           Height = 21
           Anchors = [akLeft, akTop, akRight]
           ItemHeight = 13
@@ -276,8 +276,8 @@ object MainForm: TMainForm
         object DebugOutput: TMemo
           Left = 4
           Top = 30
-          Width = 410
-          Height = 107
+          Width = 292
+          Height = 111
           Align = alCustom
           Anchors = [akLeft, akTop, akRight, akBottom]
           ReadOnly = True
@@ -288,7 +288,7 @@ object MainForm: TMainForm
       object DebugStartPanel: TPanel
         Left = 0
         Top = 0
-        Width = 471
+        Width = 589
         Height = 155
         Align = alLeft
         BevelOuter = bvNone
@@ -296,7 +296,7 @@ object MainForm: TMainForm
         ParentBiDiMode = False
         TabOrder = 1
         DesignSize = (
-          471
+          589
           155)
         object DDebugBtn: TSpeedButton
           Left = 4
@@ -384,7 +384,7 @@ object MainForm: TMainForm
         end
         object lblEvaluate: TLabel
           Left = 4
-          Top = 104
+          Top = 76
           Width = 45
           Height = 13
           Caption = 'Evaluate:'
@@ -398,8 +398,8 @@ object MainForm: TMainForm
           TabOrder = 0
         end
         object StepOverBtn: TButton
-          Left = 236
-          Top = 68
+          Left = 352
+          Top = 8
           Width = 112
           Height = 25
           Action = actStepOver
@@ -419,76 +419,60 @@ object MainForm: TMainForm
           Width = 112
           Height = 25
           Action = actAddWatch
-          TabOrder = 5
-        end
-        object RemoveWatchBtn: TButton
-          Left = 120
-          Top = 68
-          Width = 112
-          Height = 25
-          Action = actRemoveWatch
-          TabOrder = 3
-        end
-        object ViewCPUBtn: TButton
-          Left = 4
-          Top = 68
-          Width = 112
-          Height = 25
-          Action = actViewCPU
           TabOrder = 4
         end
-        object ModifyWatchBtn: TButton
+        object ViewCPUBtn: TButton
           Left = 120
           Top = 38
           Width = 112
           Height = 25
-          Action = actModifyWatch
-          TabOrder = 6
+          Action = actViewCPU
+          TabOrder = 3
         end
         object EvaluateInput: TComboBox
           Left = 64
-          Top = 100
-          Width = 400
+          Top = 72
+          Width = 518
           Height = 21
           Anchors = [akLeft, akTop, akRight]
           ItemHeight = 13
-          TabOrder = 7
+          TabOrder = 5
           OnKeyPress = EvaluateInputKeyPress
         end
         object EvalOutput: TMemo
           Left = 4
-          Top = 127
-          Width = 460
-          Height = 8
+          Top = 100
+          Width = 578
+          Height = 40
           Align = alCustom
           Anchors = [akLeft, akTop, akRight, akBottom]
           ReadOnly = True
           ScrollBars = ssBoth
-          TabOrder = 8
+          TabOrder = 6
         end
         object SkipFuncBtn: TButton
-          Left = 352
-          Top = 68
-          Width = 112
-          Height = 25
-          Action = actSkipFunction
-          TabOrder = 9
-        end
-        object IntoInsBtn: TButton
           Left = 352
           Top = 38
           Width = 112
           Height = 25
+          Action = actSkipFunction
+          TabOrder = 7
+        end
+        object IntoInsBtn: TButton
+          Left = 468
+          Top = 38
+          Width = 112
+          Height = 25
           Action = actStepIns
-          TabOrder = 10
+          TabOrder = 8
         end
         object NextInsBtn: TButton
-          Left = 352
+          Left = 468
           Top = 8
           Width = 112
           Height = 25
           Action = actNextIns
-          TabOrder = 11
+          TabOrder = 9
         end
       end
     end
@@ -531,6 +515,7 @@ object MainForm: TMainForm
         OnAdvancedCustomDraw = FindOutputAdvancedCustomDraw
         OnAdvancedCustomDrawSubItem = FindOutputAdvancedCustomDrawSubItem
         OnDblClick = FindOutputDblClick
+        OnDeletion = FindOutputDeletion
         OnKeyDown = FindOutputKeyDown
       end
     end
@@ -551,7 +536,8 @@ object MainForm: TMainForm
     BevelOuter = bvNone
     BevelKind = bkNone
     RowSize = 28
-    TabOrder = 1
+    TabOrder = 0
+    OnClick = ToolbarClick
     OnContextPopup = ToolbarContextPopup
     object tbMain: TToolBar
       Left = 11
@@ -560,8 +546,6 @@ object MainForm: TMainForm
       Height = 22
       AutoSize = True
       Caption = 'Main'
-      Constraints.MaxWidth = 149
-      Constraints.MinWidth = 149
       DragKind = dkDock
       EdgeBorders = []
       EdgeInner = esNone
@@ -616,12 +600,10 @@ object MainForm: TMainForm
     object tbCompile: TToolBar
       Left = 441
       Top = 2
-      Width = 178
+      Width = 209
       Height = 22
       AutoSize = True
       Caption = 'Compile and Run'
-      Constraints.MaxWidth = 178
-      Constraints.MinWidth = 178
       DragKind = dkDock
       EdgeBorders = []
       EdgeInner = esNone
@@ -673,13 +655,26 @@ object MainForm: TMainForm
         ImageIndex = 49
         Style = tbsSeparator
       end
-      object ProfileBtn: TToolButton
+      object ToolButton4: TToolButton
         Left = 131
+        Top = 0
+        Action = actStopExecute
+      end
+      object ToolButton5: TToolButton
+        Left = 154
+        Top = 0
+        Width = 8
+        Caption = 'ToolButton5'
+        ImageIndex = 48
+        Style = tbsSeparator
+      end
+      object ProfileBtn: TToolButton
+        Left = 162
         Top = 0
         Action = actProfileProject
       end
       object ProfilingInforBtn: TToolButton
-        Left = 154
+        Left = 185
         Top = 0
         Action = actDeleteProfileProject
       end
@@ -691,8 +686,6 @@ object MainForm: TMainForm
       Height = 22
       AutoSize = True
       Caption = 'Project'
-      Constraints.MaxWidth = 78
-      Constraints.MinWidth = 78
       DragKind = dkDock
       EdgeBorders = []
       EdgeInner = esNone
@@ -734,8 +727,6 @@ object MainForm: TMainForm
       Height = 22
       AutoSize = True
       Caption = 'Edit'
-      Constraints.MaxWidth = 47
-      Constraints.MinWidth = 47
       DragKind = dkDock
       EdgeBorders = []
       EdgeInner = esNone
@@ -764,8 +755,6 @@ object MainForm: TMainForm
       Height = 22
       AutoSize = True
       Caption = 'Search'
-      Constraints.MaxWidth = 104
-      Constraints.MinWidth = 104
       DragKind = dkDock
       EdgeBorders = []
       EdgeInner = esNone
@@ -806,14 +795,12 @@ object MainForm: TMainForm
       end
     end
     object tbSpecials: TToolBar
-      Left = 632
+      Left = 663
       Top = 2
       Width = 71
       Height = 22
       AutoSize = True
       Caption = 'Specials'
-      Constraints.MaxWidth = 71
-      Constraints.MinWidth = 71
       DragKind = dkDock
       EdgeBorders = []
       EdgeInner = esNone
@@ -848,8 +835,6 @@ object MainForm: TMainForm
       Height = 22
       AutoSize = True
       Caption = 'tbClasses'
-      Constraints.MaxWidth = 700
-      Constraints.MinWidth = 700
       EdgeBorders = []
       EdgeInner = esNone
       EdgeOuter = esNone
@@ -930,7 +915,7 @@ object MainForm: TMainForm
     HotTrack = True
     MultiLine = True
     PopupMenu = EditorPopupMenu
-    TabOrder = 3
+    TabOrder = 2
     Visible = False
     OnChange = PageControlChange
     OnDragDrop = PageControlDragDrop
@@ -948,7 +933,7 @@ object MainForm: TMainForm
     Caption = 
       'Dev-C++ Fullscreen. Press F10 to toggle this bar, F11 to toggle ' +
       'Toolbars or F12 to toggle Fullscreen.'
-    TabOrder = 4
+    TabOrder = 6
     Visible = False
     DesignSize = (
       896
@@ -989,10 +974,10 @@ object MainForm: TMainForm
     Top = 70
     Width = 193
     Height = 340
-    ActivePage = ProjectSheet
+    ActivePage = DebugLeftSheet
     Align = alLeft
     Images = dmMain.ProjectImage_NewLook
-    TabOrder = 6
+    TabOrder = 1
     object ProjectSheet: TTabSheet
       Caption = 'Project'
       ImageIndex = -1
@@ -1095,7 +1080,8 @@ object MainForm: TMainForm
     Left = 206
     Top = 79
     object FileMenu: TMenuItem
-      Action = actFileMenu
+      Caption = '&File'
+      OnClick = actFileMenuExecute
       object mnuNew: TMenuItem
         Caption = 'New'
         object NewSourceFileItem: TMenuItem
@@ -1179,19 +1165,19 @@ object MainForm: TMainForm
         Caption = '&Export'
         ImageIndex = 12
         object HTMLItem: TMenuItem
-          Action = actXHTML
+          Action = actExportHTML
         end
         object RTFItem: TMenuItem
-          Action = actXRTF
+          Action = actExportRTF
         end
         object TEXItem: TMenuItem
-          Action = actXTex
+          Action = actExportTex
         end
         object N19: TMenuItem
           Caption = '-'
         end
         object ProjecttoHTMLItem: TMenuItem
-          Action = actXProject
+          Action = actExportProject
         end
       end
       object N43: TMenuItem
@@ -1229,7 +1215,8 @@ object MainForm: TMainForm
       end
     end
     object EditMenu: TMenuItem
-      Action = actEditMenu
+      Caption = '&Edit'
+      OnClick = actFileMenuExecute
       object UndoItem: TMenuItem
         Tag = 6
         Action = actUndo
@@ -1316,7 +1303,8 @@ object MainForm: TMainForm
       end
     end
     object SearchMenu: TMenuItem
-      Action = actSearchMenu
+      Caption = '&Search'
+      OnClick = actFileMenuExecute
       object FindItem: TMenuItem
         Tag = 7
         Action = actFind
@@ -1336,6 +1324,9 @@ object MainForm: TMainForm
       object actSearchAgain1: TMenuItem
         Action = actSearchAgain
       end
+      object SearchAgainBackwards1: TMenuItem
+        Action = actRevSearchAgain
+      end
       object N75: TMenuItem
         Caption = '-'
       end
@@ -1354,7 +1345,8 @@ object MainForm: TMainForm
       end
     end
     object ViewMenu: TMenuItem
-      Action = actViewMenu
+      Caption = '&View'
+      OnClick = actFileMenuExecute
       object ProjectManagerItem: TMenuItem
         Action = actProjectManager
         AutoCheck = True
@@ -1464,7 +1456,8 @@ object MainForm: TMainForm
       end
     end
     object ProjectMenu: TMenuItem
-      Action = actProjectMenu
+      Caption = '&Project'
+      OnClick = actFileMenuExecute
       object NewunitinprojectItem: TMenuItem
         Tag = 2
         Action = actProjectNew
@@ -1483,7 +1476,8 @@ object MainForm: TMainForm
       end
     end
     object ExecuteMenu: TMenuItem
-      Action = actExecuteMenu
+      Caption = 'E&xecute'
+      OnClick = actFileMenuExecute
       object CompileItem: TMenuItem
         Tag = 8
         Action = actCompile
@@ -1495,17 +1489,20 @@ object MainForm: TMainForm
         Tag = 9
         Action = actRun
       end
-      object mnuExecParameters: TMenuItem
-        Action = actExecParams
-      end
-      object N10: TMenuItem
-        Caption = '-'
-      end
       object CompileandRunItem: TMenuItem
         Action = actCompRun
       end
       object RebuildallItem: TMenuItem
         Action = actRebuild
+      end
+      object N18: TMenuItem
+        Caption = '-'
+      end
+      object mnuExecParameters: TMenuItem
+        Action = actExecParams
+      end
+      object N10: TMenuItem
+        Caption = '-'
       end
       object SyntaxCheckItem: TMenuItem
         Action = actSyntaxCheck
@@ -1528,70 +1525,22 @@ object MainForm: TMainForm
       object N25: TMenuItem
         Caption = '-'
       end
-      object Programreset1: TMenuItem
-        Action = actProgramReset
-      end
-    end
-    object DebugMenu: TMenuItem
-      Action = actDebugMenu
-      object DebugItem: TMenuItem
-        Tag = 10
-        Action = actDebug
-      end
-      object AttachtoprocessItem: TMenuItem
-        Action = actAttachProcess
-      end
-      object StopExecution1: TMenuItem
-        Action = actStopExecute
-      end
-      object N18: TMenuItem
-        Caption = '-'
-      end
-      object DbgNextItem: TMenuItem
-        Action = actNextLine
-      end
-      object DbgSingleStep: TMenuItem
-        Action = actStepLine
-      end
-      object N68: TMenuItem
-        Caption = '-'
-      end
-      object actNextIns1: TMenuItem
-        Action = actNextIns
-      end
-      object Intoinstruction1: TMenuItem
-        Action = actStepIns
-      end
-      object N70: TMenuItem
-        Caption = '-'
-      end
-      object StepoverItem: TMenuItem
-        Action = actStepOver
-      end
-      object Skipfunction1: TMenuItem
-        Action = actSkipFunction
-      end
-      object N69: TMenuItem
-        Caption = '-'
+      object oggleBreakpoint1: TMenuItem
+        Action = actBreakPoint
       end
       object Abortcompilation1: TMenuItem
-        Action = actAddWatch
+        Action = actDebug
       end
-      object Modifywatch1: TMenuItem
-        Action = actModifyWatch
-      end
-      object Removewatch1: TMenuItem
-        Action = actRemoveWatch
-      end
-      object N21: TMenuItem
+      object N12: TMenuItem
         Caption = '-'
       end
-      object ViewCPUItem: TMenuItem
-        Action = actViewCPU
+      object Programreset1: TMenuItem
+        Action = actStopExecute
       end
     end
     object ToolsMenu: TMenuItem
-      Action = actToolsMenu
+      Caption = '&Tools'
+      OnClick = actToolsMenuExecute
       object CompileroptionsItem: TMenuItem
         Tag = 11
         Action = actCompOptions
@@ -1617,7 +1566,6 @@ object MainForm: TMainForm
       end
       object CheckforupdatesItem: TMenuItem
         Action = actUpdateCheck
-        Caption = '&Check for Packages'
       end
       object PackageManagerItem: TMenuItem
         Bitmap.Data = {
@@ -1737,7 +1685,8 @@ object MainForm: TMainForm
       end
     end
     object WindowMenu: TMenuItem
-      Action = actWindowMenu
+      Caption = '&Window'
+      OnClick = actWindowMenuExecute
       object CloseAllItem: TMenuItem
         Action = actCloseAll
       end
@@ -1766,8 +1715,9 @@ object MainForm: TMainForm
       end
     end
     object HelpMenu: TMenuItem
-      Action = actHelpMenu
+      Caption = '&Help'
       GroupIndex = 9
+      OnClick = actFileMenuExecute
       object HelpMenuItem: TMenuItem
         Caption = '&Help on Dev-C++'
         ImageIndex = 46
@@ -2166,32 +2116,32 @@ object MainForm: TMainForm
       OnExecute = actCloseProjectExecute
       OnUpdate = actUpdateProject
     end
-    object actXHTML: TAction
+    object actExportHTML: TAction
       Tag = 1
       Category = 'File'
       Caption = 'to &HTML'
-      OnExecute = actXHTMLExecute
+      OnExecute = actExportHTMLExecute
       OnUpdate = actUpdatePageCount
     end
-    object actXRTF: TAction
+    object actExportRTF: TAction
       Tag = 2
       Category = 'File'
       Caption = 'to &RTF'
-      OnExecute = actXRTFExecute
+      OnExecute = actExportRTFExecute
       OnUpdate = actUpdatePageCount
     end
-    object actXTex: TAction
+    object actExportTex: TAction
       Tag = 3
       Category = 'File'
       Caption = 'to &Tex'
-      OnExecute = actXTexExecute
+      OnExecute = actExportTexExecute
       OnUpdate = actUpdatePageCount
     end
-    object actXProject: TAction
+    object actExportProject: TAction
       Tag = 3
       Category = 'File'
       Caption = '&Project to HTML'
-      OnExecute = actXProjectExecute
+      OnExecute = actExportProjectExecute
       OnUpdate = actUpdateProject
     end
     object actPrint: TAction
@@ -2412,7 +2362,7 @@ object MainForm: TMainForm
     object actCompRun: TAction
       Tag = 3
       Category = 'Execute'
-      Caption = 'Compile &and Run'
+      Caption = 'Compile && Run'
       ImageIndex = 33
       ShortCut = 122
       OnExecute = actCompRunExecute
@@ -2498,7 +2448,7 @@ object MainForm: TMainForm
     end
     object actUpdateCheck: TAction
       Category = 'Help'
-      Caption = '&Check for Updates/Packages'
+      Caption = '&Check for Packages'
       ImageIndex = 41
       OnExecute = actUpdateCheckExecute
     end
@@ -2590,49 +2540,8 @@ object MainForm: TMainForm
       Caption = 'Stop execution'
       ImageIndex = 11
       ShortCut = 117
-      OnExecute = actForceStopExecuteExecute
-      OnUpdate = actUpdateDebuggerRunning
-    end
-    object actFileMenu: TAction
-      Caption = '&File'
-      OnExecute = actFileMenuExecute
-    end
-    object actEditMenu: TAction
-      Caption = '&Edit'
-      OnExecute = actFileMenuExecute
-      OnUpdate = actEditMenuUpdate
-    end
-    object actSearchMenu: TAction
-      Caption = '&Search'
-      OnExecute = actFileMenuExecute
-    end
-    object actViewMenu: TAction
-      Caption = '&View'
-      OnExecute = actFileMenuExecute
-    end
-    object actProjectMenu: TAction
-      Caption = '&Project'
-      OnExecute = actFileMenuExecute
-    end
-    object actExecuteMenu: TAction
-      Caption = 'E&xecute'
-      OnExecute = actFileMenuExecute
-    end
-    object actDebugMenu: TAction
-      Caption = '&Debug'
-      OnExecute = actFileMenuExecute
-    end
-    object actToolsMenu: TAction
-      Caption = '&Tools'
-      OnExecute = actToolsMenuExecute
-    end
-    object actWindowMenu: TAction
-      Caption = '&Window'
-      OnExecute = actWindowMenuExecute
-    end
-    object actHelpMenu: TAction
-      Caption = '&Help'
-      OnExecute = actFileMenuExecute
+      OnExecute = actStopExecuteExecute
+      OnUpdate = actStopExecuteUpdate
     end
     object actSwapHeaderSource: TAction
       Category = 'Edit'
@@ -2653,13 +2562,6 @@ object MainForm: TMainForm
       ImageIndex = 31
       OnExecute = actConfigdevShortcutsExecute
     end
-    object actProgramReset: TAction
-      Category = 'Execute'
-      Caption = 'Program reset'
-      ShortCut = 16452
-      OnExecute = actProgramResetExecute
-      OnUpdate = actProgramResetUpdate
-    end
     object actComment: TAction
       Category = 'Edit'
       Caption = 'Comment'
@@ -2679,14 +2581,14 @@ object MainForm: TMainForm
       Caption = 'Indent'
       ShortCut = 9
       OnExecute = actIndentExecute
-      OnUpdate = actUpdateEmptyEditor
+      OnUpdate = actUpdateIndent
     end
     object actUnindent: TAction
       Category = 'Edit'
       Caption = 'Unindent'
       ShortCut = 8201
       OnExecute = actUnindentExecute
-      OnUpdate = actUpdateEmptyEditor
+      OnUpdate = actUpdateIndent
     end
     object actGotoFunction: TAction
       Category = 'Search'
@@ -2949,7 +2851,7 @@ object MainForm: TMainForm
     end
     object actHideFSBar: TAction
       Category = 'Window'
-      Caption = 'actHideFSBar'
+      Caption = 'Hide fullscreen bar'
       ShortCut = 32889
       OnExecute = actHideFSBarExecute
     end
@@ -3045,6 +2947,20 @@ object MainForm: TMainForm
       OnExecute = actSearchAgainExecute
       OnUpdate = actUpdateEmptyEditorFindForm
     end
+    object actRevSearchAgain: TAction
+      Category = 'Search'
+      Caption = 'Search Again Backwards'
+      ShortCut = 8306
+      OnExecute = actRevSearchAgainExecute
+      OnUpdate = actUpdateEmptyEditorFindForm
+    end
+    object actDeleteLine: TAction
+      Category = 'Edit'
+      Caption = 'Delete Line'
+      ShortCut = 16452
+      OnExecute = actDeleteLineExecute
+      OnUpdate = actUpdateEmptyEditor
+    end
   end
   object MessagePopup: TPopupMenu
     Left = 203
@@ -3117,7 +3033,6 @@ object MainForm: TMainForm
   end
   object devShortcuts: TdevShortcuts
     Filename = 'devShortcuts.cfg'
-    AlternateColor = 14737632
     Left = 628
     Top = 280
   end

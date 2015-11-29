@@ -95,8 +95,8 @@ type
     tbCompletionDelay: TTrackBar;
     chkEnableCompletion: TCheckBox;
     chkCCCache: TCheckBox;
-    btnCCCnew: TSpeedButton;
-    btnCCCdelete: TSpeedButton;
+    btnCCCnew: TButton;
+    btnCCCdelete: TButton;
     CppParser: TCppParser;
     lbCCC: TListBox;
     pbCCCache: TProgressBar;
@@ -117,7 +117,7 @@ type
     cbFindText: TCheckBox;
     cbEHomeKey: TCheckBox;
     cbDropFiles: TCheckBox;
-    cbDoubleLine: TCheckBox;
+    cbAddIndent: TCheckBox;
     cbAutoIndent: TCheckBox;
     cbTrimTrailingSpaces: TCheckBox;
     ScrollHint: TLabel;
@@ -127,7 +127,7 @@ type
     SaveInterval: TLabel;
     MinutesDelay: TTrackBar;
     FileOptions: TRadioGroup;
-    HighCurLineBox: TGroupBox;
+    grpHighCurLine: TGroupBox;
     tabSymbols: TTabSheet;
     cbBraces: TCheckBox;
     cbParenth: TCheckBox;
@@ -139,7 +139,7 @@ type
     cbSymbolComplete: TCheckBox;
     edSyntaxExt: TEdit;
     cbSyntaxHighlight: TCheckBox;
-    GroupBox1: TGroupBox;
+    grpTabs: TGroupBox;
     seTabSize: TSpinEdit;
     lblTabSize: TLabel;
     cbUseTabs: TCheckBox;
@@ -219,7 +219,6 @@ type
     procedure LoadCodeIns;
     procedure SaveCodeIns;
     procedure ClearCodeIns;
-    procedure LoadSampleText;
     procedure GetOptions;
     procedure UpdateCIButtons;
     procedure LoadSyntax(const Value: AnsiString);
@@ -266,9 +265,6 @@ begin
 
 	// Font dropdown filling
 	LoadFonts;
-
-	// Color example
-	LoadSampleText;
 
 	// Load color themes
 	FillSyntaxSets;
@@ -389,7 +385,7 @@ begin
 
 // General Tab
   grpEditorOpts.Caption:=        ' '+Lang[ID_EOPT_EDOPTIONS]+' ';
-  cbAutoIndent.Caption:=         Lang[ID_EOPT_AUTOINDENT];
+  cbAutoIndent.Caption:=         Lang[ID_EOPT_AUTOINDENT2];
   cbInsertMode.Caption:=         Lang[ID_EOPT_INSERTMODE];
   cbUseTabs.Caption:=            Lang[ID_EOPT_TAB2SPC];
   cbSmartTabs.Caption:=          Lang[ID_EOPT_SMARTTABS];
@@ -400,7 +396,7 @@ begin
   cbEHomeKey.Caption:=           Lang[ID_EOPT_EHOMEKEY];
   cbPastEOF.Caption:=            Lang[ID_EOPT_PASTEOF];
   cbPastEOL.Caption:=            Lang[ID_EOPT_PASTEOL];
-  cbDoubleLine.Caption:=         Lang[ID_EOPT_DBLCLKLINE];
+  cbAddIndent.Caption:=          Lang[ID_EOPT_ADDINDENT];
   cbFindText.Caption:=           Lang[ID_EOPT_FINDTEXT];
   cbSmartScroll.Caption:=        Lang[ID_EOPT_SMARTSCROLL];
   cbHalfPage.Caption:=           Lang[ID_EOPT_HALFPAGE];
@@ -415,7 +411,7 @@ begin
   cbMarginVis.Caption:=          Lang[ID_EOPT_GENERICENABLED];
   lblMarginWidth.Caption:=       Lang[ID_EOPT_WIDTH];
   lblMarginColor.Caption:=       Lang[ID_EOPT_COLOR];
-  HighCurLineBox.Caption:=       Lang[ID_EOPT_HIGHCURLINE];
+  grpHighCurLine.Caption:=       Lang[ID_EOPT_HIGHCURLINE];
   cbHighlightColor.Caption:=     Lang[ID_EOPT_COLOR];
 
   grpCaret.Caption:=             ' '+Lang[ID_EOPT_CARET]+' ';
@@ -512,31 +508,6 @@ begin
 	NameOptionsClick(nil);
 end;
 
-procedure TEditorOptForm.LoadSampleText;
-begin
-	CppEdit.Lines.BeginUpdate;
-	with cppEdit.Lines do begin
-		Add('#include <iostream>');
-		Add('#include <conio.h>');
-		Add('');
-		Add('int main(int argc, char **argv)');
-		Add('{');
-		Add('	int numbers[20];');
-		Add('	float average, total; //breakpoint');
-		Add('	for (int i = 0; i <= 19; i++)');
-		Add('	{ // active breakpoint');
-		Add('		numbers[i] = i;');
-		Add('		Total += i; // error line');
-		Add('	}');
-		Add('	average = total / 20;');
-		Add('	cout << numbers[0] << "\n" << numbers[19] << "\n";');
-		Add('	cout << "total: " << total << "\nAverage: " << average;');
-		Add('	getch();');
-		Add('}');
-	end;
-	CppEdit.Lines.EndUpdate;
-end;
-
 procedure TEditorOptForm.GetOptions;
 var
 	aName: AnsiString;
@@ -559,6 +530,7 @@ begin
      cbFirstZero.Checked:=           FirstLineZero;
 
      cbAutoIndent.Checked:=          AutoIndent;
+     cbAddIndent.Checked:=           AddIndent;
      cbInsertMode.Checked:=          InsertMode;
      cbUseTabs.Checked:=             UseTabs;
      cbSmartTabs.Checked:=           SmartTabs;
@@ -566,7 +538,6 @@ begin
      cbEHomeKey.Checked:=            EHomeKey;
      cbPastEOF.Checked:=             PastEOF;
      cbPastEOL.Checked:=             PastEOL;
-     cbDoubleLine.Checked:=          DblClkLine;
      cbFindText.Checked:=            FindText;
      cbSmartScroll.Checked:=         Scrollbars;
      cbHalfPage.Checked:=            HalfPageScroll;
@@ -710,10 +681,10 @@ procedure TEditorOptForm.btnOkClick(Sender: TObject);
 var
  s, aName: AnsiString;
  a, idx: integer;
- e : TEditor;
 begin
 	with devEditor do begin
 		AutoIndent:=          cbAutoIndent.Checked;
+		AddIndent:=           cbAddIndent.Checked;
 		InsertMode:=          cbInsertMode.Checked;
 		UseTabs:=             cbUseTabs.Checked;
 		SmartTabs:=           cbSmartTabs.Checked;
@@ -721,7 +692,6 @@ begin
 		EHomeKey:=            cbEHomeKey.Checked;
 		PastEOF:=             cbPastEOF.Checked;
 		PastEOL:=             cbPastEOL.Checked;
-		DblClkLine:=          cbDoubleLine.Checked;
 		FindText:=            cbFindText.Checked;
 		Scrollbars:=          cbSmartScroll.Checked;
 		HalfPageScroll:=      cbHalfPage.Checked;
@@ -770,6 +740,12 @@ begin
 		CompleteSymbols:=     cbSymbolComplete.Checked;
 
 		DefaultCode:=         cbDefaultCode.Checked;
+
+		// Autosave
+		EnableAutoSave:=      cbAutoSave.Checked;
+		Interval:=            MinutesDelay.Position;
+		AutoSaveFilter:=      FileOptions.ItemIndex;
+		AutoSaveMode:=        NameOptions.ItemIndex;
 
 		// load in attributes
 		for idx:= 0 to pred(cpp.AttrCount) do begin
@@ -838,18 +814,14 @@ begin
 
 	SaveCodeIns;
 
-	devCodeCompletion.Enabled:=chkEnableCompletion.Checked;
-	devCodeCompletion.Delay:=tbCompletionDelay.Position;
-	devCodeCompletion.BackColor:=cpCompletionBackground.Selected;
-	devCodeCompletion.UseCacheFiles:=chkCCCache.Checked;
-	devCodeCompletion.ParseLocalHeaders:=chkCBParseLocalH.Checked;
-	devCodeCompletion.ParseGlobalHeaders:=chkCBParseGlobalH.Checked;
-
-	// Autosave
-	devEditor.EnableAutoSave := cbAutoSave.Checked;
-	devEditor.Interval := MinutesDelay.Position;
-	devEditor.AutoSaveFilter := FileOptions.ItemIndex;
-	devEditor.AutoSaveMode := NameOptions.ItemIndex;
+	with devCodeCompletion do begin
+		Enabled:=chkEnableCompletion.Checked;
+		Delay:=tbCompletionDelay.Position;
+		BackColor:=cpCompletionBackground.Selected;
+		UseCacheFiles:=chkCCCache.Checked;
+		ParseLocalHeaders:=chkCBParseLocalH.Checked;
+		ParseGlobalHeaders:=chkCBParseGlobalH.Checked;
+	end;
 
 	// Properly configure the timer object
 	if not devEditor.EnableAutoSave then begin
@@ -872,20 +844,6 @@ begin
 
 	SaveOptions;
 	dmMain.LoadDataMod;
-
-	e := MainForm.GetEditor;
-	if Assigned(e) then begin
-
-		// Unpaint matching symbols
-		if not devEditor.Match then
-			e.PaintMatchingBrackets(ttBefore);
-
-		// Repaint highlighted line
-		if cbHighCurrLine.Checked then
-			e.Text.ActiveLineColor := cpHighColor.Selected
-		else
-			e.Text.ActiveLineColor := clNone;
-	end;
 end;
 
 procedure TEditorOptForm.btnHelpClick(Sender: TObject);
@@ -1300,7 +1258,7 @@ begin
 	dmMain.CodeInserts.Clear;
 	for I := lvCodeIns.FixedRows to lvCodeIns.RowCount - 1 do begin
 		if lvCodeIns.Cells[0,I] <> '' then begin
-			new(Item);
+			Item := new(PCodeIns);
 
 			// Get snippet from attached object
 			Item.Caption := lvCodeIns.Cells[0,I];
@@ -1440,58 +1398,16 @@ end;
 
 procedure TEditorOptForm.btnCCCnewClick(Sender: TObject);
 var
-  I, I1: integer;
-  Hits: integer;
-  MaxHits, MaxIndex: integer;
-  sl: TStrings;
+	I: integer;
 begin
-  // the following piece of code is a quick'n'dirty way to find the base
-  // compiler's include dir (if we 're lucky).
-  // we search through devDirs.C and try to locate the base dir that is
-  // most common between the others(!).
-  // if no most-common dir is found, we select the first in list.
-  // for a default installation, it should work.
-  //
-  // will be replaced by a dialog ( when it's ready ;) to let the user
-  // select, so that he gets the blame if the thing does not work ;)))
-  //
-  // PS: is there a better way to do it???
-  sl:=TStringList.Create;
-  try
-    sl.Delimiter:=';';
-    sl.DelimitedText:=devCompiler.CppDir;
-    if sl.Count>1 then begin
-      MaxHits:=0;
-      MaxIndex:=0;
-      for I1:=0 to sl.Count-1 do begin
-        Hits:=0;
-        for I:=0 to sl.Count-1 do
-          if StartsText(sl[I1], sl[I]) then
-            Inc(Hits);
-        if Hits>MaxHits then begin
-          MaxHits:=Hits;
-          MaxIndex:=I1;
-        end;
-      end;
-      CppParser.ProjectDir:=IncludeTrailingPathDelimiter(sl[MaxIndex]);
-    end
-    else
-      CppParser.ProjectDir:=IncludeTrailingPathDelimiter(devCompiler.CppDir);
-  finally
-    sl.Free;
-  end;
-
 	with TOpenDialog.Create(Self) do try
 
 		Filter := BuildFilter([FLT_HEADS]);
 		Options := Options + [ofAllowMultiSelect];
 
-		// Start in the include folder, if its set
-		sl := TStringList.Create;
-		StrToList(devCompiler.CppDir,sl,';');
-		if sl.count > 0 then
-			InitialDir := sl[0];
-		sl.Free;
+		// Start in the include folder, if it's set
+		if devCompiler.CppDir.Count > 0 then
+			InitialDir := devCompiler.CppDir[0];
 
 		if Execute then begin
 			Screen.Cursor:=crHourglass;

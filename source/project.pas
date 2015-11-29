@@ -24,7 +24,7 @@ interface
 uses 
 {$IFDEF WIN32}
   IniFiles, SysUtils, Dialogs, ComCtrls, Editor, Contnrs, SynExportHTML,
-  Classes, Controls, version, prjtypes, Templates, Forms,
+  Classes, Controls, version, Forms, Templates, prjtypes,
   Windows;
 {$ENDIF}
 {$IFDEF LINUX}
@@ -49,71 +49,63 @@ type
     function Indexof(const FileName: AnsiString): integer; overload;
     function Indexof(Editor: TEditor): integer; overload;
 
-    property Items[index: integer]: Tprojunit read GetItem; default;
+    property Items[index: integer]: TProjUnit read GetItem; default;
     property Count: integer read GetCount;
   end;
 
- TProjUnit = class
+  TProjUnit = class
   private
-   fParent   : TProject;
-   fEditor   : TEditor;
-   fFileName : AnsiString;
-   fNew      : boolean;
-   fNode     : TTreeNode;
-   fFolder   : AnsiString;
-   fCompile  : boolean;
-   fCompileCpp : boolean;
-   fOverrideBuildCmd: boolean;
-   fBuildCmd : AnsiString;
-   fLink  : boolean;
-   fPriority: integer;
-   function GetDirty: boolean;
-   procedure SetDirty(value: boolean);
-   function Save : boolean;
+    fParent : TProject;
+    fEditor : TEditor;
+    fFileName : AnsiString;
+    fNew : boolean;
+    fNode : TTreeNode;
+    fFolder : AnsiString;
+    fCompile : boolean;
+    fCompileCpp : boolean;
+    fOverrideBuildCmd: boolean;
+    fBuildCmd : AnsiString;
+    fLink : boolean;
+    fPriority: integer;
+    function GetDirty: boolean;
+    procedure SetDirty(value: boolean);
+    function Save : boolean;
   public
-   constructor Create(aOwner: TProject);
-   destructor Destroy; override;
-   property Editor: TEditor read fEditor write fEditor;
-   property FileName: AnsiString read fFileName write fFileName;
-   property New: boolean read fNew write fNew;
-   property Dirty: boolean read GetDirty write SetDirty;
-   property Node: TTreeNode read fNode write fNode;
-   property Parent: TProject read fParent write fParent;
-   property Folder: AnsiString read fFolder write fFolder;
-   property Compile: boolean read fCompile write fCompile;
-   property CompileCpp: boolean read fCompileCpp write fCompileCpp;
-   property OverrideBuildCmd: boolean read fOverrideBuildCmd write fOverrideBuildCmd;
-   property BuildCmd: AnsiString read fBuildCmd write fBuildCmd;
-   property Link: boolean read fLink write fLink;
-   property Priority: integer read fPriority write fPriority;
-   procedure Assign(Source: TProjUnit);
- end;
+    constructor Create(aOwner: TProject);
+    destructor Destroy; override;
+    property Editor: TEditor read fEditor write fEditor;
+    property FileName: AnsiString read fFileName write fFileName;
+    property New: boolean read fNew write fNew;
+    property Dirty: boolean read GetDirty write SetDirty;
+    property Node: TTreeNode read fNode write fNode;
+    property Parent: TProject read fParent write fParent;
+    property Folder: AnsiString read fFolder write fFolder;
+    property Compile: boolean read fCompile write fCompile;
+    property CompileCpp: boolean read fCompileCpp write fCompileCpp;
+    property OverrideBuildCmd: boolean read fOverrideBuildCmd write fOverrideBuildCmd;
+    property BuildCmd: AnsiString read fBuildCmd write fBuildCmd;
+    property Link: boolean read fLink write fLink;
+    property Priority: integer read fPriority write fPriority;
+    procedure Assign(Source: TProjUnit);
+  end;
 
   TProject = class
   private
     fUnits: TUnitList;
     fOptions: TProjOptions;
     finiFile: TMemIniFile;
-    fName: AnsiString;
     fFileName: AnsiString;
+    fName: AnsiString;
     fNode: TTreeNode;
     fModified: boolean;
     fFolders: TStringList;
     fFolderNodes: TObjectList;
-    fCmdLineArgs: AnsiString;
-    fUseCustomMakefile: boolean;
-    fCustomMakefile: AnsiString;
     function GetDirectory : AnsiString;
     function GetExecutableName : AnsiString;
     procedure SetFileName(const value: AnsiString);
-
     function GetModified: boolean;
     procedure SetModified(value: boolean);
-
     procedure SortUnitsByPriority;
-    procedure SetCmdLineArgs(const Value: AnsiString);
-    procedure SetCustomMakefile(const Value: AnsiString);
-    procedure SetUseCustomMakefile(const Value: boolean);
   public
     property Options: TProjOptions read fOptions write fOptions;
     property Name: AnsiString read fName write fName;
@@ -124,13 +116,8 @@ type
     property Units: TUnitList read fUnits write fUnits;
     property INIFile: TMemIniFile read fINIFile write fINIFile;
     property Modified: boolean read GetModified write SetModified;
-    property CmdLineArgs: AnsiString read fCmdLineArgs write SetCmdLineArgs;
-    property UseCustomMakefile: boolean read fUseCustomMakefile write SetUseCustomMakefile;
-    property CustomMakefile: AnsiString read fCustomMakefile write SetCustomMakefile;
-
     constructor Create(const nFileName, nName: AnsiString);
     destructor Destroy; override;
-
     function NewUnit(NewProject : boolean;const CustomFileName: AnsiString = ''): integer;
     function AddUnit(s : AnsiString; var pFolder: TTreeNode; Rebuild: Boolean) : TProjUnit;
     function GetFolderPath(Node: TTreeNode): AnsiString;
@@ -158,7 +145,7 @@ type
     function GetUnitFromString(const s : AnsiString) : integer;
     procedure RebuildNodes;
     function ListUnitStr(sep: char): AnsiString;
-    procedure ExportAll;
+    procedure ExportToHTML;
     procedure ShowOptions;
     function AssignTemplate(const aFileName: AnsiString;aTemplate: TTemplate): boolean;
     procedure SetHostApplication(const s : AnsiString);
@@ -168,6 +155,7 @@ type
     procedure SetNodeValue(value: TTreeNode);
     procedure CheckProjectFileForUpdate;
     procedure IncrementBuildNumber;
+    procedure SetCompilerOption(index: integer; Value: char);
     procedure SaveToLog;
   end;
 
@@ -259,14 +247,11 @@ begin
 	fFolders:=TStringList.Create;
 	fFolders.Duplicates:=dupIgnore;
 	fFolders.Sorted:=True;
-
 	fFolderNodes:=TObjectList.Create(false);
-
 	fUnits:= TUnitList.Create;
 	fFileName := nFileName;
 	finiFile:= TMemIniFile.Create(fFileName);
-
-	InitOptionsRec(fOptions);
+	fOptions := TProjOptions.Create;
 	if nName = DEV_INTERNAL_OPEN then
 		Open
 	else begin
@@ -286,12 +271,16 @@ begin
   fUnits.Free;
   if (fNode <> nil) and (not fNode.Deleting) then
     fNode.Free;
-  Options.Includes.Free;
-  Options.Libs.Free;
-  Options.ResourceIncludes.Free;
-  Options.MakeIncludes.Free;
-  Options.ObjFiles.Free;
+  fOptions.Free;
   inherited;
+end;
+
+procedure TProject.SetCompilerOption(index : integer; value : char);
+begin
+	if fOptions.CompilerOptions[index+1] <> value then begin
+		fOptions.CompilerOptions[index+1] := Value;
+		SetModified(true);
+	end;
 end;
 
 procedure TProject.SaveToLog;
@@ -397,7 +386,6 @@ begin
     fOptions.PrivateResource:='';
     exit;
   end;
-
 
   // change private resource from <project_filename>.res
   // to <project_filename>_private.res
@@ -615,7 +603,7 @@ begin
 			else begin
 				if ExtractFilePath(CustomFileName)='' then // just filename, no path
 					// make it full path filename, so that the save dialog, starts at the right directory ;)
-					s:= Directory+ CustomFileName
+					s:= Directory + CustomFileName
 				else
 					s:= CustomFileName;
 			end;
@@ -730,9 +718,9 @@ begin
 			end;
 
 			fOptions.typ := ReadInteger('Project','type', 0);
-			fOptions.cmdLines.Compiler := ReadString('Project','Compiler', '');
-			fOptions.cmdLines.CppCompiler := ReadString('Project','CppCompiler', '');
-			fOptions.cmdLines.Linker := ReadString('Project','Linker', '');
+			fOptions.CompilerCmd := ReadString('Project','Compiler', '');
+			fOptions.CppCompilerCmd := ReadString('Project','CppCompiler', '');
+			fOptions.LinkerCmd := ReadString('Project','Linker', '');
 			fOptions.ObjFiles.DelimitedText := ReadString('Project','ObjFiles', '');
 			fOptions.Libs.DelimitedText := ReadString('Project','Libs', '');
 			fOptions.Includes.DelimitedText := ReadString('Project','Includes', '');
@@ -747,13 +735,10 @@ begin
 			fOptions.OverrideOutput := ReadBool('Project','OverrideOutput', FALSE);
 			fOptions.OverridenOutput := ReadString('Project','OverrideOutputName', '');
 			fOptions.HostApplication := ReadString('Project','HostApplication', '');
-
+			fOptions.UseCustomMakefile := ReadBool('Project','UseCustomMakefile', FALSE);
+			fOptions.CustomMakefile := ReadString('Project','CustomMakefile', '');
+			fOptions.CmdLineArgs := ReadString('Project','CommandLine', '');
 			fFolders.CommaText := ReadString('Project','Folders', '');
-			fCmdLineArgs :=ReadString('Project','CommandLine', '');
-
-			fUseCustomMakefile := ReadBool('Project','UseCustomMakefile', FALSE);
-			fCustomMakefile := ReadString('Project','CustomMakefile', '');
-
 			fOptions.IncludeVersionInfo := ReadBool('Project','IncludeVersionInfo', False);
 			fOptions.SupportXPThemes := ReadBool('Project','SupportXPThemes', False);
 			fOptions.CompilerSet := ReadInteger('Project','CompilerSet', devCompiler.CurrentSet);
@@ -793,7 +778,7 @@ begin
 			fOptions.ResourceIncludes.DelimitedText:= ReadString('Project','ResourceIncludes', '');
 			fOptions.ObjFiles.Add(ReadString('Project','ObjFiles', ''));
 			fOptions.Includes.Add(ReadString('Project','IncludeDirs', ''));
-			fOptions.cmdLines.Compiler:= ReadString('Project','CompilerOptions', '');
+			fOptions.CompilerCmd:= ReadString('Project','CompilerOptions', '');
 			fOptions.usegpp:= ReadBool('Project','Use_GPP', FALSE);
 			fOptions.ExeOutput := ReadString('Project','ExeOutput', '');
 			fOptions.ObjectOutput := ReadString('Project','ObjectOutput', '');
@@ -817,9 +802,9 @@ begin
 		WriteString('Project','PrivateResource', fOptions.PrivateResource);
 		WriteString('Project','ResourceIncludes', fOptions.ResourceIncludes.DelimitedText);
 		WriteString('Project','MakeIncludes', fOptions.MakeIncludes.DelimitedText);
-		WriteString('Project','Compiler', fOptions.cmdLines.Compiler);
-		WriteString('Project','CppCompiler', fOptions.cmdLines.CppCompiler);
-		WriteString('Project','Linker', fOptions.cmdLines.Linker);
+		WriteString('Project','Compiler', fOptions.CompilerCmd);
+		WriteString('Project','CppCompiler', fOptions.CppCompilerCmd);
+		WriteString('Project','Linker', fOptions.LinkerCmd);
 		WriteBool('Project','IsCpp', fOptions.UseGpp);
 		WriteString('Project','Icon', ExtractRelativePath(Directory, fOptions.Icon));
 		WriteString('Project','ExeOutput', fOptions.ExeOutput);
@@ -829,15 +814,13 @@ begin
 		WriteBool('Project','OverrideOutput', fOptions.OverrideOutput);
 		WriteString('Project','OverrideOutputName', fOptions.OverridenOutput);
 		WriteString('Project','HostApplication', fOptions.HostApplication);
-
+		WriteBool('Project','UseCustomMakefile', fOptions.UseCustomMakefile);
+		WriteString('Project','CustomMakefile', fOptions.CustomMakefile);
+		WriteString('Project','CommandLine', fOptions.CmdLineArgs);
 		WriteString('Project','Folders', fFolders.CommaText);
-		WriteString('Project','CommandLine', fCmdLineArgs);
-
-		WriteBool('Project','UseCustomMakefile', fUseCustomMakefile);
-		WriteString('Project','CustomMakefile', fCustomMakefile);
-
 		WriteBool('Project','IncludeVersionInfo', fOptions.IncludeVersionInfo);
 		WriteBool('Project','SupportXPThemes', fOptions.SupportXPThemes);
+
 		WriteInteger('Project','CompilerSet', fOptions.CompilerSet);
 		if(Length(fOptions.CompilerOptions) > 0) then
 			WriteString('Project','CompilerSettings', fOptions.CompilerOptions)
@@ -1082,7 +1065,7 @@ begin
 		sl.Free;
 	end;
 
-	if (Top> -1) and (fUnits.Count > 0) and (top<fUnits.Count) and Assigned(fUnits[top].Editor) then
+	if (Top <> -1) and (top < fUnits.Count) and Assigned(fUnits[top].Editor) then
 		fUnits[top].Editor.Activate;
 end;
 
@@ -1341,7 +1324,7 @@ begin
 	if fFileName<>value then begin
 		fFileName:= value;
 		SetModified(True);
-		finifile.Rename(value, FALSE);
+		finiFile.Rename(value, FALSE);
 	end;
 end;
 
@@ -1372,27 +1355,27 @@ end;
 
 procedure TProject.SetNodeValue(value: TTreeNode);
 begin
-   fNode:= Value;
+  fNode:= Value;
 end;
 
-procedure TProject.ExportAll;
+procedure TProject.ExportToHTML;
 	function ConvertFilename(const Filename, FinalPath, Extension: AnsiString): AnsiString;
 	begin
 		Result:=ExtractRelativePath(Directory, Filename);
 		Result:=StringReplace(Result, '.', '_', [rfReplaceAll]);
 		Result:=StringReplace(Result, '\', '_', [rfReplaceAll]);
 		Result:=StringReplace(Result, '/', '_', [rfReplaceAll]);
-		Result:=IncludeTrailingPathDelimiter(FinalPath)+Result+Extension;
+		Result:=IncludeTrailingPathDelimiter(FinalPath) + Result + Extension;
 	end;
 var
-  I: integer;
-  sl: TStringList;
-  fname: AnsiString;
-  Size: integer;
-  SizeStr: AnsiString;
-  link: AnsiString;
-  BaseDir: AnsiString;
-  hFile: integer;
+	I: integer;
+	sl: TStringList;
+	fName,UnitName: AnsiString;
+	Size: integer;
+	SizeStr: AnsiString;
+	link: AnsiString;
+	BaseDir: AnsiString;
+	hFile: integer;
 	SynExporterHTML : TSynExporterHTML;
 begin
 	SynExporterHTML := TSynExporterHTML.Create(nil);
@@ -1409,27 +1392,35 @@ begin
 			Exit;
 		end;
 
-		fname:=FileName;
+		fName := FileName; // project html filename
 	finally
 		Free;
 	end;
 
-	BaseDir := ExtractFilePath(fname);
-	CreateDir(BaseDir + '\files');
-	sl:=TStringList.Create;
+	BaseDir := ExtractFilePath(fName);
+	CreateDir(BaseDir + pd + 'files');
+
+	sl := TStringList.Create;
 	try
 		sl.Add('<html>');
-		sl.Add('<head><title>Dev-C++ project: ' + Name + '</title></head>');
+		sl.Add('<head><title>Dev-C++ project: ' + Self.Name + '</title></head>');
 		sl.Add('<body bgcolor=#FFFFFF>');
-		sl.Add('<h2>Project: ' + Name + '</h2>');
+		sl.Add('<h2>Project: ' + Self.Name + '</h2>');
 		sl.Add('<b>Index of files:</b>');
 		sl.Add('<hr width="80%"/>');
-
 		sl.Add('<table align="center" cellspacing="20">');
 		sl.Add('<tr><td><b><u>Filename</u></b></td><td><b><u>Location</u></b></td><td><b><u>Size</u></b></td></tr>');
 
+		// Use this one to export files to HTML (copy from TEditor.ExportToHTML)
+		SynExporterHTML.CreateHTMLFragment := False;
+		SynExporterHTML.ExportAsText := True;
+		SynExporterHTML.UseBackground := True;
+		SynExporterHTML.Font := devEditor.Font;
+
 		for I := 0 to Units.Count-1 do begin
-			hFile := FileOpen(Units[I].FileName, fmOpenRead);
+			UnitName := Units[I].FileName;
+
+			hFile := FileOpen(UnitName, fmOpenRead);
 			if hFile > 0 then begin
 				Size := FileSeek(hFile, 0, 2);
 				if Size < 1024 then
@@ -1445,8 +1436,9 @@ begin
 			end else
 				SizeStr := 'Unknown';
 
-			link := ExtractFilename(ConvertFilename(ExtractRelativePath(Directory, Units[I].FileName), BaseDir, HTML_EXT));
-			sl.Add('<tr><td><a href="files/'+link+'">'+ExtractFilename(Units[I].FileName)+'</a></td><td>'+ExpandFilename(Units[I].FileName)+'</td><td>'+SizeStr+'</td></tr>');
+			// Add string to main overview
+			link := ExtractFilename(ConvertFilename(ExtractRelativePath(Directory, UnitName), BaseDir, HTML_EXT));
+			sl.Add(#9 + '<tr><td><a href="files' + pd+ link + '">' + ExtractFilename(UnitName) + '</a></td><td>' + ExpandFilename(UnitName) + '</td><td>' + SizeStr + '</td></tr>');
 		end;
 
 		sl.Add('</table>');
@@ -1454,14 +1446,22 @@ begin
 		sl.Add('<p align="center"><font size="1">Exported by <a href="http://www.bloodshed.net/dev">'+DEVCPP+'</a> v'+DEVCPP_VERSION+'</font></p>');
 		sl.Add('</body>');
 		sl.Add('</html>');
-		sl.SaveToFile(fname);
+		sl.SaveToFile(fName);
 
 		// export project files
-		for I:=0 to Units.Count-1 do begin
-			fname:=Units[I].FileName;
-			sl.LoadFromFile(fname);
-			fname:=ConvertFilename(ExtractRelativePath(Directory, Units[I].FileName), IncludeTrailingPathDelimiter(BaseDir)+'files', HTML_EXT);
-			Units[I].fEditor.ExportToHtml(fname);
+		for I := 0 to Units.Count-1 do begin
+			UnitName := Units[I].FileName;
+
+			// Load from disk
+			sl.LoadFromFile(UnitName);
+
+			// Save to disk as HTML
+			SynExporterHTML.Title := UnitName;
+			SynExporterHTML.Highlighter := dmMain.GetHighlighter(ExtractFilename(UnitName));
+			SynExporterHTML.ExportAll(sl);
+
+			UnitName := ConvertFilename(ExtractRelativePath(Directory, UnitName), BaseDir + pd + 'files', HTML_EXT);
+			SynExporterHTML.SaveToFile(UnitName);
 		end;
 	finally
 		sl.Free;
@@ -1472,30 +1472,22 @@ end;
 procedure TProject.ShowOptions;
 var
 	IconFileName: AnsiString;
-	L, I, R : TStringList;
 begin
-	L := TStringList.Create;
-	I := TStringList.Create;
-	R := TStringList.Create;
 	with TfrmProjectOptions.Create(MainForm) do try
 
 		// Apply current settings
-		SetInterface(Self); // TODO: make real COPY
-
-		L.AddStrings(fOptions.Libs);
-		I.AddStrings(fOptions.Includes);
-		R.AddStrings(fOptions.ResourceIncludes);
-
-		btnRemoveIcon.Enabled := Length(fOptions.Icon) > 0;
+		SetInterface(Self);
 
 		if ShowModal = mrOk then begin
 
+			// Save new settings to RAM
 			GetInterface(Self);
 
-			SetModified(TRUE);
+			SetModified(TRUE); // don't save to disk yet
 			SortUnitsByPriority;
 			RebuildNodes;
 
+			// Copy icon to project directoy
 			IconFileName := ChangeFileExt(ExtractFileName(FileName), '.ico');
 			if not SameText(IconFileName, fOptions.Icon) and (fOptions.Icon <> '') then begin
 				CopyFile(PAnsiChar(fOptions.Icon), PAnsiChar(ExpandFileto(IconFileName,Directory)), False);
@@ -1511,21 +1503,11 @@ begin
 				fName:= edProjectName.Text;
 				fNode.Text:= fName;
 			end;
-		end else begin
-			fOptions.Libs.Clear;
-			fOptions.Libs.AddStrings(L);
-			fOptions.Includes.Clear;
-			fOptions.Includes.AddStrings(I);
-			fOptions.ResourceIncludes.Clear;
-			fOptions.ResourceIncludes.AddStrings(R);
 		end;
 
-		// discard changes made to scratch profile
+		// Always discard changes, even if we canceled
 		devCompiler.LoadSet(devCompiler.CurrentSet);
 	finally
-		L.Free;
-		I.Free;
-		R.Free;
 		Close;
 	end;
 end;
@@ -1537,7 +1519,6 @@ end;
 
 function TProject.AssignTemplate(const aFileName: AnsiString;aTemplate: TTemplate): boolean;
 var
-	Options: TProjOptions;
 	idx: integer;
 	s, s2: AnsiString;
 	OriginalIcon, DestIcon: AnsiString;
@@ -1565,8 +1546,7 @@ begin
 			finiFile.Rename(aFileName,false)
 		else
 			fIniFile := TMemIniFile.Create(aFileName);
-		Options:= aTemplate.OptionsRec;
-		AssignOptionsRec(Options, fOptions);
+		fOptions.Assign(aTemplate.Options);
 
 		// Copy icon to project directory
 		if Length(fOptions.Icon) > 0 then begin
@@ -1582,12 +1562,12 @@ begin
    if aTemplate.Version> 0 then // new multi units
     for idx:= 0 to pred(aTemplate.UnitCount) do
      begin
-       if aTemplate.OptionsRec.useGPP then
+       if aTemplate.Options.useGPP then
         s:= aTemplate.Units[idx].CppText
        else
         s:= aTemplate.Units[idx].CText;
 
-       if aTemplate.OptionsRec.useGPP then
+       if aTemplate.Options.useGPP then
            NewUnit(FALSE, aTemplate.Units[idx].CppName)
        else
            NewUnit(FALSE, aTemplate.Units[idx].CName);
@@ -1597,7 +1577,7 @@ begin
           Editor:= TEditor.Create(TRUE, ExtractFileName(filename), FileName, FALSE);
           try
            if (Length(aTemplate.Units[idx].CppName) > 0) and
-              (aTemplate.OptionsRec.useGPP) then
+              (aTemplate.Options.useGPP) then
            begin
                Editor.FileName := aTemplate.Units[idx].CppName;
                fUnits[fUnits.Count - 1].FileName := aTemplate.Units[idx].CppName;
@@ -1657,7 +1637,6 @@ var
   idx: integer;
   oldPaths: TStrings;
   tempnode: TTreeNode;
-
 begin
   MainForm.ProjectView.Items.BeginUpdate;
 
@@ -1825,14 +1804,6 @@ begin
 	until not Again;
 end;
 
-procedure TProject.SetCmdLineArgs(const Value: AnsiString);
-begin
-	if (Value<>fCmdLineArgs) then begin
-		fCmdLineArgs := Value;
-		SetModified(TRUE);
-	end;
-end;
-
 procedure TProject.IncrementBuildNumber;
 begin
 	Inc(fOptions.VersionInfo.Build);
@@ -1840,22 +1811,6 @@ begin
 	if(fOptions.VersionInfo.SyncProduct) then
 		fOptions.VersionInfo.ProductVersion := Format('%d.%d.%d.%d', [fOptions.VersionInfo.Major,fOptions.VersionInfo.Minor,fOptions.VersionInfo.Release,fOptions.VersionInfo.Build]);
 	SetModified(True);
-end;
-
-procedure TProject.SetCustomMakefile(const Value: AnsiString);
-begin
-	if (Value<>fCustomMakefile) then begin
-		fCustomMakefile := Value;
-		SetModified(true);
-	end;
-end;
-
-procedure TProject.SetUseCustomMakefile(const Value: boolean);
-begin
-	if (Value<>fUseCustomMakefile) then begin
-		fUseCustomMakefile := Value;
-		SetModified(true);
-	end;
 end;
 
 { TUnitList }

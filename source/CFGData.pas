@@ -33,8 +33,6 @@ type
   TConfigData = class(TPersistent)
   private
     fIni: TIniFile;
-    fIgnores: TStringList; // Ignored properties of objects
-
     function GetIniFileName : AnsiString;
     procedure SetIniFileName(const s : AnsiString);
   public
@@ -62,8 +60,13 @@ type
     procedure ReadObject(const Section: AnsiString; Obj: TPersistent);
     procedure WriteObject(const Section: AnsiString; Obj: TPersistent);
 
+    // Used for reading/writing each item as a separate entry
     procedure ReadStrings(const key: AnsiString; value: TStrings);
     procedure WriteStrings(const key: AnsiString; value: TStrings);
+
+    // Used for reading/writing string lists as a single string entry
+    procedure ReadDelimitedString(const key: AnsiString; const entry: AnsiString;value: TStringList);
+    procedure WriteDelimitedString(const key: AnsiString; const entry: AnsiString;value: TStringList);
 
     property INIFileName: AnsiString read GetIniFileName write SetIniFileName;
   end;
@@ -106,23 +109,12 @@ end;
 constructor TConfigData.Create;
 begin
 	inherited Create;
-
-	fIgnores:= TStringList.Create;
-	with fIgnores do begin
-		Add('Name');
-		Add('Tag');
-		Add('Style');
-		Add('Exec');
-		Add('Config');
-	end;
 end;
 
 destructor TConfigData.Destroy;
 begin
 	if Assigned(fIni) then
 		fIni.free;
-
-	fIgnores.Free;
 	inherited Destroy;
 end;
 
@@ -143,103 +135,74 @@ end;
 
 procedure TConfigData.ReadObject(const Section: AnsiString;Obj: TPersistent);
 var
-	idx, idx2: integer;
+	I: integer;
 	PropName: AnsiString;
 begin
 	if not fini.SectionExists(Section) then Exit;
 
-  for idx:= 0 to pred(GetPropCount(Obj)) do
-   begin
-     PropName:= GetPropName(Obj, idx);
-     if Obj is TFont then
-      begin
-        idx2:= fIgnores.Indexof('Name');
-        if idx2 <> -1 then
-         fIgnores[idx2]:= 'Height';
-      end
-     else
-      begin
-        idx2:= fIgnores.Indexof('Height');
-        if idx2 <> -1 then
-         fIgnores[idx2]:= 'Name';
-      end;
-     if (fIgnores.Indexof(PropName)> -1) or
-        ((not fINI.ValueExists(Section, PropName)) and
-         (not fINI.SectionExists(Section +'.'+PropName))) then
-      continue;
+	for I := 0 to GetPropCount(Obj)-1 do begin
+		PropName:= GetPropName(Obj, I);
 
-     case PropType(Obj, PropName) of
-      tkString,
-      tkLString,
-      tkWString: SetStrProp(Obj, PropName, fINI.ReadString(Section, PropName, ''));
+		// Ignore properties which aren't listed in the INI (leave defaults)
+		if (not fINI.ValueExists(Section, PropName)) and (not fINI.SectionExists(Section + '.' + PropName)) then
+			Continue;
 
-      tkChar,
-      tkEnumeration,
-      tkInteger: SetOrdProp(Obj, PropName, fINI.ReadInteger(Section, PropName, 1));
+		case PropType(Obj, PropName) of
+			tkString,
+			tkLString,
+			tkWString: SetStrProp(Obj, PropName, fINI.ReadString(Section, PropName, ''));
 
-      tkInt64: SetInt64Prop(Obj, PropName, StrtoInt(fINI.ReadString(Section, PropName, '0')));
+			tkChar,
+			tkEnumeration,
+			tkInteger: SetOrdProp(Obj, PropName, fINI.ReadInteger(Section, PropName, 1));
 
-      tkFloat: SetFloatProp(Obj, PropName, StrtoFloat(fINI.ReadString(Section, PropName, '0.0')));
+			tkInt64: SetInt64Prop(Obj, PropName, StrtoInt(fINI.ReadString(Section, PropName, '0')));
 
-      tkClass:
-       begin
-         if TPersistent(GetOrdProp(Obj, PropName)) is TStrings then
-          ReadStrings(Section +'.' +PropName, TStrings(GetOrdProp(Obj, PropName)))
-         else
-          ReadObject(Section +'.' +PropName, TPersistent(GetOrdProp(Obj, PropName)));
-       end;
-     end;
-   end;
+			tkFloat: SetFloatProp(Obj, PropName, StrtoFloat(fINI.ReadString(Section, PropName, '0.0')));
+
+			tkClass: begin
+				if TPersistent(GetOrdProp(Obj, PropName)) is TStrings then
+					ReadStrings(Section +'.' +PropName, TStrings(GetOrdProp(Obj, PropName)))
+				else
+					ReadObject(Section +'.' +PropName, TPersistent(GetOrdProp(Obj, PropName)));
+			end;
+		end;
+	end;
 end;
 
 procedure TConfigData.WriteObject(const Section: AnsiString; Obj: TPersistent);
 var
- idx,
- idx2: integer;
+ I: integer;
  PropName: AnsiString;
 begin
 	EraseSection(Section);
 
-  for idx:= 0 to pred(GetPropCount(Obj)) do
-   begin
-     PropName:= GetPropName(Obj, idx);
-     if Obj is TFont then
-      begin
-        idx2:= fIgnores.Indexof('Name');
-        if idx2> -1 then
-         fIgnores[idx2]:= 'Height';
-      end
-     else
-      begin
-        idx2:= fIgnores.Indexof('Height');
-        if idx2> -1 then
-         fIgnores[idx2]:= 'Name';
-      end;
-     if fIgnores.Indexof(PropName)>= 0 then continue;
-     case PropType(Obj, PropName) of
-      tkString,
-      tkLString,
-      tkWString: fINI.WriteString(Section, PropName, '"'+GetStrProp(Obj, PropName)+'"');
-      // 11 Jul 2002: mandrav: added double quotes around strings.
-      // fixes a bug with stringlists comma-text saved as AnsiString...
+	for I := 0 to GetPropCount(Obj)-1 do begin
+		PropName:= GetPropName(Obj, I);
+		case PropType(Obj, PropName) of
 
-      tkChar,
-      tkEnumeration,
-      tkInteger: fINI.WriteInteger(Section, PropName, GetOrdProp(Obj, PropName));
+			// 11 Jul 2002: mandrav: added double quotes around strings.
+			// fixes a bug with stringlists comma-text saved as AnsiString...
+			tkString,
+			tkLString,
+			tkWString: fINI.WriteString(Section, PropName, '"'+GetStrProp(Obj, PropName)+'"');
 
-      tkInt64: fINI.WriteString(Section, PropName, InttoStr(GetInt64Prop(Obj, PropName)));
+			tkChar,
+			tkEnumeration,
+			tkInteger: fINI.WriteInteger(Section, PropName, GetOrdProp(Obj, PropName));
 
-      tkFloat: fINI.WriteString(Section, PropName, FloattoStr(GetFloatProp(Obj, PropName)));
+			tkInt64: fINI.WriteString(Section, PropName, InttoStr(GetInt64Prop(Obj, PropName)));
 
-      tkClass:
-       begin
-         if TPersistent(GetOrdProp(Obj, PropName)) is TStrings then
-          WriteStrings(Section +'.'+PropName, TStrings(GetOrdProp(Obj, PropName)))
-         else
-          WriteObject(Section +'.' +PropName, TPersistent(GetOrdProp(Obj, PropName)));
-       end;
-     end;
-   end;
+			tkFloat: fINI.WriteString(Section, PropName, FloattoStr(GetFloatProp(Obj, PropName)));
+
+			tkClass: begin
+				if TPersistent(GetOrdProp(Obj, PropName)) is TStrings then
+					WriteStrings(Section +'.'+PropName, TStrings(GetOrdProp(Obj, PropName)))
+				else
+					WriteObject(Section +'.' +PropName, TPersistent(GetOrdProp(Obj, PropName)));
+			end;
+		end;
+	end;
 end;
 
 procedure TConfigData.ReadSelf;
@@ -286,6 +249,29 @@ begin
 			fIni.WriteString(key, IntToStr(I), value[I])
 		else
 			fIni.WriteString(key, Value.Names[I], value.Values[Value.Names[I]]);
+end;
+
+// fix without using StringList.DelimitedText:
+// http://stackoverflow.com/questions/1335027/delphi-stringlist-delimiter-is-always-a-space-character-even-if-delimiter-is-se
+procedure TConfigData.ReadDelimitedString(const key: AnsiString; const entry: AnsiString;value: TStringList);
+var
+	S : AnsiString;
+begin
+	S := ReadS(key, entry);
+
+	// Convert string to string list
+	value.Clear;
+	ExtractStrings([';'],[],PAnsiChar(S),value);
+end;
+
+procedure TConfigData.WriteDelimitedString(const key: AnsiString; const entry: AnsiString;value: TStringList);
+var
+	S : AnsiString;
+begin
+	// Convert stringlist to string
+	value.Delimiter := ';';
+	S := value.DelimitedText;
+	Write(key,entry,S);
 end;
 
 function TConfigData.ReadI(const key, entry: AnsiString): integer;

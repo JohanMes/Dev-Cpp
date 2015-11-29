@@ -402,6 +402,11 @@ begin
   rgbAutoOpen.Items[2]:=         Lang[ID_ENV_AUTOREMEMBER];
   rgbAutoOpen.Items[3]:=         Lang[ID_ENV_AUTONONE];
 
+  cboTabsTop.Items[0]:=          Lang[ID_ENV_TOP];
+  cboTabsTop.Items[1]:=          Lang[ID_ENV_BOTTOM];
+  cboTabsTop.Items[2]:=          Lang[ID_ENV_LEFT];
+  cboTabsTop.Items[3]:=          Lang[ID_ENV_RIGHT];
+
   gbAltConfig.Caption:=          ' '+Lang[ID_ENV_GBALTCONFIG]+' ';
   lblLang.Caption:=              Lang[ID_ENV_LANGUAGE];
   lblTheme.Caption:=             Lang[ID_ENV_THEME];
@@ -494,9 +499,9 @@ end;
 
 procedure TEnviroForm.chkAltConfigClick(Sender: TObject);
 begin
-  chkAltConfig.Enabled:=ConfigMode <> CFG_PARAM;
-  edAltConfig.Enabled:= chkAltConfig.Enabled and chkAltConfig.Checked;
-  btnAltConfig.Enabled:= chkAltConfig.Enabled and chkAltConfig.Checked;
+  chkAltConfig.Enabled := ConfigMode <> CFG_PARAM;
+  edAltConfig.Enabled := chkAltConfig.Enabled and chkAltConfig.Checked;
+  btnAltConfig.Enabled := chkAltConfig.Enabled and chkAltConfig.Checked;
 end;
 
 procedure TEnviroForm.cvsdownloadlabelClick(Sender: TObject);

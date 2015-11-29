@@ -71,6 +71,7 @@ constructor TCodeInsList.Create;
 begin
 	inherited Create;
 	fList := TList.Create;
+	fFile := devDirs.Config + DEV_CODEINS_FILE;
 end;
 
 destructor TCodeInsList.Destroy;
@@ -138,37 +139,11 @@ end;
 
 procedure TCodeInsList.LoadCode;
 var
- Item: PCodeIns;
- tmp: TStringList;
- idx: integer;
+	Item: PCodeIns;
+	tmp: TStringList;
+	I: integer;
 begin
-	if not FileExists(fFile) then
-		fFile:=devDirs.Config + DEV_CODEINS_FILE;
-
-	if FileExists(fFile) then begin
-		with TINIFile.Create(fFile) do try
-			tmp:= TStringList.Create;
-			Clear;
-			try
-				ReadSections(tmp);
-				if tmp.Count = 0 then
-					exit;
-
-					for idx:= 0 to pred(tmp.Count) do begin
-						new(Item);
-						Item^.Caption:= StringReplace(tmp[idx], '_', ' ', [rfReplaceAll]);
-						Item^.Desc:= ReadString(tmp[idx], 'Desc', '');
-						Item^.Line:= StrtoCodeIns(ReadString(tmp[idx], 'Line', ''));
-						Item^.Sep:= ReadInteger(tmp[idx], 'Sep', 0);
-						AddItem(Item);
-					end;
-			finally
-				tmp.free;
-			end;
-		finally
-			free;
-		end;
-	end else begin
+	if devData.First then begin
 		// Win32
 		AddItemByValues('MessageBox','Win32 MessageBox','MessageBox(*|*,"Hello","Caption",MB_OK);',1);
 		AddItemByValues('WinMain','Win32 Main Function',
@@ -180,7 +155,7 @@ begin
 	''+#13#10+
 	'	memset(&wc,0,sizeof(wc));'+#13#10+
 	'	wc.cbSize		 = sizeof(WNDCLASSEX);'+#13#10+
-	'	wc.lpfnWndProc	 = *|*; /* insert window procedure function here */;'+#13#10+
+	'	wc.lpfnWndProc	 = *|*; /* insert window procedure function here */'+#13#10+
 	'	wc.hInstance	 = hInstance;'+#13#10+
 	'	wc.hCursor		 = LoadCursor(NULL, IDC_ARROW);'+#13#10+
 	'	wc.hbrBackground = (HBRUSH)(COLOR_WINDOW+1);'+#13#10+
@@ -272,25 +247,50 @@ begin
 		AddItemByValues('#ifndef','Preprocessor !if','#ifndef *|*'+#13#10#13#10+'#endif',3);
 		AddItemByValues('#ifdef/else','Preprocessor if-else','#ifdef *|*'+#13#10#13#10+'#elif'+#13#10#13#10+'#endif',3);
 		AddItemByValues('#ifndef/else','Preprocessor !if-else','#ifndef *|*'+#13#10#13#10+'#elif'+#13#10#13#10+'#endif',3);
+
+		// Save to disk as defaults
+		SaveCode;
+
+	end else if FileExists(fFile) then begin // no first time launch? load from disk
+		with TINIFile.Create(fFile) do try
+			tmp := TStringList.Create;
+			Clear;
+			try
+				ReadSections(tmp);
+				for I := 0 to tmp.Count -1 do begin
+					new(Item);
+					Item^.Caption:= StringReplace(tmp[I], '_', ' ', [rfReplaceAll]);
+					Item^.Desc:= ReadString(tmp[I], 'Desc', '');
+					Item^.Line:= StrtoCodeIns(ReadString(tmp[I], 'Line', ''));
+					Item^.Sep:= ReadInteger(tmp[I], 'Sep', 0);
+					AddItem(Item);
+				end;
+			finally
+				tmp.free;
+			end;
+		finally
+			free;
+		end;
 	end;
 end;
 
 procedure TCodeInsList.SaveCode;
 var
-	idx: integer;
+	I: integer;
 	section: AnsiString;
-	CI: TCodeIns;
+	item: PCodeIns;
 begin
 	DeleteFile(fFile);
-	if fList.Count = 0 then exit;
+	if fList.Count = 0 then
+		Exit;
+
 	with TINIFile.Create(fFile) do try
-		for idx:= 0 to pred(fList.Count) do begin
-			CI:= PCodeIns(fList[idx])^;
-			section:= StringReplace(CI.Caption, ' ', '_', [rfReplaceAll]);
-			EraseSection(section);  // may be redundant
-			WriteString(section, 'Desc', CI.Desc);
-			WriteString(section, 'Line', CodeInstoStr(CI.Line));
-			WriteInteger(section, 'Sep', CI.Sep);
+		for I := 0 to pred(fList.Count) do begin
+			item := PCodeIns(fList[I]);
+			section:= StringReplace(item^.Caption, ' ', '_', [rfReplaceAll]);
+			WriteString(section, 'Desc', item^.Desc);
+			WriteString(section, 'Line', CodeInstoStr(item^.Line));
+			WriteInteger(section, 'Sep', item^.Sep);
 		end;
 	finally
 		Free;

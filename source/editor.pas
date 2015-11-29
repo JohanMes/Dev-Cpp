@@ -1,20 +1,20 @@
 {
-	This file is part of Dev-C++
-	Copyright (c) 2004 Bloodshed Software
+    This file is part of Dev-C++
+    Copyright (c) 2004 Bloodshed Software
 
-	Dev-C++ is free software; you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation; either version 2 of the License, or
-	(at your option) any later version.
+    Dev-C++ is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
 
-	Dev-C++ is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
+    Dev-C++ is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
 
-	You should have received a copy of the GNU General Public License
-	along with Dev-C++; if not, write to the Free Software
-	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU General Public License
+    along with Dev-C++; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 }
 
 unit editor;
@@ -35,7 +35,7 @@ uses
 
 type
   TEditor = class;
-  TDebugGutter = class(TSynEditPlugin) // use other name, used for compiler/find messages too now
+  TDebugGutter = class(TSynEditPlugin)
   protected
     e : TEditor;
     procedure AfterPaint(ACanvas: TCanvas; const AClip: TRect;FirstLine, LastLine: integer); override;
@@ -59,6 +59,8 @@ type
     fCurrentWord: AnsiString;
     fCurrentEvalWord : AnsiString;
     fIgnoreCaretChange : boolean;
+    fPreviousTabs : TList; // list of editor pointers
+    fDblClickTime : Cardinal;
 
     fCompletionTimer: TTimer;
     fCompletionBox: TCodeCompletion;
@@ -76,10 +78,11 @@ type
     procedure EditorKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure EditorKeyUp(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure EditorMouseUp(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+    procedure EditorDblClick(Sender: TObject);
+    procedure EditorClick(Sender: TObject);
     procedure EditorStatusChange(Sender: TObject; Changes: TSynStatusChanges);
     procedure EditorReplaceText(Sender: TObject;const aSearch, aReplace: AnsiString; Line, Column: integer;var Action: TSynReplaceAction);
     procedure EditorDropFiles(Sender: TObject; x, y: integer;aFiles: TStrings);
-    procedure EditorDblClick(Sender: TObject);
     procedure EditorMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
     procedure EditorExit(Sender : TObject);
     procedure EditorGutterClick(Sender: TObject; Button: TMouseButton;x, y, Line: integer; mark: TSynEditMark);
@@ -117,9 +120,9 @@ type
     procedure GotoLine;
     procedure SetCaretPos(line,col : integer;settopline : boolean = true); // takes folds into account
 
-    procedure ExportToHTML(const OverwriteFileName : AnsiString);
-    procedure ExportToRTF(const OverwriteFileName : AnsiString);
-    procedure ExportToTEX(const OverwriteFileName : AnsiString);
+    procedure ExportToHTML;
+    procedure ExportToRTF;
+    procedure ExportToTEX;
 
     procedure InsertString(Value: AnsiString;MoveCursor: boolean);
     procedure SetErrorFocus(Col, Line: integer);
@@ -127,7 +130,6 @@ type
     procedure RemoveBreakpointFocus;
     procedure UpdateCaption(const NewCaption: AnsiString);
     procedure InsertDefaultText;
-    procedure PaintMatchingBrackets(TransientType: TTransientType);
 
     function EvaluationPhrase(p : TBufferCoord): AnsiString;
     function CompletionPhrase(p : TBufferCoord): AnsiString;
@@ -142,6 +144,7 @@ type
 
     procedure SetTabIndex(index : integer);
 
+    property PreviousTabs: TList read fPreviousTabs;
     property FileName: AnsiString read fFileName write SetFileName;
     property InProject: boolean read fInProject write fInProject;
     property New: boolean read fNew write fNew;
@@ -250,6 +253,8 @@ end;
 constructor TEditor.Create(InProject : boolean;const Caption, Filename : AnsiString;DoOpen : boolean;IsRes: boolean = FALSE);
 var
 	s: AnsiString;
+	I: integer;
+	e: TEditor;
 begin
 	// Set generic options
 	fErrorLine:= -1;
@@ -260,6 +265,15 @@ begin
 		fFileName := Caption
 	else
 		fFileName := Filename;
+
+	// Remember previous tabs
+	fPreviousTabs := TList.Create;
+	if Assigned(MainForm.PageControl.ActivePage) then begin
+		e := TEditor(MainForm.PageControl.ActivePage.Tag); // copy list of previous editor
+		for I := 0 to e.PreviousTabs.Count - 1 do
+			fPreviousTabs.Add(e.PreviousTabs[i]);
+		fPreviousTabs.Add(Pointer(e)); // make current editor history too
+	end;
 
 	// Create a new tab
 	fTabSheet := TTabSheet.Create(MainForm.PageControl);
@@ -293,30 +307,31 @@ begin
 	fText.OnStatusChange:= EditorStatusChange;
 	fText.OnReplaceText:= EditorReplaceText;
 	fText.OnDropFiles:= EditorDropFiles;
-	fText.OnDblClick:= EditorDblClick;
+	fText.OnDblClick := EditorDblClick;
+	fText.OnClick := EditorClick;
 	fText.OnMouseUp := EditorMouseUp;
 	fText.OnMouseMove := EditorMouseMove;
 	fText.OnGutterClick := EditorGutterClick;
 	fText.OnSpecialLineColors := EditorSpecialLineColors;
 	fText.OnExit := EditorExit;
 	fText.OnPaintTransient := EditorPaintTransient;
-	fText.MaxScrollWidth:=4096; // bug-fix #600748
-	fText.MaxUndo:=4096;
-	fText.BorderStyle:=bsNone;
+	fText.MaxScrollWidth := 4096; // bug-fix #600748
+	fText.MaxUndo := 4096;
+	fText.BorderStyle := bsNone;
 
 	fText.Gutter.LeftOffset := 4;
 	fText.Gutter.RightOffset := 21;
 	fText.Gutter.BorderStyle := gbsNone;
 
 	// Set the variable options
-	devEditor.AssignEditor(self.fText,self.fFileName);
+	devEditor.AssignEditor(fText,fFileName);
 
 	// Create a gutter
 	fDebugGutter := TDebugGutter.Create(self);
 
 	// Function parameter tips
 	fFunctionTip := TCodeToolTip.Create(Application);
-	fFunctionTip.Editor := FText;
+	fFunctionTip.Editor := fText;
 	fFunctionTip.Parser := MainForm.CppParser;
 
 	// Initialize code completion stuff
@@ -327,20 +342,13 @@ begin
 	MainForm.devFileMonitor.Refresh(True);
 
 	// Set status bar for the first time
-	with MainForm.Statusbar do begin
-		// Set readonly / insert / overwrite
-		if fText.ReadOnly then
-			Panels[1].Text:= Lang[ID_READONLY]
-		else if fText.InsertMode then
-			Panels[1].Text:= Lang[ID_INSERT]
-		else
-			Panels[1].Text:= Lang[ID_OVERWRITE];
-	end;
+	EditorStatusChange(Self,[scInsertMode]);
 end;
 
 destructor TEditor.Destroy;
 var
-	I, curactive: integer;
+	I, CurIndex: integer;
+	e: TEditor;
 begin
 	// Deactivate the file change monitor
 	I := MainForm.devFileMonitor.Files.IndexOf(fFileName);
@@ -359,12 +367,26 @@ begin
 	// Delete breakpoints in this editor
 	MainForm.fDebugger.DeleteBreakPointsOf(self);
 
-	// Open up the previous tab, not the first one...
-	with fTabSheet.PageControl do begin
-		curactive := ActivePageIndex;
-		fTabSheet.Free; // sets activepageindex to 0, causes lots of flicker...
-		ActivePageIndex := max(0,curactive - 1);
+	// Open up the previously openend tab, not the first one...
+	with MainForm.PageControl do begin
+		if ActivePage = fTabSheet then begin // this is the current page...
+			fTabSheet.Free; // remove old
+
+			// Find the first tab in the history list that is still open
+			for I := fPreviousTabs.Count - 1 downto 0 do begin
+				e := MainForm.GetEditorFromTag(integer(fPreviousTabs[i]));
+				if Assigned(e) then begin
+					ActivePageIndex := e.TabSheet.PageIndex;
+					break;
+				end;
+			end;
+		end else begin // we are not the active page
+			CurIndex := ActivePageIndex; // remember active page index
+			fTabSheet.Free; // remove old
+			ActivePageIndex := max(0,CurIndex - 1);
+		end;
 	end;
+	fPreviousTabs.Free;
 
 	inherited;
 end;
@@ -496,24 +518,11 @@ begin
 		end;
 end;
 
-procedure TEditor.EditorDblClick(Sender: TObject);
-begin
-	if devEditor.DblClkLine then begin
-		if fText.CaretY < fText.Lines.Count then begin
-			fText.BlockBegin := BufferCoord(1, fText.CaretY);
-			fText.BlockEnd := BufferCoord(1, fText.CaretY + 1);
-		end else begin
-			fText.BlockBegin := BufferCoord(1, fText.CaretY);
-			fText.BlockEnd := BufferCoord(Length(fText.Lines[fText.CaretY-1])+1, fText.CaretY);
-		end;
-	end;
-end;
-
 procedure TEditor.EditorReplaceText(Sender: TObject; const aSearch,aReplace: AnsiString; Line, Column: integer; var Action: TSynReplaceAction);
 var
 	pt : TPoint;
 begin
-	pt:= fText.ClienttoScreen(fText.RowColumnToPixels(DisplayCoord(Column, Line +1)));
+	pt:= fText.ClienttoScreen(fText.RowColumnToPixels(DisplayCoord(Column, Line + 1)));
 	MessageBeep(MB_ICONQUESTION);
 	case MessageDlgPos(format(Lang[ID_MSG_SEARCHREPLACEPROMPT], [aSearch]), mtConfirmation, [mbYes, mbNo, mbCancel, mbAll], 0, pt.x, pt.y+fText.LineHeight) of
 		mrYes: Action := raReplace;
@@ -532,7 +541,7 @@ end;
 procedure TEditor.EditorStatusChange(Sender: TObject;Changes: TSynStatusChanges);
 begin
 	if scModified in Changes then begin // scModified is only fired when the modified state changes
-		if Text.Modified then begin
+		if fText.Modified then begin
 			MainForm.SetStatusbarMessage(Lang[ID_MODIFIED]);
 			UpdateCaption('[*] ' + ExtractfileName(fFileName));
 		end else begin
@@ -559,6 +568,7 @@ begin
 		fAllowMouseOver := false;
 
 		// Update the function tip
+		fFunctionTip.ForceHide := false;
 		if Assigned(fFunctionTipTimer) then begin
 			if fFunctionTip.Activated and FunctionTipAllowed then
 				fFunctionTip.Show
@@ -594,7 +604,7 @@ end;
 
 function TEditor.FunctionTipAllowed : boolean;
 begin
-	Result := not fText.IsScrolling and fText.Focused and not fText.SelAvail and devEditor.ShowFunctionTip and Assigned(fText.Highlighter);
+	Result := not fText.IsScrolling and fText.Focused and not fText.SelAvail and devEditor.ShowFunctionTip and Assigned(fText.Highlighter) and not fFunctionTip.ForceHide;
 end;
 
 procedure TEditor.FunctionTipTimer(Sender : TObject);
@@ -603,31 +613,28 @@ begin
 		fFunctionTip.Show;
 end;
 
-procedure TEditor.ExportToHTML(const OverwriteFileName : AnsiString);
+procedure TEditor.ExportToHTML;
 var
 	SynExporterHTML : TSynExporterHTML;
 	SaveFileName : AnsiString;
 begin
 	SynExporterHTML := TSynExporterHTML.Create(nil);
 	try
-		if OverwriteFileName = '' then begin
-			with TSaveDialog.Create(Application) do try
+		with TSaveDialog.Create(Application) do try
 
-				Filter := SynExporterHTML.DefaultFilter;
-				Title := Lang[ID_NV_EXPORT];
-				DefaultExt := HTML_EXT;
-				FileName := ChangeFileExt(fFileName,HTML_EXT);
-				Options := Options + [ofOverwritePrompt];
+			Filter := SynExporterHTML.DefaultFilter;
+			Title := Lang[ID_NV_EXPORT];
+			DefaultExt := HTML_EXT;
+			FileName := ChangeFileExt(fFileName,HTML_EXT);
+			Options := Options + [ofOverwritePrompt];
 
-				if Execute then
-					SaveFileName := FileName
-				else
-					Exit; // automatically gotos finally
-			finally
-				Free;
-			end;
-		end else
-			SaveFileName := OverwriteFileName;
+			if Execute then
+				SaveFileName := FileName
+			else
+				Exit; // automatically gotos finally
+		finally
+			Free;
+		end;
 
 		SynExporterHTML.Title := ExtractFileName(SaveFileName);
 		SynExporterHTML.CreateHTMLFragment := False;
@@ -643,31 +650,28 @@ begin
 	end;
 end;
 
-procedure TEditor.ExportToRTF(const OverwriteFileName : AnsiString);
+procedure TEditor.ExportToRTF;
 var
 	SynExporterRTF : TSynExporterRTF;
 	SaveFileName : AnsiString;
 begin
 	SynExporterRTF := TSynExporterRTF.Create(nil);
 	try
-		if OverwriteFileName = '' then begin
-			with TSaveDialog.Create(Application) do try
+		with TSaveDialog.Create(Application) do try
 
-				Filter:= SynExporterRTF.DefaultFilter;
-				Title:= Lang[ID_NV_EXPORT];
-				DefaultExt := RTF_EXT;
-				FileName := ChangeFileExt(fFileName,RTF_EXT);
-				Options := Options + [ofOverwritePrompt];
+			Filter:= SynExporterRTF.DefaultFilter;
+			Title:= Lang[ID_NV_EXPORT];
+			DefaultExt := RTF_EXT;
+			FileName := ChangeFileExt(fFileName,RTF_EXT);
+			Options := Options + [ofOverwritePrompt];
 
-				if Execute then
-					SaveFileName := FileName
-				else
-					Exit;
-			finally
-				Free;
-			end;
-		end else
-			SaveFileName := OverwriteFileName;
+			if Execute then
+				SaveFileName := FileName
+			else
+				Exit;
+		finally
+			Free;
+		end;
 
 		SynExporterRTF.Title := ExtractFileName(SaveFileName);
 		SynExporterRTF.ExportAsText := True;
@@ -682,31 +686,28 @@ begin
 	end;
 end;
 
-procedure TEditor.ExportToTEX(const OverwriteFileName : AnsiString);
+procedure TEditor.ExportToTEX;
 var
 	SynExporterTEX : TSynExporterTEX;
 	SaveFileName : AnsiString;
 begin
 	SynExporterTEX := TSynExporterTEX.Create(nil);
 	try
-		if OverwriteFileName = '' then begin
-			with TSaveDialog.Create(Application) do try
+		with TSaveDialog.Create(Application) do try
 
-				Filter:= SynExporterTEX.DefaultFilter;
-				Title:= Lang[ID_NV_EXPORT];
-				DefaultExt := TEX_EXT;
-				FileName := ChangeFileExt(fFileName,TEX_EXT);
-				Options := Options + [ofOverwritePrompt];
+			Filter:= SynExporterTEX.DefaultFilter;
+			Title:= Lang[ID_NV_EXPORT];
+			DefaultExt := TEX_EXT;
+			FileName := ChangeFileExt(fFileName,TEX_EXT);
+			Options := Options + [ofOverwritePrompt];
 
-				if Execute then
-					SaveFileName := FileName
-				else
-					Exit;
-			finally
-				Free;
-			end;
-		end else
-			SaveFileName := OverwriteFileName;
+			if Execute then
+				SaveFileName := FileName
+			else
+				Exit;
+		finally
+			Free;
+		end;
 
 		SynExporterTex.Title := ExtractFileName(SaveFileName);
 		SynExporterTex.ExportAsText := True;
@@ -764,7 +765,7 @@ begin
 			end;
 		end;
 	end;
-	fText.SelText:= value;
+	fText.SelText := value;
 
 	// Update the cursor
 	fText.CaretXY := NewCursorPos;
@@ -848,7 +849,7 @@ begin
 		tmp:= TStringList.Create;
 		try
 			tmp.LoadFromFile(devDirs.Config + DEV_DEFAULTCODE_FILE);
-			InsertString(ParseMacros(tmp.Text), FALSE);
+			InsertString(ParseMacros(tmp.Text), false);
 		finally
 			tmp.Free;
 		end;
@@ -907,6 +908,7 @@ var
 	attr : TSynHighlighterAttributes;
 	s1,s2 : AnsiString;
 	Ptr : PAnsiChar;
+	HighlightPos : TBufferCoord;
 begin
 
 	// Doing this here instead of in EditorKeyDown to be able to delete some key messages
@@ -914,7 +916,14 @@ begin
 
 		// Don't complete symbols inside strings or comments
 		allowcompletion := true;
-		if fText.GetHighlighterAttriAtRowCol(BufferCoord(fText.CaretX-1,fText.CaretY), s1, attr) then
+
+		// Empty line? Check if we're inside an uncompleted comment block, check last nonblank char
+		HighlightPos := BufferCoord(fText.CaretX-1,fText.CaretY);
+		while (HighlightPos.Line > 0) and (Length(fText.Lines[HighlightPos.Line-1]) = 0) do
+			Dec(HighlightPos.Line);
+		HighlightPos.Char := Length(fText.Lines[HighlightPos.Line-1]);
+
+		if fText.GetHighlighterAttriAtRowCol(HighlightPos, s1, attr) then
 			if (attr = fText.Highlighter.StringAttribute) or (attr = fText.Highlighter.CommentAttribute) or SameStr(attr.Name,'Character') then
 				allowcompletion := false;
 
@@ -1036,7 +1045,7 @@ begin
 			' ': begin
 
 				// If Ctrl is down, immediately show completionbox when space is hit
-				if CtrlDown then begin
+				if IsKeyDown(VK_CONTROL) then begin
 
 					// Delete space keypress
 					Key := #0;
@@ -1064,11 +1073,20 @@ procedure TEditor.EditorKeyDown(Sender: TObject; var Key: Word;Shift: TShiftStat
 var
 	p : TBufferCoord;
 begin
-	// Update the cursor if it is hovering above a keyword and ctrl is pressed
-	if (Key = VK_CONTROL) and HandpointAllowed(p) then
-		fText.Cursor:=crHandPoint
-	else
-		fText.Cursor:=crIBeam;
+	case(Key) of
+		VK_CONTROL: begin
+			if HandpointAllowed(p) then // Update the cursor if it is hovering above a keyword and ctrl is pressed
+				fText.Cursor:=crHandPoint
+			else
+				fText.Cursor:=crIBeam;
+		end;
+		VK_ESCAPE: begin // Update function tip
+			if ttoHideOnEsc in fFunctionTip.Options then begin
+				fFunctionTip.ReleaseHandle;
+				fFunctionTip.ForceHide := true;
+			end;
+		end;
+	end;
 end;
 
 procedure TEditor.EditorKeyUp(Sender: TObject; var Key: Word;Shift: TShiftState);
@@ -1286,6 +1304,35 @@ begin
 		if devEditor.ShowFunctionTip and Assigned(fText.Highlighter) then begin
 			fText.SetFocus;
 			fFunctionTip.Show;
+		end;
+	end;
+end;
+
+procedure TEditor.EditorDblClick(Sender: TObject);
+begin
+	fDblClickTime := GetTickCount;
+end;
+
+procedure TEditor.EditorClick(Sender: TObject);
+var
+	fTripleClickTime: Cardinal;
+	fNewState: TSynStateFlags;
+begin
+	fTripleClickTime := GetTickCount;
+	if (fTripleClickTime > fDblClickTime) and (fTripleClickTime - GetDoubleClickTime < fDblClickTime) then begin
+
+		// Don't let the editor change the caret
+		fNewState := fText.StateFlags;
+		Exclude(fNewState,sfWaitForDragging);
+		fText.StateFlags := fNewState;
+
+		// Select the current line
+		if fText.CaretY < fText.Lines.Count then begin
+			fText.BlockBegin := BufferCoord(1, fText.CaretY);
+			fText.BlockEnd := BufferCoord(1, fText.CaretY + 1);
+		end else begin
+			fText.BlockBegin := BufferCoord(1, fText.CaretY);
+			fText.BlockEnd := BufferCoord(Length(fText.Lines[fText.CaretY-1])+1, fText.CaretY);
 		end;
 	end;
 end;
@@ -1558,7 +1605,7 @@ begin
 		if P.Row <= fText.Lines.Count then begin
 
 			// reset the cursor
-			fText.Cursor:=crIBeam;
+			fText.Cursor := crIBeam;
 
 			line := Trim(fText.Lines[p.Row-1]);
 			if StartsStr('#include',line) then begin
@@ -1596,61 +1643,96 @@ begin
 	end;
 end;
 
-procedure TEditor.PaintMatchingBrackets(TransientType: TTransientType);
+procedure TEditor.EditorPaintTransient(Sender: TObject; Canvas: TCanvas;TransientType: TTransientType);
 const
-	OpenChars:array[0..2] of Char=('{','[','(');
-	CloseChars:array[0..2] of Char=('}',']',')');
+	AllChars = ['{','[','(','}',']',')'];
+	OpenChars = ['{','[','('];
+	CloseChars = ['}',']',')'];
 var
 	P: TBufferCoord;
-	Pix: TPoint;
 	S: AnsiString;
-	I: Integer;
+	Pix: TPoint;
+	textrect : TRect;
 	Attri: TSynHighlighterAttributes;
-begin
-	P := fText.CaretXY;
-	if fText.GetHighlighterAttriAtRowCol(P, S, Attri) and (fText.Highlighter.SymbolAttribute = Attri) then begin
-		for i := 0 to 2 do begin
-			if (S = OpenChars[i]) or (S = CloseChars[i]) then begin
-				Pix := fText.RowColumnToPixels(fText.BufferToDisplayPos(p));
-				fText.Canvas.Brush.Style := bsSolid;
-				fText.Canvas.Font.Assign(fText.Font);
-				Text.Canvas.Font.Style := Attri.Style;
+	len: integer;
 
-				if (TransientType = ttAfter) then begin
-					fText.Canvas.Font.Color:= fText.Highlighter.WhitespaceAttribute.Background;
-					fText.Canvas.Brush.Color := Attri.Foreground;
-				end else begin
-					fText.Canvas.Font.Color:= Attri.Foreground;
-					if not devEditor.HighCurrLine then
-						fText.Canvas.Brush.Color:= fText.Highlighter.WhitespaceAttribute.Background
-					else
-						fText.Canvas.Brush.Color:= devEditor.HighColor;
-				end;
+	procedure SetColors;
+	var
+		index: integer;
+	begin
+		// Draw using highlighting colors
+		if TransientType = ttAfter then begin
+			Canvas.Font.Color := fText.Highlighter.WhitespaceAttribute.Background; // swap colors
+			Canvas.Brush.Color := Attri.Foreground;
 
-				fText.Canvas.TextOut(Pix.X, Pix.Y, S);
-				P := fText.GetMatchingBracketEx(P);
-
-				if not(TransientType = ttAfter) and not (P.Line = fText.CaretY) then
-					fText.Canvas.Brush.Color:= fText.Highlighter.WhitespaceAttribute.Background;
-
-				if (P.Char > 0) and (P.Line > 0) then begin
-					Pix := fText.RowColumnToPixels(fText.BufferToDisplayPos(p));
-
-					if S = OpenChars[i] then
-						fText.Canvas.TextOut(Pix.X, Pix.Y, CloseChars[i])
-					else
-						fText.Canvas.TextOut(Pix.X, Pix.Y, OpenChars[i]);
-				end;
+		// Draw using normal colors
+		end else begin
+			index := fText.RowColToCharIndex(P,false); // TODO: only compute inside first if?
+			if fText.SelAvail and (index > fText.SelStart) and (index < fText.SelEnd) then begin // highlighted is inside selection
+				Canvas.Brush.Color := fText.SelectedColor.Background;
+				Canvas.Font.Color := fText.SelectedColor.Foreground;
+			end else if devEditor.HighCurrLine and (P.Line = fText.CaretY) then begin // matching char is inside highlighted line
+				Canvas.Brush.Color := devEditor.HighColor;
+				Canvas.Font.Color := Attri.Foreground;
+			end else begin
+				Canvas.Brush.Color := Attri.Background;
+				Canvas.Font.Color := Attri.Foreground;
 			end;
 		end;
-		fText.Canvas.Brush.Style := bsSolid;
+		if Canvas.Font.Color = clNone then
+			Canvas.Font.Color := fText.Font.Color;
+		if Canvas.Brush.Color = clNone then
+			Canvas.Brush.Color := fText.Highlighter.WhitespaceAttribute.Background;
 	end;
-end;
-
-procedure TEditor.EditorPaintTransient(Sender: TObject; Canvas: TCanvas;TransientType: TTransientType);
+	procedure SetRect;
+	begin
+		Pix := fText.RowColumnToPixels(fText.BufferToDisplayPos(p));
+		textrect.Left := Pix.X;
+		textrect.Top := Pix.Y;
+		textrect.Bottom := textrect.Top + fText.LineHeight;
+		textrect.Right := textrect.Left + Canvas.TextWidth(S);
+	end;
 begin
-	if Assigned(fText.Highlighter) and devEditor.Match and not fText.SelAvail then
-		PaintMatchingBrackets(TransientType);
+	if (not Assigned(fText.Highlighter)) or (not devEditor.Match) then
+		Exit;
+
+	// Is there a bracket char before us?
+	len := Length(fText.LineText);
+	if (fText.CaretX-1 > 0) and (fText.CaretX-1 <= len) and (fText.LineText[fText.CaretX-1] in AllChars) then
+		P := BufferCoord(fText.CaretX-1,fText.CaretY)
+
+	// Or after us?
+	else if (fText.CaretX > 0) and (fText.CaretX <= len) and (fText.LineText[fText.CaretX] in AllChars) then
+		P := BufferCoord(fText.CaretX,fText.CaretY);
+
+	// Is the OpenChar before/after us highlighted as a symbol (not a comment or something)?
+	if fText.GetHighlighterAttriAtRowCol(P, S, Attri) and (Attri = fText.Highlighter.SymbolAttribute) then begin
+
+		Canvas.Brush.Style := bsSolid;
+		Canvas.Font.Assign(fText.Font);
+		Canvas.Font.Style := Attri.Style;
+
+		// Draw here using this color
+		SetRect;
+		SetColors;
+
+		// Redraw bracket
+		ExtTextOut(Canvas.Handle,Pix.X,Pix.Y,ETO_OPAQUE,@textrect,PChar(S),Length(S),nil);
+
+		// Draw corresponding bracket too
+		P := fText.GetMatchingBracketEx(P);
+		if (P.Char > 0) and (P.Line > 0) then begin
+			S := fText.Lines[P.Line-1][P.Char];
+
+			// Draw here using this color again
+			SetRect;
+			SetColors;
+
+			// Mimic SynEdit drawing
+			ExtTextOut(Canvas.Handle,Pix.X,Pix.Y,ETO_OPAQUE,@textrect,PChar(S),Length(S),nil);
+		end;
+	end;
+	Canvas.Brush.Style := bsSolid;
 end;
 
 procedure TEditor.SetTabIndex(index : integer);
@@ -1764,6 +1846,7 @@ begin
 				fTabSheet.Caption:= ExtractFileName(FileName);
 
 			fFileName := FileName;
+			MainForm.UpdateAppTitle;
 
 			// We haven't scanned it yet...
 			MainForm.CppParser.AddFileToScan(FileName);
