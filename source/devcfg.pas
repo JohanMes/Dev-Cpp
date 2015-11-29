@@ -474,7 +474,7 @@ type
    fStatusbar: boolean;              // Statusbar Visible
    fFullScr: boolean;                // IDE is Full screen
    fShowBars: boolean;               // Show toolbars in FullScreen mode
-   fShowMenu: boolean;               // Show Main Menu in Full Screen Mode
+   fMultiLineTab: boolean;           // Show multiline tabs
    fDefCpp: boolean;                 // Default to C++ project (compile with g++)
    fFirst: boolean;                  // first run of dev-c
    fSplash: string;                  // user selected splash screen
@@ -496,9 +496,6 @@ type
    fToolbarProject: boolean;
    fToolbarProjectX: integer;
    fToolbarProjectY: integer;
-   fToolbarOptions: boolean;
-   fToolbarOptionsX: integer;
-   fToolbarOptionsY: integer;
    fToolbarSpecials: boolean;
    fToolbarSpecialsX: integer;
    fToolbarSpecialsY: integer;
@@ -568,7 +565,7 @@ type
    property MsgTabs: boolean read fMsgTabs write fMsgTabs;
 
    property ShowBars: boolean read fShowbars write fShowbars;
-   property ShowMenu: boolean read fShowMenu write fShowMenu;
+   property MultiLineTab: boolean read fMultiLineTab write fMultiLineTab;
 
    //Running Status Options
    property DefCpp: boolean read fDefCpp write fDefCpp;
@@ -596,9 +593,6 @@ type
    property ToolbarProject: boolean read fToolbarProject write fToolbarProject;
    property ToolbarProjectX: integer read fToolbarProjectX write fToolbarProjectX;
    property ToolbarProjectY: integer read fToolbarProjectY write fToolbarProjectY;
-   property ToolbarOptions: boolean read fToolbarOptions write fToolbarOptions;
-   property ToolbarOptionsX: integer read fToolbarOptionsX write fToolbarOptionsX;
-   property ToolbarOptionsY: integer read fToolbarOptionsY write fToolbarOptionsY;
    property ToolbarSpecials: boolean read fToolbarSpecials write fToolbarSpecials;
    property ToolbarSpecialsX: integer read fToolbarSpecialsX write fToolbarSpecialsX;
    property ToolbarSpecialsY: integer read fToolbarSpecialsY write fToolbarSpecialsY;
@@ -950,7 +944,7 @@ begin
   fFirst:= TRUE;
   fLang:= DEFAULT_LANG_FILE;
   fFindCols:= '75, 75, 120, 150';
-  fCompCols:= '75, 75, 120';
+  fCompCols:= '75, 75, 120, 150';
   fMsgTabs:= TRUE; // Top
   fMRUMax:= 10;
   fMinOnRun:= FALSE;
@@ -964,7 +958,7 @@ begin
   fOutputHeight:=120;
   fStatusbar:= TRUE;
   fShowBars:= FALSE;
-  fShowMenu:= TRUE;
+  fMultiLineTab:= TRUE;
   fDefCpp:= TRUE;
   fOpenStyle:= 0;
   fdblFiles:= FALSE;
@@ -980,9 +974,6 @@ begin
   fToolbarProject:=TRUE;
   fToolbarProjectX:=375;
   fToolbarProjectY:=2;
-  fToolbarOptions:=TRUE;
-  fToolbarOptionsX:=598;
-  fToolbarOptionsY:=2;
   fToolbarSpecials:=TRUE;
   fToolbarSpecialsX:=11;
   fToolbarSpecialsY:=30;
@@ -1336,7 +1327,7 @@ begin
 	fModified:= TRUE;
 	fSaveLog:= FALSE;
 
-	// Compile delau
+	// Compile delay
 	fDelay:= 0;
 
 	// Makefile
@@ -1629,7 +1620,7 @@ procedure TdevCodeCompletion.SettoDefaults;
 begin
   fWidth:=320;
   fHeight:=240;
-  fDelay:=500;
+  fDelay:=200;
   fBackColor:=clWindow;
   fEnabled:=True;
   fUseCacheFiles:=False;
