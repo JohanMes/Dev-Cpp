@@ -42,6 +42,7 @@ type
     utresComp, // resource compiled (.res)
     utresSrc, // resource source (.rc)
     utPrj, // project file (.dev)
+    utMakefile, // makefile (.win)
     utOther // any others
     );
 
@@ -647,7 +648,7 @@ begin
       TerminateProcess(pi.hProcess, 1);
       Break;
     end;
-    if (not ReadFile(hOutputRead, aBuf, SizeOf(aBuf), nRead, nil)) or (nRead = 0) then begin
+    if (not ReadFile(hOutputRead, aBuf, SizeOf(aBuf)-1, nRead, nil)) or (nRead = 0) then begin
       if GetLastError = ERROR_BROKEN_PIPE then
         Break; // pipe done - normal exit path
     end;
@@ -877,7 +878,7 @@ function GetFileTyp(const FileName: AnsiString): TExUnitType;
 var
   ext: AnsiString;
 begin
-  Ext := ExtractfileExt(FileName);
+  Ext := ExtractFileExt(FileName);
   if AnsiMatchText(Ext, ['.dev']) then
     result := utPrj
   else if AnsiMatchText(ext, ['.c']) then
@@ -1072,7 +1073,7 @@ begin
       if Assigned(MainForm.Project) then
         Result := ExpandFileTo(Result, MainForm.Project.Directory)
       else begin
-        e := MainForm.GetEditor;
+        e := MainForm.EditorList.GetEditor;
         if (Assigned(e)) and (Length(ExtractFileDir(e.FileName)) > 0) then
           Result := ExpandFileTo(Result, ExtractFileDir(e.FileName))
         else
