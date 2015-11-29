@@ -45,12 +45,12 @@ type
   private
     fReplaceHint: AnsiString;
     fButtonText: AnsiString;
-    function GetShortCut(Index: integer): TShortCut;
+    function GetShortCut(Index: integer): PShortCutItem;
   public
     procedure AddShortcut(Item : PShortcutItem);
     procedure Clear;
     function Count: integer;
-    property ShortCuts[Index: integer]: TShortCut read GetShortCut;
+    property ShortCuts[Index: integer]: PShortCutItem read GetShortCut;
     procedure LoadText(const WindowCaption,Column1,Column2,OK,Cancel,Default,ReplaceHint,Button : AnsiString);
   end;
 
@@ -100,15 +100,16 @@ begin
 	Result := lvShortcuts.Items.Count;
 end;
 
-function TfrmShortcutsEditor.GetShortCut(Index: integer): TShortCut;
+function TfrmShortcutsEditor.GetShortCut(Index: integer): PShortCutItem;
 begin
-	Result := TextToShortCut(lvShortcuts.Items[Index].SubItems[0]);
+	Result := PShortCutItem(lvShortcuts.Items[Index].Data);
 end;
 
 procedure TfrmShortcutsEditor.lvShortcutsKeyDown(Sender: TObject;var Key: Word; Shift: TShiftState);
 var
-  I, oldindex: integer;
-  sct: AnsiString;
+	I, oldindex: integer;
+	TextShortCut: AnsiString;
+	IntShortCut: TShortCut;
 begin
 	// Require a selection
 	if lvShortcuts.Selected = nil then
@@ -132,14 +133,15 @@ begin
 	if (Key in [VK_SHIFT,VK_CONTROL,VK_MENU]) then // VK_MENU is the alt key
 		Exit;
 
-	sct := ShortCutToText(ShortCut(Key, Shift));
+	IntShortCut := ShortCut(Key, Shift);
+	TextShortCut := ShortCutToText(IntShortCut);
 
- 	oldindex := -1;
+	oldindex := -1;
 	for I:=0 to lvShortcuts.Items.Count-1 do
 
 		// Don't scan popups, they can contain duplicate shortcuts (they're picked based on focus)
 		if (lvShortcuts.Items[I] <> lvShortcuts.Selected) and (Pos('Popup',lvShortcuts.Items[I].Caption) = 0) then
-			if lvShortcuts.Items[I].SubItems[0] = sct then begin
+			if PShortCutItem(lvShortcuts.Items[I].Data)^.Temporary = IntShortCut then begin
 				oldindex := i;
 				break;
 			end;
@@ -148,12 +150,12 @@ begin
 	if oldindex <> -1 then begin // already in use
 		if MessageDlg(Format(fReplaceHint,[lvShortcuts.Items[oldindex].Caption]),mtConfirmation,[mbYes,mbNo],0) = mrYes then begin // replace...
 			lvShortcuts.Items[oldindex].SubItems[0] := ''; // remove old
-			lvShortcuts.Selected.SubItems[0] := sct; // set new
+			lvShortcuts.Items[oldindex].Data := Pointer(0);
 		end;
-	end else
-		lvShortcuts.Selected.SubItems[0] := sct;
+	end;
 
-	// Set new one
+	lvShortcuts.Selected.SubItems[0] := TextShortCut; // set new
+	PShortCutItem(lvShortcuts.Selected.Data)^.Temporary := IntShortCut;
 
 	// don't let the keystroke propagate...
 	Key := 0;
@@ -202,10 +204,14 @@ end;
 procedure TfrmShortcutsEditor.btnDefaultClick(Sender: TObject);
 var
 	I : integer;
+	Item: PShortCutItem;
 begin
 	lvShortcuts.Items.BeginUpdate;
-	for I := 0 to lvShortcuts.Items.Count -1  do
-		lvShortcuts.Items[I].SubItems[0] := ShortCutToText(PShortcutItem(lvShortcuts.Items[I].Data)^.Default);
+	for I := 0 to lvShortcuts.Items.Count - 1 do begin
+		Item := PShortCutItem(lvShortcuts.Items[I].Data);
+		Item^.Temporary := Item^.Default;
+		lvShortcuts.Items[I].SubItems[0] := ShortCutToText(Item^.Temporary);
+	end;
 	lvShortcuts.Items.EndUpdate;
 end;
 

@@ -90,6 +90,7 @@ const
   ID_ITEM_SWAPHEADERSOURCE              = 22005;
   ID_ITEM_COLLAPSEALL                   = 22006;
   ID_ITEM_UNCOLLAPSEALL                 = 22007;
+  ID_ITEM_TOGGLECOMMENT                 = 22008;
 
   // search menu
   ID_ITEM_FIND                          = 5001;
@@ -593,6 +594,7 @@ const
   ID_COPT_LINKERTAB                     = 41005;
   ID_COPT_PROGRAMSTAB                   = 41006;
   ID_COPT_COMPILERTIP                   = 41007;
+  ID_COPT_MAKEFILETAB                   = 41008;
 
   ID_COPT_BIN                           = 42001;
   ID_COPT_LIB                           = 42002;
@@ -663,7 +665,8 @@ const
   ID_COPT_ADDCOMPHINT                   = 47012;
   ID_COPT_DELCOMPHINT                   = 47013;
   ID_COPT_RENAMECOMPHINT                = 47014;
-
+  ID_COPT_ADDFOLDERCOMPHINT             = 47015;
+  
   // Help Menu Editor Form
   ID_HE                                 = 48001;
   ID_HE_COL1                            = 48002;
@@ -774,7 +777,7 @@ const
   ID_POPT_OPENICO                       = 55020;
   ID_POPT_OPENOBJ                       = 55021;
   ID_POPT_RESDIRS                       = 55022;
-  ID_POPT_CCOMP                         = 55031;
+
 
   // build output tab
   ID_POPT_OUTDIRGRP                     = 55024;
@@ -785,6 +788,11 @@ const
   ID_POPT_UNITSFORMAT                   = 55029;
   ID_POPT_LOGAUTOSAVE                   = 55030;
 
+  // etc.
+  ID_POPT_CCOMP                         = 55031;
+  iD_POPT_COMPCUSTOMHINT                = 55032;
+  ID_POPT_DISCARDCUSTOM                 = 55033;
+  
   // New template form
   ID_NEWTPL_NAME                        = 56001;
   ID_NEWTPL_DESCRIPTION                 = 56002;
@@ -911,6 +919,8 @@ const
   ID_ERR_HOSTNOTEXIST                   = 61016;
   ID_ERR_PROJECTNOTCOMPILEDSUGGEST      = 61017;
   ID_ERR_SRCNOTCOMPILEDSUGGEST          = 61018;
+  ID_ERR_FILECHANGED                    = 61019;
+  ID_ERR_RENAMEDDELETED                 = 61020;
 
   ID_UNTITLED                           = 62001;
   ID_READONLY                           = 62002;
@@ -935,6 +945,11 @@ const
   ID_SEARCHCOUNT                        = 62021;
   ID_DONEPARSINGIN                      = 62022;
   ID_DONEPARSINGHINT                    = 62023;
+  ID_COMPILEFAILSEC                     = 62024;
+  ID_COMPILEABORTSEC                    = 62025;
+  ID_COMPILESUCCESSSEC                  = 62026;
+  ID_COMPILEWARNINGS                    = 62027;
+  ID_COMPILEERRORS                      = 62028;
 
   ID_BTN_OK                             = 63001;
   ID_BTN_CANCEL                         = 63002;

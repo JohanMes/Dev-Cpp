@@ -6,7 +6,7 @@ object MainForm: TMainForm
   AutoScroll = False
   Caption = 'Dev-C++'
   ClientHeight = 616
-  ClientWidth = 896
+  ClientWidth = 895
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -35,7 +35,7 @@ object MainForm: TMainForm
   object SplitterBottom: TSplitter
     Left = 0
     Top = 410
-    Width = 896
+    Width = 895
     Height = 3
     Cursor = crVSplit
     Align = alBottom
@@ -45,7 +45,7 @@ object MainForm: TMainForm
   object MessageControl: TPageControl
     Left = 0
     Top = 433
-    Width = 896
+    Width = 895
     Height = 183
     ActivePage = DebugSheet
     Align = alBottom
@@ -61,7 +61,7 @@ object MainForm: TMainForm
         Left = 0
         Top = 0
         Width = 888
-        Height = 155
+        Height = 154
         Align = alClient
         BevelOuter = bvNone
         BorderStyle = bsNone
@@ -105,7 +105,7 @@ object MainForm: TMainForm
         Left = 0
         Top = 0
         Width = 888
-        Height = 155
+        Height = 154
         Align = alClient
         BevelOuter = bvNone
         BorderStyle = bsNone
@@ -187,7 +187,7 @@ object MainForm: TMainForm
           Height = 13
           Caption = 'Total warnings:'
         end
-        object SizeFile: TEdit
+        object edSizeFile: TEdit
           Left = 96
           Top = 56
           Width = 128
@@ -196,7 +196,7 @@ object MainForm: TMainForm
           TabOrder = 1
           Text = '0'
         end
-        object TotalErrors: TEdit
+        object edTotalErrors: TEdit
           Left = 96
           Top = 8
           Width = 128
@@ -205,7 +205,7 @@ object MainForm: TMainForm
           TabOrder = 0
           Text = '0'
         end
-        object TotalWarnings: TEdit
+        object edTotalWarnings: TEdit
           Left = 96
           Top = 32
           Width = 128
@@ -213,6 +213,14 @@ object MainForm: TMainForm
           ReadOnly = True
           TabOrder = 2
           Text = '0'
+        end
+        object pbCompilation: TProgressBar
+          Left = 8
+          Top = 118
+          Width = 218
+          Height = 21
+          Step = 1
+          TabOrder = 3
         end
       end
       object CompResGroupBox: TPanel
@@ -238,6 +246,7 @@ object MainForm: TMainForm
           ReadOnly = True
           ScrollBars = ssBoth
           TabOrder = 0
+          WantTabs = True
           WordWrap = False
         end
       end
@@ -248,13 +257,13 @@ object MainForm: TMainForm
       object DebugSendPanel: TPanel
         Left = 589
         Top = 0
-        Width = 299
+        Width = 298
         Height = 155
         Align = alClient
         BevelOuter = bvNone
         TabOrder = 0
         DesignSize = (
-          299
+          298
           155)
         object lblSendCommandGdb: TLabel
           Left = 4
@@ -266,7 +275,7 @@ object MainForm: TMainForm
         object edGdbCommand: TComboBox
           Left = 136
           Top = 3
-          Width = 159
+          Width = 158
           Height = 21
           Anchors = [akLeft, akTop, akRight]
           ItemHeight = 13
@@ -276,8 +285,8 @@ object MainForm: TMainForm
         object DebugOutput: TMemo
           Left = 4
           Top = 30
-          Width = 292
-          Height = 111
+          Width = 291
+          Height = 118
           Align = alCustom
           Anchors = [akLeft, akTop, akRight, akBottom]
           ReadOnly = True
@@ -443,7 +452,7 @@ object MainForm: TMainForm
           Left = 4
           Top = 100
           Width = 578
-          Height = 40
+          Height = 48
           Align = alCustom
           Anchors = [akLeft, akTop, akRight, akBottom]
           ReadOnly = True
@@ -483,7 +492,7 @@ object MainForm: TMainForm
         Left = 0
         Top = 0
         Width = 888
-        Height = 155
+        Height = 154
         Align = alClient
         BevelOuter = bvNone
         BorderStyle = bsNone
@@ -527,7 +536,7 @@ object MainForm: TMainForm
   object Toolbar: TControlBar
     Left = 0
     Top = 16
-    Width = 896
+    Width = 895
     Height = 54
     Align = alTop
     AutoDock = False
@@ -671,12 +680,12 @@ object MainForm: TMainForm
       object ProfileBtn: TToolButton
         Left = 162
         Top = 0
-        Action = actProfileProject
+        Action = actProfile
       end
       object ProfilingInforBtn: TToolButton
         Left = 185
         Top = 0
-        Action = actDeleteProfileProject
+        Action = actDeleteProfile
       end
     end
     object tbProject: TToolBar
@@ -891,7 +900,7 @@ object MainForm: TMainForm
   object Statusbar: TStatusBar
     Left = 0
     Top = 413
-    Width = 896
+    Width = 895
     Height = 20
     Panels = <
       item
@@ -909,7 +918,7 @@ object MainForm: TMainForm
   object PageControl: TPageControl
     Left = 196
     Top = 70
-    Width = 700
+    Width = 699
     Height = 340
     Align = alClient
     HotTrack = True
@@ -926,7 +935,7 @@ object MainForm: TMainForm
   object pnlFull: TPanel
     Left = 0
     Top = 0
-    Width = 896
+    Width = 895
     Height = 16
     Align = alTop
     BevelOuter = bvNone
@@ -936,10 +945,10 @@ object MainForm: TMainForm
     TabOrder = 6
     Visible = False
     DesignSize = (
-      896
+      895
       16)
     object btnFullScrRevert: TSpeedButton
-      Left = 879
+      Left = 878
       Top = 0
       Width = 16
       Height = 16
@@ -1191,13 +1200,16 @@ object MainForm: TMainForm
         Action = actPrintSU
         GroupIndex = 9
       end
+      object N21: TMenuItem
+        Caption = '-'
+        GroupIndex = 9
+      end
       object N76: TMenuItem
         Caption = '-'
         GroupIndex = 9
       end
       object N11: TMenuItem
         Caption = '-'
-        Enabled = False
         GroupIndex = 9
       end
       object ClearhistoryItem: TMenuItem
@@ -1283,6 +1295,9 @@ object MainForm: TMainForm
       object Uncomment1: TMenuItem
         Action = actUncomment
       end
+      object ToggleComment1: TMenuItem
+        Action = actToggleComment
+      end
       object N27: TMenuItem
         Caption = '-'
       end
@@ -1354,23 +1369,6 @@ object MainForm: TMainForm
       object StatusbarItem: TMenuItem
         Action = actStatusbar
         AutoCheck = True
-      end
-      object CompileroutputItem: TMenuItem
-        Caption = '&Compiler Output'
-        object AlwaysShowItem: TMenuItem
-          Action = actCompOutput
-          AutoCheck = True
-          GroupIndex = 1
-        end
-        object N37: TMenuItem
-          Caption = '-'
-          GroupIndex = 1
-        end
-        object ShowonlywhenneededItem: TMenuItem
-          Action = actCompOnNeed
-          AutoCheck = True
-          GroupIndex = 1
-        end
       end
       object ToolbarsItem: TMenuItem
         Caption = '&Toolbars'
@@ -1517,10 +1515,10 @@ object MainForm: TMainForm
         Caption = '-'
       end
       object Profileanalysis1: TMenuItem
-        Action = actProfileProject
+        Action = actProfile
       end
       object DeleteProfilingInformation: TMenuItem
-        Action = actDeleteProfileProject
+        Action = actDeleteProfile
       end
       object N25: TMenuItem
         Caption = '-'
@@ -2281,20 +2279,6 @@ object MainForm: TMainForm
       Caption = '&Statusbar'
       OnExecute = actStatusbarExecute
     end
-    object actCompOutput: TAction
-      Category = 'View'
-      AutoCheck = True
-      Caption = '&Always show Compiler Output'
-      GroupIndex = 2
-      OnExecute = actCompOutputExecute
-    end
-    object actCompOnNeed: TAction
-      Category = 'View'
-      AutoCheck = True
-      Caption = '&Show only when needed'
-      GroupIndex = 2
-      OnExecute = actCompOnNeedExecute
-    end
     object actProjectNew: TAction
       Tag = 1
       Category = 'Project'
@@ -2576,6 +2560,13 @@ object MainForm: TMainForm
       OnExecute = actUncommentExecute
       OnUpdate = actUpdateEmptyEditor
     end
+    object actToggleComment: TAction
+      Category = 'Edit'
+      Caption = 'Toggle Comment'
+      ShortCut = 16575
+      OnExecute = actToggleCommentExecute
+      OnUpdate = actUpdateEmptyEditor
+    end
     object actIndent: TAction
       Category = 'Edit'
       Caption = 'Indent'
@@ -2647,11 +2638,11 @@ object MainForm: TMainForm
       OnExecute = actBrowserViewCurrentExecute
       OnUpdate = actBrowserViewAllUpdate
     end
-    object actProfileProject: TAction
+    object actProfile: TAction
       Category = 'Execute'
       Caption = 'Profile analysis'
       ImageIndex = 43
-      OnExecute = actProfileProjectExecute
+      OnExecute = actProfileExecute
       OnUpdate = actCompileRunUpdate
     end
     object actBrowserAddFolder: TAction
@@ -2832,11 +2823,11 @@ object MainForm: TMainForm
       OnExecute = actStepLineExecute
       OnUpdate = actUpdateDebuggerRunning
     end
-    object actDeleteProfileProject: TAction
+    object actDeleteProfile: TAction
       Category = 'Execute'
       Caption = 'Delete Profiling information'
       ImageIndex = 47
-      OnExecute = actDeleteProfileProjectExecute
+      OnExecute = actDeleteProfileExecute
       OnUpdate = actRunUpdate
     end
     object actGotoDeclEditor: TAction

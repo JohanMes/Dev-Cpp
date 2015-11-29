@@ -1,6 +1,6 @@
 object LangForm: TLangForm
-  Left = 462
-  Top = 171
+  Left = 563
+  Top = 516
   BorderIcons = []
   BorderStyle = bsDialog
   Caption = 'Dev-C++ first time configuration'
@@ -253,7 +253,17 @@ object LangForm: TLangForm
           'time.h'
           'wchar.h'
           'wctype.h'
-          'windows.h')
+          'windows.h'
+          'deque'
+          'list'
+          'map'
+          'queue'
+          'set'
+          'stack'
+          'vector'
+          'iostream'
+          'algorithm'
+          'string')
         MultiSelect = True
         TabOrder = 3
       end

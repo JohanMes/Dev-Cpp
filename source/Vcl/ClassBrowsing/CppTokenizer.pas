@@ -40,8 +40,6 @@ const
   MAX_TOKEN_SIZE = 32768;
 
 type
-  TSetOfChars = set of Char;
-
   TLogTokenEvent = procedure(Sender: TObject; const Msg: AnsiString) of object;
   TProgressEvent = procedure(Sender: TObject; const FileName: AnsiString; Total, Current: integer) of object;
 
@@ -64,6 +62,7 @@ type
     fOnProgress: TProgressEvent;
     fTmpOutput: PAnsiChar;
     procedure AddToken(sText: AnsiString; iLine: integer);
+    function GetToken(index : integer) : PToken;
     procedure CountLines;
     procedure MatchChar(C: Char);
     procedure SkipCStyleComment;
@@ -96,6 +95,7 @@ type
     procedure Tokenize(StartAt: PAnsiChar); overload;
     procedure Tokenize(FileName: TFilename); overload;
     procedure Tokenize(Stream: TStream); overload;
+    property TokenList[index : integer]: PToken read GetToken; default;
   published
     property LogTokens: boolean read fLogTokens write fLogTokens;
     property OnLogToken: TLogTokenEvent read fOnLogToken write fOnLogToken;
@@ -130,17 +130,12 @@ begin
 end;
 
 procedure TCppTokenizer.Reset;
+var
+	I : integer;
 begin
-  if fTokenList <> nil then begin
-    while fTokenList.Count > 0 do
-      if Assigned(PToken(fTokenList[fTokenList.Count - 1])) then begin
-        Dispose(PToken(fTokenList[fTokenList.Count - 1]));
-        fTokenList.Delete(fTokenList.Count - 1);
-      end
-      else
-        fTokenList.Delete(fTokenList.Count - 1);
-    fTokenList.Clear;
-  end;
+	for I := 0 to fTokenList.Count - 1 do
+		Dispose(PToken(fTokenList[I])); // don't move when freeing tokens
+	fTokenList.Clear;
 end;
 
 function TCppTokenizer.OpenFile(const FileName: AnsiString): boolean;
@@ -206,6 +201,11 @@ begin
   Token^.Text := sText;
   Token^.Line := iLine;
   fTokenList.Add(Token);
+end;
+
+function TCppTokenizer.GetToken(index : integer) : PToken;
+begin
+	result := PToken(fTokenList[index]); // don't dereference, but pass pointer
 end;
 
 procedure TCppTokenizer.CountLines;
@@ -291,25 +291,32 @@ end;
 
 procedure TCppTokenizer.SkipPair(cStart, cEnd: Char); // e.g.: SkipPair('[', ']');
 begin
-  repeat
-    Inc(pCurrent);
-    if pCurrent^ = #0 then
-      Break;
-    if pCurrent^ = cStart then
-      SkipPair(cStart, cEnd); //recurse
-    if pCurrent^ = cEnd then
-      Break;
-    case pCurrent^ of
-      '"': if cStart <> '''' then
-          SkipDoubleQuotes; // don't do it inside AnsiString!
-      '''': SkipSingleQuote;
-      '/': if (pCurrent + 1)^ = '/' then
-          SkipToEOL
-        else if (pCurrent + 1)^ = '*' then
-          SkipCStyleComment;
-    end;
-  until (pCurrent^ = cEnd) or (pCurrent^ = #0);
-  Advance;
+	Inc(pCurrent);
+	while not (pCurrent^ in [cEnd,#0]) do begin
+		if pCurrent^ = cStart then begin
+			SkipPair(cStart,cEnd);
+			continue; // when done recursing, don't skip ahead, rather try again
+		end;
+		if pCurrent^ = cEnd then
+			break;
+		case pCurrent^ of
+			'"': begin
+				if cStart <> '''' then
+					SkipDoubleQuotes; // don't do it inside AnsiString!
+			end;
+			'''': begin
+				SkipSingleQuote;
+			end;
+			'/': begin
+				if (pCurrent + 1)^ = '/' then
+					SkipToEOL
+				else if (pCurrent + 1)^ = '*' then
+					SkipCStyleComment;
+			end;
+		end;
+		Inc(pCurrent);
+	end;
+	Advance; // skip over last one
 end;
 
 procedure TCppTokenizer.SkipAssignment;
@@ -378,7 +385,6 @@ end;
 function TCppTokenizer.GetWord(bSkipParenthesis: boolean = False; bSkipArray: boolean = False; bSkipBlock: boolean = False): AnsiString;
 var
   Offset: PAnsiChar;
-  Backup: PAnsiChar;
   tmp: integer;
   Done: boolean;
   AssignPos: PAnsiChar;
@@ -425,15 +431,9 @@ begin
     pCurrent := Backup;
   end}
 
-  // check for <xxx> values (templates, lists etc)
-  if pCurrent^ = '<' then begin
-    Backup := pCurrent;
-    repeat
-      Inc(Backup);
-    until Backup^ in ['>', ';', '{', '}', '(', ')', '.', #0];
-    if Backup^ = '>' then // got it!
-      pCurrent := Backup + 1;
-  end;
+  // check for <xxx> values (templates, lists etc), step over <xxx>
+  if pCurrent^ = '<' then
+    SkipPair('<','>');
 
   if Offset <> pCurrent then begin
     StrLCopy(localOutput, Offset, pCurrent - Offset);
@@ -444,10 +444,9 @@ begin
       AssignPos^ := #0;
       pCurrent := Offset + (AssignPos - localOutput);
       bSkipArray := False;
-    end
-    // if it contains assignment, remove it
-    else begin
-      AssignPos := StrPos(localOutput, '=');
+    // ignore assignments within template<xxx>...
+    end else if (not(pCurrent - Offset >= 8)) or (not StrLComp('template', Offset, 8) = 0) then begin
+      AssignPos := StrPos(localOutput, '='); // otherwise, remove part after assignment
       if AssignPos <> nil then
         AssignPos^ := #0;
     end;
@@ -588,6 +587,24 @@ begin
             Advance;
             Done := True;
           end;
+        '>': begin // keep stream operators
+          if (pCurrent + 1)^ = '>' then begin
+            CountLines;
+            Result := '>>';
+            Advance;
+            Done := True;
+          end else
+            Advance;
+        end;
+        '<': begin
+          if (pCurrent + 1)^ = '<' then begin
+            CountLines;
+            Result := '<<';
+            Advance;
+            Done := True;
+          end else
+            Advance;
+        end;
       else
         Advance;
       end;

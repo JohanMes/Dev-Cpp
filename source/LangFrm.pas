@@ -161,7 +161,7 @@ begin
 		HasProgressStarted := true;
 	end;
 	pbCCCache.Position := pbCCCache.Position + Current;
-	ParseLabel.Caption := Lang[ID_LANGFORM_PARSING] + #13#10 + ReplaceFirstText(FileName,devDirs.Exec,'\');
+	ParseLabel.Caption := Lang[ID_LANGFORM_PARSING] + #13#10 + ReplaceFirstText(FileName,devDirs.Exec,'');
 	Application.ProcessMessages;
 end;
 
@@ -169,7 +169,7 @@ procedure TLangForm.OkBtnClick(Sender: TObject);
 var
 	sl, f : TStringList;
 	i, j : integer;
-	fullpath : AnsiString;
+//	starttime : Cardinal;
 begin
 	if OkBtn.Tag = 0 then begin // goto edit page
 		OkBtn.Tag := 1;
@@ -222,8 +222,8 @@ begin
 			if AltCache.Checked then begin
 				for I := 0 to AltFileList.Count - 1 do
 					sl.Add(AltFileList.Items[I]);
-			end else
-				sl.Assign(devCompiler.CppDir);
+			end else if Assigned(devCompilerSets.CurrentSet) then // cache all include dirs if there are any
+				sl.Assign(devCompilerSets.CurrentSet.CppDir);
 
 			// Make it look busy
 			Screen.Cursor:=crHourglass;
@@ -246,16 +246,16 @@ begin
 				for i := 0 to sl.Count-1 do begin
 
 					// Assemble full path
-					if (Length(sl[i]) > 0) and (sl[i][1] = ':') then
-						fullpath := sl[i]
-					else if devCompiler.CppDir.Count > 0 then
-						fullpath := devCompiler.CppDir[0] + pd + sl[i]
-					else
-						fullpath := sl[i];
-
-					// Then check for existance
-					if FileExists(fullpath) then begin
-						MainForm.CppParser.AddFileToScan(fullpath);
+					if (Length(sl[i]) > 1) and (sl[i][2] = ':') then begin
+						if FileExists(sl[i]) then
+							MainForm.CppParser.AddFileToScan(sl[i]);
+					end else if Assigned(devCompilerSets.CurrentSet) then begin
+						for j := 0 to devCompilerSets.CurrentSet.CppDir.Count-1 do begin
+							if FileExists(devCompilerSets.CurrentSet.CppDir[j] + pd + sl[i]) then begin
+								MainForm.CppParser.AddFileToScan(devCompilerSets.CurrentSet.CppDir[j] + pd + sl[i]);
+								break;
+							end;
+						end;
 					end;
 					//end else
 					//	MessageDlg('File "' + fullpath + '" does not exist', mtWarning, [mbOK], 0);
@@ -264,7 +264,11 @@ begin
 			sl.Free;
 			f.Free;
 
+			// Parse all given files
+			{starttime := GetTickCount;}
 			MainForm.CppParser.ParseList;
+			{MessageDlg(Format('Found %d statements in %f seconds',
+				[MainForm.CppParser.Statements.Count,(GetTickCount - starttime)/1000]),mtInformation,[mbOK],0);}
 
 			ParseLabel.Caption := Lang[ID_LANGFORM_SAVING];
 			Application.ProcessMessages;
@@ -298,24 +302,26 @@ end;
 
 procedure TLangForm.ButtonAddFileClick(Sender: TObject);
 var
-	I: integer;
+	I,J: integer;
 	s: AnsiString;
 begin
 	with TOpenDialog.Create(self) do try
-		Filter:= FLT_HEADS;
+		Filter:= BuildFilter([FLT_HEADS]);
 		Title:= Lang[ID_NV_OPENFILE];
 		Options := Options + [ofAllowMultiSelect];
 
 		// Start in the include folder
-		if devCompiler.CppDir.Count > 0 then
-			InitialDir := devCompiler.CppDir[0];
+		FileName := '';
+		if Assigned(devCompilerSets.CurrentSet) and (devCompilerSets.CurrentSet.CppDir.Count > 0) then
+			InitialDir := devCompilerSets.CurrentSet.CppDir[0];
 
 		if Execute then begin
 			for i:= 0 to Files.Count-1 do begin
-				if devCompiler.CppDir.Count > 0 then
-					s := StringReplace(Files.Strings[i],devCompiler.CppDir[0] + pd,'',[rfReplaceAll])
-				else
-					s := Files.Strings[i];
+				s := Files[i];
+				if Assigned(devCompilerSets.CurrentSet) then begin
+					for J := 0 to devCompilerSets.CurrentSet.CppDir.Count -1 do
+						s := StringReplace(s,devCompilerSets.CurrentSet.CppDir[j] + pd,'',[rfReplaceAll]);
+				end;
 				AltFileList.Items.Add(s);
 			end;
 		end;
@@ -333,7 +339,7 @@ procedure TLangForm.ButtonAddFolderClick(Sender: TObject);
 var
 	Dir : AnsiString;
 	f : TStringList;
-	I : integer;
+	I,J : integer;
 	s : AnsiString;
 begin
 	f := TStringList.Create;
@@ -341,10 +347,11 @@ begin
 		if SelectDirectory('Select Folder', devDirs.Exec, Dir) then begin
 			FilesFromWildcard(Dir, '*.*', f, false, false, false);
 			for i := 0 to f.Count-1 do begin
-				if devCompiler.CppDir.Count > 0 then
-					s := StringReplace(f[i],devCompiler.CppDir[0] + pd,'',[rfReplaceAll])
-				else
-					s := f[i];
+				s := f[i];
+				if Assigned(devCompilerSets.CurrentSet) then begin
+					for J := 0 to devCompilerSets.CurrentSet.CppDir.Count -1 do
+						s := StringReplace(s,devCompilerSets.CurrentSet.CppDir[j] + pd,'',[rfReplaceAll]);
+				end;
 				AltFileList.Items.Add(s);
 			end;
 		end;
@@ -373,7 +380,7 @@ begin
 
 	// Font options
 	cmbFont.Items.Assign(Screen.Fonts);
-	cmbFont.ItemIndex := cmbFont.Items.IndexOf('Courier New'); // suggest Consolas?
+	cmbFont.ItemIndex := cmbFont.Items.IndexOf('Consolas');
 	lbLanguages.SetFocus;
 end;
 
@@ -391,9 +398,11 @@ begin
 	else if cmbColors.Text = 'Matrix' then
 		devEditor.HighColor := $202020 // dark brown
 	else if cmbColors.Text = 'GSS Hacker' then
-		devEditor.HighColor := clBlack // dark brown
+		devEditor.HighColor := clBlack
 	else if cmbColors.Text = 'Obvilion' then
-		devEditor.HighColor := clBlack // dark brown
+		devEditor.HighColor := clBlack
+	else if cmbColors.Text = 'PlasticCodeWrap' then
+		devEditor.HighColor := clBlack
 	else
 		devEditor.HighColor := $FFFFCC; // Light Turquoise
 
@@ -432,7 +441,7 @@ begin
 		Canvas.Font.Size := devEditor.Font.Size;
 		Canvas.FillRect(Rect);
 		alignleft := (Rect.Right - Rect.Left) div 2 - Canvas.TextWidth(Canvas.Font.Name) div 2;
-		aligntop  := Rect.Top + (Rect.Bottom - Rect.Top) div 2 - Canvas.TextHeight(Canvas.Font.Name) div 2;
+		aligntop := Rect.Top + (Rect.Bottom - Rect.Top) div 2 - Canvas.TextHeight(Canvas.Font.Name) div 2;
 		Canvas.TextOut(alignleft, aligntop,Canvas.Font.Name);
 	end;
 end;

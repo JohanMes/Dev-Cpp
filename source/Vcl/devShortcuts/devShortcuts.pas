@@ -30,14 +30,15 @@ uses
 {$ENDIF}
 
 type
-  TShortcutItem = record
+  TShortCutItem = record
     Default: TShortCut;
+    Temporary: TShortCut; // we can't use UI strings to store temp shortcuts (not one to one), so use this instead
     IniEntry: AnsiString; // name in ini file, use untranslated MenuItem.Caption
     ListEntry: AnsiString; // name in editor form
     MenuItem: TMenuItem; // apply Current to this
     Action: TAction; // OR this
   end;
-  PShortcutItem = ^TShortcutItem;
+  PShortCutItem = ^TShortCutItem;
 
   TdevShortcuts = class(TComponent)
   private
@@ -109,7 +110,7 @@ end;
 
 procedure TdevShortcuts.Load(List: TActionList);
 var
-	I: integer;
+	I,intvalue: integer;
 	Fini: TIniFile;
 	value: AnsiString;
 	ShortCut: TShortCut;
@@ -137,6 +138,7 @@ begin
 
 					item := new(PShortcutItem);
 					item^.Default := MenuItem.ShortCut;
+					item^.Temporary :=  MenuItem.ShortCut;
 					item^.IniEntry := StripHotkey(GetTopmostItemAncestor(MenuItem)) + ':' + StripHotkey(MenuItem.Caption);
 					item^.ListEntry := ''; // to be filled by form (translated)
 					item^.MenuItem := MenuItem;
@@ -157,6 +159,7 @@ begin
 
 				item := new(PShortcutItem);
 				item^.Default := Action.ShortCut;
+				item^.Temporary := Action.ShortCut;
 				item^.IniEntry := Action.Caption;
 				item^.ListEntry := ''; // to be filled by form (translated)
 				item^.MenuItem := nil;
@@ -175,12 +178,18 @@ begin
 	Fini := TIniFile.Create(fFileName);
 	try
 		for I := 0 to fShortcuts.Count - 1 do begin
-			item := PShortcutItem(fShortcuts[i]);
+			item := PShortCutItem(fShortcuts[i]);
 
 			// Read shortcut, assume ini file is untranslated
 			value := Fini.ReadString('Shortcuts', item^.IniEntry, '');
-			if (value <> 'none') and (value <> '') then begin // only apply when found in file
-				shortcut := TextToShortCut(value);
+			if (value <> '') then begin // only apply when found in file
+
+				// New format: unsigned int value
+				intvalue := StrToIntDef(value,High(ShortCut)+1);
+				if intvalue = High(ShortCut)+1 then // old format...
+					shortcut := TextToShortCut(value)
+				else // new format
+					shortcut := intvalue;
 
 				// Apply to Menu
 				if Assigned(item^.MenuItem) then
@@ -189,6 +198,9 @@ begin
 				// Apply to action
 				if Assigned(item^.Action) then
 					item^.Action.ShortCut := shortcut;
+
+				// Store shortcut in int format
+				item^.Temporary := shortcut;
 			end;
 		end;
 	finally
@@ -245,15 +257,15 @@ begin
 
 				// Apply to Menu
 				if Assigned(MenuItem) then
-					MenuItem.ShortCut := ShortCuts[I]; // ShortCuts is the UI list
+					MenuItem.ShortCut := ShortCuts[I]^.Temporary; // ShortCuts is the UI list
 
 				// Apply to action
 				if Assigned(item^.Action) then
-					item^.Action.ShortCut := ShortCuts[I];
+					item^.Action.ShortCut := ShortCuts[I]^.Temporary;
 
 				// Save untranslated
 				entry := item^.IniEntry;
-				value := ShortCutToText(ShortCuts[I]);
+				value := IntToStr(ShortCuts[I]^.Temporary); // save in new format
 				Fini.WriteString('Shortcuts', entry, value);
 			end;
 		end;

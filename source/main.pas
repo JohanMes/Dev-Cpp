@@ -42,6 +42,9 @@ uses
 {$ENDIF}
 
 type
+  TRunEndAction = (reaNone, reaProfile);
+  TCompSuccessAction = (csaNone, csaRun, csaDebug, csaProfile);
+
   TMainForm = class(TForm)
     MainMenu: TMainMenu;
     FileMenu: TMenuItem;
@@ -87,10 +90,6 @@ type
     ViewMenu: TMenuItem;
     ProjectManagerItem: TMenuItem;
     StatusbarItem: TMenuItem;
-    CompileroutputItem: TMenuItem;
-    AlwaysShowItem: TMenuItem;
-    N37: TMenuItem;
-    ShowonlywhenneededItem: TMenuItem;
     ToolbarsItem: TMenuItem;
     ToolMainItem: TMenuItem;
     ToolCompileandRunItem: TMenuItem;
@@ -218,8 +217,6 @@ type
     actGotoLine: TAction;
     actProjectManager: TAction;
     actStatusbar: TAction;
-    actCompOutput: TAction;
-    actCompOnNeed: TAction;
     actProjectNew: TAction;
     actProjectAdd: TAction;
     actProjectRemove: TAction;
@@ -294,8 +291,8 @@ type
     N23: TMenuItem;
     Swapheadersource2: TMenuItem;
     actSwapHeaderSource: TAction;
-    SizeFile: TEdit;
-    TotalErrors: TEdit;
+    edSizeFile: TEdit;
+    edTotalErrors: TEdit;
     InsertItem: TMenuItem;
     SyntaxCheckItem: TMenuItem;
     actSyntaxCheck: TAction;
@@ -336,7 +333,7 @@ type
     actBrowserNewVar: TAction;
     actBrowserViewAll: TAction;
     actBrowserViewCurrent: TAction;
-    actProfileProject: TAction;
+    actProfile: TAction;
     N29: TMenuItem;
     Profileanalysis1: TMenuItem;
     N24: TMenuItem;
@@ -501,7 +498,7 @@ type
     N5: TMenuItem;
     Class1: TMenuItem;
     DeleteProfilingInformation: TMenuItem;
-    actDeleteProfileProject: TAction;
+    actDeleteProfile: TAction;
     GotoDefineEditor: TMenuItem;
     GotoDeclEditor: TMenuItem;
     N15: TMenuItem;
@@ -557,7 +554,7 @@ type
     MsgSellAllItem: TMenuItem;
     actMsgSelAll: TAction;
     WarningLabel: TLabel;
-    TotalWarnings: TEdit;
+    edTotalWarnings: TEdit;
     actNewClass: TAction;
     actSearchAgain: TAction;
     actSearchAgain1: TMenuItem;
@@ -574,6 +571,10 @@ type
     actRevSearchAgain: TAction;
     SearchAgainBackwards1: TMenuItem;
     actDeleteLine: TAction;
+    pbCompilation: TProgressBar;
+    N21: TMenuItem;
+    actToggleComment: TAction;
+    ToggleComment1: TMenuItem;
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure FormDestroy(Sender: TObject);
     procedure SetStatusbarLineCol;
@@ -613,8 +614,6 @@ type
     procedure actSelectAllExecute(Sender: TObject);
     procedure actProjectManagerExecute(Sender: TObject);
     procedure actStatusBarExecute(Sender: TObject);
-    procedure actCompOutputExecute(Sender: TObject);
-    procedure actCompOnNeedExecute(Sender: TObject);
     procedure actFullScreenExecute(Sender: TObject);
     procedure actNextExecute(Sender: TObject);
     procedure actPrevExecute(Sender: TObject);
@@ -709,7 +708,7 @@ type
     procedure actBrowserNewVarExecute(Sender: TObject);
     procedure actBrowserViewAllExecute(Sender: TObject);
     procedure actBrowserViewCurrentExecute(Sender: TObject);
-    procedure actProfileProjectExecute(Sender: TObject);
+    procedure actProfileExecute(Sender: TObject);
     procedure actBrowserAddFolderExecute(Sender: TObject);
     procedure actBrowserRemoveFolderExecute(Sender: TObject);
     procedure actBrowserAddFolderUpdate(Sender: TObject);
@@ -785,7 +784,7 @@ type
     procedure mnuCVSClick(Sender: TObject);
     procedure actMsgCopyAllExecute(Sender: TObject);
     procedure actMsgSaveAllExecute(Sender: TObject);
-    procedure actDeleteProfileProjectExecute(Sender: TObject);
+    procedure actDeleteProfileExecute(Sender: TObject);
     procedure actGotoImplDeclEditorExecute(Sender: TObject);
     procedure actHideFSBarExecute(Sender: TObject);
     procedure UpdateSplash(const text : AnsiString);
@@ -826,6 +825,7 @@ type
     procedure actUpdateIndent(Sender: TObject);
     procedure actRevSearchAgainExecute(Sender: TObject);
     procedure actDeleteLineExecute(Sender: TObject);
+    procedure actToggleCommentExecute(Sender: TObject);
   private
     fPreviousHeight : integer; // stores MessageControl height to be able to restore to previous height
     fTools : TToolController; // tool list controller
@@ -836,6 +836,8 @@ type
     fShowTips : boolean;
     fRemoveOptions : boolean;
     fOptionsDir : AnsiString;
+    fRunEndAction: TRunEndAction;
+    fCompSuccessAction: TCompSuccessAction;
     function ParseParams(s : AnsiString) : AnsiString;
     procedure BuildBookMarkMenus;
     procedure SetHints;
@@ -846,7 +848,9 @@ type
     procedure LogEntryProc(const msg: AnsiString);
     procedure CompOutputProc(const _Line, _Col, _Unit, _Message: AnsiString);
     procedure CompResOutputProc(const _Line, _Col, _Unit, _Message: AnsiString);
+    procedure CompEndProc;
     procedure CompSuccessProc;
+    procedure RunEndProc;
     procedure LoadText;
     procedure OpenUnit;
     function PrepareForCompile: Boolean;
@@ -879,8 +883,8 @@ type
     procedure GotoBreakpoint(const bfile: AnsiString; bline: integer);
     procedure RemoveActiveBreakpoints;
     procedure AddFindOutputItem(const line, col, filename, msg, keyword: AnsiString);
-    procedure GetCompilerOption(const option : AnsiString;var value : char;var index : integer);
-    procedure SetCompilerOption(index : integer; value : char);
+    function GetCompilerOption(const OptionString : AnsiString) : Char;
+    procedure SetCompilerOption(const OptionString : AnsiString;OptionValue : Char);
     function CloseEditor(index : integer): Boolean;
     procedure EditorSaveTimer(sender : TObject);
     procedure OnInputEvalReady(const evalvalue : AnsiString);
@@ -1210,6 +1214,7 @@ begin
 	CommentHeaderMenuItem.Caption:=		Lang[ID_ITEM_COMMENTHEADER];
 	actComment.Caption:=				Lang[ID_ITEM_COMMENTSELECTION];
 	actUncomment.Caption:=				Lang[ID_ITEM_UNCOMMENTSELECTION];
+	actToggleComment.Caption:=			Lang[ID_ITEM_TOGGLECOMMENT];
 	actIndent.Caption:=					Lang[ID_ITEM_INDENTSELECTION];
 	actUnindent.Caption:=				Lang[ID_ITEM_UNINDENTSELECTION];
 	actSwapHeaderSource.Caption:=		Lang[ID_ITEM_SWAPHEADERSOURCE];
@@ -1234,10 +1239,7 @@ begin
 	// View Menu
 	actProjectManager.Caption:=			Lang[ID_ITEM_PROJECTVIEW];
 	actStatusbar.Caption:=				Lang[ID_ITEM_Statusbar];
-	CompilerOutputItem.Caption:=		Lang[ID_SUB_COMPOUTPUT];
 	ToolBarsItem.Caption:=				Lang[ID_SUB_TOOLBARS];
-	actCompOutput.Caption:=				Lang[ID_ITEM_COMPOUTALWAYS];
-	actCompOnNeed.Caption:=				Lang[ID_ITEM_COMPOUTONNEED];
 
 	ToolMainItem.Caption:=				Lang[ID_TOOLMAIN];
 	ToolEditItem.Caption:=				Lang[ID_TOOLEDIT];
@@ -1274,8 +1276,8 @@ begin
 	actRebuild.Caption:=				Lang[ID_ITEM_REBUILD];
 	actClean.Caption:=					Lang[ID_ITEM_CLEAN];
 	actSyntaxCheck.Caption:=			Lang[ID_ITEM_SYNTAXCHECK];
-	actProfileProject.Caption:=			Lang[ID_ITEM_PROFILE];
-	actDeleteProfileProject.Caption:=	Lang[ID_ITEM_DELPROFINFORMATION];
+	actProfile.Caption:=				Lang[ID_ITEM_PROFILE];
+	actDeleteProfile.Caption:=			Lang[ID_ITEM_DELPROFINFORMATION];
 	actAbortCompilation.Caption:=		Lang[ID_ITEM_ABORTCOMP];
 	actExecParams.Caption:=				Lang[ID_ITEM_EXECPARAMS];
 
@@ -1463,7 +1465,7 @@ begin
 			if projindex <> -1 then
 				fProject.CloseUnit(projindex);
 		end else begin
-			dmMain.AddtoHistory(e.FileName,true);
+			dmMain.AddtoHistory(e.FileName);
 			FreeAndNil(e);
 		end;
 
@@ -1664,7 +1666,7 @@ begin
 		dmMain.RemoveFromHistory(s);
 	end;
 	e.Activate;
-	if not assigned(fProject) then
+	if not Assigned(fProject) then
 		CppParser.ReParseFile(e.FileName, e.InProject, True);
 end;
 
@@ -1803,19 +1805,14 @@ begin
 	ResSheet.Caption := Lang[ID_SHEET_RES] + ' (' + IntToStr(ResourceOutput.Items.Count) + ')'
 end;
 
-procedure TMainForm.CompSuccessProc;
+procedure TMainForm.CompEndProc;
 var
 	F: TSearchRec;
 	HasSize : boolean;
 	I: integer;
 begin
-
-	// Set UI data...
-	TotalErrors.Text := IntToStr(fCompiler.ErrorCount);
-	TotalWarnings.Text := IntToStr(fCompiler.WarningCount);
-
 	// Close it if there's nothing to show
-	if (CompilerOutput.Items.Count = 0) and (ResourceOutput.Items.Count = 0) and actCompOnNeed.Checked then begin
+	if (CompilerOutput.Items.Count = 0) and (ResourceOutput.Items.Count = 0) and devData.AutoCloseProgress then begin
 		OpenCloseMessageSheet(FALSE)
 
 	// Or open it if there is anything to show
@@ -1844,15 +1841,15 @@ begin
 		// Format nicely so it fits in the edit control
 		if HasSize then begin
 			if F.Size < 1024 then
-				SizeFile.Text := IntToStr(F.Size) + ' ' + Lang[ID_BYTES]
+				edSizeFile.Text := IntToStr(F.Size) + ' ' + Lang[ID_BYTES]
 			else if F.Size < 1024*1024 then
-				SizeFile.Text := FloatToStr(F.Size/1024) + ' KiB'
+				edSizeFile.Text := FloatToStr(F.Size/1024) + ' KiB'
 			else if F.Size < 1024*1024*1024 then
-				SizeFile.Text := FloatToStr((F.Size/1024)/1024) + ' MiB'
+				edSizeFile.Text := FloatToStr((F.Size/1024)/1024) + ' MiB'
 			else
-				SizeFile.Text := FloatToStr(((F.Size/1024)/1024)/1024) + ' GiB';
+				edSizeFile.Text := FloatToStr(((F.Size/1024)/1024)/1024) + ' GiB';
 		end else
-			SizeFile.Text := '0';
+			edSizeFile.Text := '0';
 
 	end else begin
 
@@ -1898,6 +1895,34 @@ begin
 			CompilerOutputDblClick(ResourceOutput);
 		end;
 	end;
+end;
+
+procedure TMainForm.CompSuccessProc;
+begin
+	case fCompSuccessAction of
+		csaRun : begin
+			fCompiler.Run;
+		end;
+		csaDebug : begin
+			actDebug.Execute;
+		end;
+		csaProfile : begin
+			actProfile.Execute
+		end;
+	end;
+	fCompSuccessAction := csaNone;
+end;
+
+procedure TMainForm.RunEndProc;
+begin
+	case fRunEndAction of
+		reaProfile : begin
+			if not Assigned(ProfileAnalysisForm) then
+				ProfileAnalysisForm := TProfileAnalysisForm.Create(Self);
+			ProfileAnalysisForm.Show;
+		end;
+	end;
+	fRunEndAction := reaNone;
 end;
 
 procedure TMainForm.LogEntryProc(const msg: AnsiString);
@@ -2203,7 +2228,7 @@ begin
 	end;
 
 	fCompiler.Project:= nil;
-	dmMain.AddtoHistory(fProject.FileName,true);
+	dmMain.AddtoHistory(fProject.FileName);
 
 	FreeandNil(fProject);
 	ProjectView.Items.Clear;
@@ -2397,29 +2422,6 @@ begin
 	Statusbar.Top:= Self.ClientHeight;
 end;
 
-procedure TMainForm.actCompOutputExecute(Sender: TObject);
-begin
-	if AlwaysShowItem.Checked then
-		OpenCloseMessageSheet(TRUE)
-	else if not actCompOnNeed.Checked then
-		OpenCloseMessageSheet(FALSE);
-
-	if actCompOutput.Checked then
-		actCompOnNeed.Checked := False
-	else if (not actCompOutput.Checked) and (not actCompOnNeed.Checked) then
-		OpenCloseMessageSheet(False);
-	devData.ShowOutput:=actCompOutput.Checked;
-	devData.OutputOnNeed:=actCompOnNeed.Checked;
-end;
-
-procedure TMainForm.actCompOnNeedExecute(Sender: TObject);
-begin
-	if actCompOnNeed.Checked or ((not actCompOutput.Checked) and (not actCompOnNeed.Checked)) then
-		OpenCloseMessageSheet(False);
-	devData.ShowOutput:=actCompOutput.Checked;
-	devData.OutputOnNeed:=actCompOnNeed.Checked;
-end;
-
 procedure TMainForm.btnFullScrRevertClick(Sender: TObject);
 begin
 	actFullScreen.Execute;
@@ -2586,8 +2588,15 @@ begin
 		NewName := ExpandFileto(NewName,CurDir);
 
 		// Only continue if the user says so...
-		if FileExists(NewName) then
-			if MessageDlg(Lang[ID_MSG_FILEEXISTS], mtConfirmation, [mbYes,mbNo], 0) = mrNo then Exit;
+		if FileExists(NewName) then begin
+			if MessageDlg(Lang[ID_MSG_FILEEXISTS], mtConfirmation, [mbYes, mbNo], 0) = mrYes then begin
+
+				// Remove the old file
+				DeleteFile(NewName);
+				// TODO: update project listing
+			end else
+				Exit;
+		end;
 
 		try
 
@@ -2714,7 +2723,7 @@ end;
 
 procedure TMainForm.actProjectOptionsExecute(Sender: TObject);
 begin
-	if assigned(fProject) then begin
+	if Assigned(fProject) then begin
 		fProject.ShowOptions;
 		UpdateAppTitle;
 	end;
@@ -2835,12 +2844,12 @@ begin
 	end;
 
 	ClearCompileMessages;
-	SizeFile.Text := '0';
-	TotalErrors.Text := '0';
-	TotalWarnings.Text := '0';
+	edSizeFile.Text := '0';
+	edTotalErrors.Text := '0';
+	edTotalWarnings.Text := '0';
 
-	// if no compile progress window, open the compiler output
-	if not devData.ShowProgress then begin
+	// always show compilation log (no intrusive windows anymore)
+	if devData.ShowProgress then begin
 		OpenCloseMessageSheet(True);
 		MessageControl.ActivePage:= LogSheet;
 	end;
@@ -2868,7 +2877,8 @@ begin
 		end;
 	end;
 
-	fCompiler.PerfectDepCheck := not devCompiler.FastDep;
+	// Assume we can't reach this if Assinged(devCompilerSets.CurrentSet) = false
+	fCompiler.PerfectDepCheck := not devCompilerSets.CurrentSet.FastDep;
 
 	if Assigned(fProject) then begin
 		if fProject.Options.VersionInfo.AutoIncBuildNr then
@@ -2881,6 +2891,7 @@ end;
 
 procedure TMainForm.actCompileExecute(Sender: TObject);
 begin
+	actStopExecuteExecute(nil);
 	if fCompiler.Compiling then begin
 		MessageDlg(Lang[ID_MSG_ALREADYCOMP], mtInformation, [mbOK], 0);
 		Exit;
@@ -2896,6 +2907,7 @@ procedure TMainForm.actRunExecute(Sender: TObject);
 var
 	e: TEditor;
 begin
+	actStopExecuteExecute(nil);
 	e:= GetEditor;
 	fCompiler.Target:= ctNone;
 
@@ -2923,6 +2935,7 @@ end;
 
 procedure TMainForm.actCompRunExecute(Sender: TObject);
 begin
+	actStopExecuteExecute(nil);
 	if fCompiler.Compiling then begin
 		MessageDlg(Lang[ID_MSG_ALREADYCOMP], mtInformation, [mbOK], 0);
 		Exit;
@@ -2930,11 +2943,13 @@ begin
 	if not PrepareForCompile then
 		Exit;
 
-	fCompiler.CompileAndRun;
+	fCompSuccessAction := csaRun;
+	fCompiler.Compile;
 end;
 
 procedure TMainForm.actRebuildExecute(Sender: TObject);
 begin
+	actStopExecuteExecute(nil);
 	if fCompiler.Compiling then begin
 		MessageDlg(Lang[ID_MSG_ALREADYCOMP], mtInformation, [mbOK], 0);
 		Exit;
@@ -2946,11 +2961,18 @@ end;
 
 procedure TMainForm.actCleanExecute(Sender: TObject);
 begin
-	ClearCompileMessages;
+	actStopExecuteExecute(nil);
 	if fCompiler.Compiling then begin
 		MessageDlg(Lang[ID_MSG_ALREADYCOMP], mtInformation, [mbOK], 0);
 		Exit;
 	end;
+
+	// always show compilation log (no intrusive windows anymore)
+	if devData.ShowProgress then begin
+		OpenCloseMessageSheet(True);
+		MessageControl.ActivePage:= LogSheet;
+	end;
+	
 	fCompiler.Clean;
 end;
 
@@ -2978,35 +3000,25 @@ procedure TMainForm.actDebugExecute(Sender: TObject);
 var
 	e: TEditor;
 	i: integer;
-	idxD,idxS : integer;
 	filepath : AnsiString;
 	debug, strip : boolean;
-	value : char;
 begin
-
-	// Assume all is set up correctly
-	debug := true;
-	strip := false;
-
 	// Check if we enabled proper options
-	GetCompilerOption('-g3',value,idxD);
-	if idxD <> -1 then
-		debug := value <> '0';
-
-	GetCompilerOption('-s',value,idxS);
-	if idxS <> -1 then
-		strip := value <> '0';
+	debug := GetCompilerOption('-g3') <> '0';
+	strip := GetCompilerOption('-s') <> '0';
 
 	// Ask the user if he wants to enable debugging...
 	if (not debug or strip) and (MessageDlg(Lang[ID_MSG_NODEBUGSYMBOLS], mtConfirmation, [mbYes, mbNo], 0) = mrYes) then begin
 
 		// Enable debugging, disable stripping
-		SetCompilerOption(idxD,'1');
-		SetCompilerOption(idxS,'0');
+		SetCompilerOption('-g3','1');
+		SetCompilerOption('-s','0');
 
+		// The project will save this option by iteself
 		if not Assigned(fProject) then
-			devCompiler.SaveSet(devCompiler.CurrentSet);
+			devCompilerSets.SaveSet(devCompilerSets.CurrentIndex);
 
+		fCompSuccessAction := csaDebug;
 		actRebuildExecute(nil);
 		Exit;
 	end;
@@ -3069,16 +3081,19 @@ begin
 	end;
 
 	// Add library folders
-	for I := 0 to devCompiler.LibDir.Count - 1 do
-		fDebugger.SendCommand('dir','"' + StringReplace(devCompiler.LibDir[i],'\','/',[rfReplaceAll]) + '"');
+	if Assigned(devCompilerSets.CurrentSet) then
+		with devCompilerSets.CurrentSet do begin
+			for I := 0 to LibDir.Count - 1 do
+				fDebugger.SendCommand('dir','"' + StringReplace(LibDir[i],'\','/',[rfReplaceAll]) + '"');
 
-	// Add include folders
-	for I := 0 to devCompiler.CDir.Count - 1 do
-		fDebugger.SendCommand('dir','"' + StringReplace(devCompiler.CDir[i],'\','/',[rfReplaceAll]) + '"');
+			// Add include folders
+			for I := 0 to CDir.Count - 1 do
+				fDebugger.SendCommand('dir','"' + StringReplace(CDir[i],'\','/',[rfReplaceAll]) + '"');
 
-	// Add more include folders, duplicates will be added/moved to front of list
-	for I := 0 to devCompiler.CppDir.Count - 1 do
-		fDebugger.SendCommand('dir','"' + StringReplace(devCompiler.CppDir[i],'\','/',[rfReplaceAll]) + '"');
+			// Add more include folders, duplicates will be added/moved to front of list
+			for I := 0 to CppDir.Count - 1 do
+				fDebugger.SendCommand('dir','"' + StringReplace(CppDir[i],'\','/',[rfReplaceAll]) + '"');
+		end;
 
 	// Add breakpoints and watch vars
 	for i := 0 to fDebugger.WatchVarList.Count - 1 do
@@ -3145,7 +3160,7 @@ end;
 
 procedure TMainForm.actCompileUpdate(Sender: TObject);
 begin
-	TCustomAction(Sender).Enabled := (assigned(fProject) or (PageControl.PageCount > 0)) and not devExecutor.Running and not fDebugger.Executing and not fCompiler.Compiling and (devCompiler.CurrentSet >= 0) and (devCompiler.CurrentSet < devCompiler.Sets.Count);
+	TCustomAction(Sender).Enabled := (assigned(fProject) or (PageControl.PageCount > 0)) and not fCompiler.Compiling and Assigned(devCompilerSets.CurrentSet);
 end;
 
 procedure TMainForm.actUpdatePageProject(Sender: TObject);
@@ -3248,12 +3263,12 @@ begin
 		1:
 			Clipboard.AsText := GetPrettyLine(ResourceOutput);
 		2: begin
-			if TotalErrors.Focused then
-				TotalErrors.CopyToClipboard
-			else if TotalWarnings.Focused then
-				TotalWarnings.CopyToClipboard
-			else if SizeFile.Focused then
-				SizeFile.CopyToClipboard
+			if edTotalErrors.Focused then
+				edTotalErrors.CopyToClipboard
+			else if edTotalWarnings.Focused then
+				edTotalWarnings.CopyToClipboard
+			else if edSizeFile.Focused then
+				edSizeFile.CopyToClipboard
 			else if LogOutput.Focused then
 				LogOutput.CopyToClipboard;
 		end;
@@ -3323,12 +3338,12 @@ procedure TMainForm.actMsgSelAllExecute(Sender: TObject);
 begin
 	case MessageControl.ActivePageIndex of
 		2: begin
-			if TotalErrors.Focused then
-				TotalErrors.SelectAll
-			else if TotalWarnings.Focused then
-				TotalWarnings.SelectAll
-			else if SizeFile.Focused then
-				SizeFile.SelectAll
+			if edTotalErrors.Focused then
+				edTotalErrors.SelectAll
+			else if edTotalWarnings.Focused then
+				edTotalWarnings.SelectAll
+			else if edSizeFile.Focused then
+				edSizeFile.SelectAll
 			else if LogOutput.Focused then
 				LogOutput.SelectAll;
 		end;
@@ -3733,7 +3748,7 @@ end;
 
 function TMainForm.GetEditorFromFileName(const ffile: AnsiString) : TEditor;
 var
-	index, index2 : integer; //mandrav
+	index, index2 : integer;
 	e: TEditor;
 begin
 	result := nil;
@@ -3795,10 +3810,17 @@ begin
 	CppParser.OnTotalProgress := CppParserTotalProgress;
 
 	// Add the include dirs to the parser
-	for I := 0 to devCompiler.CDir.Count - 1 do
-		CppParser.AddIncludePath(devCompiler.CDir[I]);
-	for I := 0 to devCompiler.CppDir.Count - 1 do
-		CppParser.AddIncludePath(devCompiler.CppDir[I]);
+	if Assigned(devCompilerSets.CurrentSet) then
+		with devCompilerSets.CurrentSet do begin
+			for I := 0 to CDir.Count - 1 do
+				CppParser.AddIncludePath(CDir[I]);
+			for I := 0 to CppDir.Count - 1 do
+				CppParser.AddIncludePath(CppDir[I]);
+
+			// Add default include dirs last, just like gcc does
+			for I := 0 to DefInclude.Count - 1 do
+				CppParser.AddIncludePath(DefInclude[I]);
+		end;
 
 	// This takes up about 99% of our time
 	if devCodeCompletion.UseCacheFiles and ReloadCache then begin
@@ -3958,6 +3980,7 @@ end;
 
 procedure TMainForm.actSyntaxCheckExecute(Sender: TObject);
 begin
+	actStopExecuteExecute(nil);
 	if fCompiler.Compiling then begin
 		MessageDlg(Lang[ID_MSG_ALREADYCOMP], mtInformation, [mbOK], 0);
 		Exit;
@@ -3978,17 +4001,17 @@ end;
 procedure TMainForm.actRunUpdate(Sender: TObject);
 begin
 	if Assigned(fProject) then
-		TCustomAction(Sender).Enabled := not (fProject.Options.typ = dptStat) and not devExecutor.Running and not fDebugger.Executing and not fCompiler.Compiling
+		TCustomAction(Sender).Enabled := not (fProject.Options.typ = dptStat) and not fCompiler.Compiling
 	else
-		TCustomAction(Sender).Enabled := (PageControl.PageCount > 0) and not devExecutor.Running and not fDebugger.Executing and not fCompiler.Compiling;
+		TCustomAction(Sender).Enabled := (PageControl.PageCount > 0) and not fCompiler.Compiling;
 end;
 
 procedure TMainForm.actCompileRunUpdate(Sender: TObject);
 begin
 	if Assigned(fProject) then
-		TCustomAction(Sender).Enabled := not (fProject.Options.typ = dptStat) and not devExecutor.Running and not fDebugger.Executing and not fCompiler.Compiling and (devCompiler.Sets.Count > 0)
+		TCustomAction(Sender).Enabled := not (fProject.Options.typ = dptStat) and not fCompiler.Compiling and Assigned(devCompilerSets.CurrentSet)
 	else
-		TCustomAction(Sender).Enabled := (PageControl.PageCount > 0) and not devExecutor.Running and not fDebugger.Executing and not fCompiler.Compiling and (devCompiler.Sets.Count > 0);
+		TCustomAction(Sender).Enabled := (PageControl.PageCount > 0) and not fCompiler.Compiling and Assigned(devCompilerSets.CurrentSet);
 end;
 
 procedure TMainForm.EditorSaveTimer(Sender : TObject);
@@ -4153,6 +4176,15 @@ begin
 	e:=GetEditor;
 	if Assigned(e) then
 		e.CommentSelection;
+end;
+
+procedure TMainForm.actToggleCommentExecute(Sender: TObject);
+var
+	e: TEditor;
+begin
+	e:=GetEditor;
+	if Assigned(e) then
+		e.ToggleCommentSelection;
 end;
 
 procedure TMainForm.actUncommentExecute(Sender: TObject);
@@ -4382,37 +4414,26 @@ begin
 	devClassBrowsing.ShowFilter:=Ord(sfCurrent);
 end;
 
-procedure TMainForm.actProfileProjectExecute(Sender: TObject);
+procedure TMainForm.actProfileExecute(Sender: TObject);
 var
-	idxP, idxS: integer;
 	prof, strip: boolean;
 	path : AnsiString;
 	e : TEditor;
-	value : char;
 begin
-
-	// Assume all is set up correctly
-	prof := true;
-	strip := false;
-
 	// Check if we enabled proper options
-	GetCompilerOption('-pg',value,idxP);
-	if idxP <> -1 then
-		prof := value <> '0';
-
-	GetCompilerOption('-s',value,idxS);
-	if idxS <> -1 then
-		strip := value <> '0';
+	prof := GetCompilerOption('-pg') <> '0';
+	strip := GetCompilerOption('-s') <> '0';
 
 	if (not prof or strip) and (MessageDlg(Lang[ID_MSG_NOPROFILE], mtConfirmation, [mbYes, mbNo], 0) = mrYes) then begin
 
 		// Enable profiling, disable stripping
-		SetCompilerOption(idxP,'1');
-		SetCompilerOption(idxS,'0');
+		SetCompilerOption('-pg','1');
+		SetCompilerOption('-s','0');
 
 		if not Assigned(fProject) then
-			devCompiler.SaveSet(devCompiler.CurrentSet);
+			devCompilerSets.SaveSet(devCompilerSets.CurrentIndex);
 
+		fCompSuccessAction := csaProfile;
 		actRebuildExecute(nil);
 		Exit;
 	end;
@@ -4427,19 +4448,14 @@ begin
 			path := ExtractFilePath(ChangeFileExt(e.FileName, EXE_EXT)) + GPROF_CHECKFILE;
 	end;
 
-	// Ask the user if he wants to generate data...
+	//Gather data by running our project...
+	fRunEndAction := reaProfile;
 	if not FileExists(path) then begin
-		if MessageDlg(Lang[ID_MSG_NORUNPROFILE], mtConfirmation, [mbYes, mbNo], 0) = mrYes then begin
-			actRunExecute(nil);
-		end;
-		Exit;
+		fRunEndAction := reaProfile;
+		actRunExecute(nil);
+	end else begin // If the data is there, open up the form
+		RunEndProc;
 	end;
-
-	// If the data is there, open up the form
-	if not Assigned(ProfileAnalysisForm) then
-		ProfileAnalysisForm := TProfileAnalysisForm.Create(Self);
-
-	ProfileAnalysisForm.Show;
 end;
 
 procedure TMainForm.actBrowserAddFolderExecute(Sender: TObject);
@@ -4520,7 +4536,8 @@ var
 begin
 	case ChangeType of
 		mctChanged: begin
-			if MessageDlg(Filename + ' has changed. Reload from disk?', mtConfirmation, [mbYes, mbNo], 0)=mrYes then begin
+			Application.Restore;
+			if MessageDlg(Format(Lang[ID_ERR_FILECHANGED],[Filename]), mtConfirmation, [mbYes, mbNo], 0)=mrYes then begin
 				e:=GetEditorFromFileName(Filename);
 				if Assigned(e) then begin
 					p := e.Text.CaretXY;
@@ -4531,7 +4548,8 @@ begin
 			end;
 		end;
 		mctDeleted : begin
-			MessageDlg(Filename + ' has been renamed or deleted...', mtInformation, [mbOk], 0);
+			Application.Restore;
+			MessageDlg(Format(Lang[ID_ERR_RENAMEDDELETED],[Filename]), mtInformation, [mbOk], 0);
 		end;
 	end;
 end;
@@ -4711,22 +4729,21 @@ end;
 
 procedure TMainForm.CheckForDLLProfiling;
 var
-	opt: PCompilerOption;
-	idx: integer;
+	prof : boolean;
 begin
 	if not Assigned(fProject) then
 		Exit;
 
-	// profiling not enabled
-	if not devCompiler.FindOption('-pg', opt, idx) then
-		Exit;
+	// If this is a DLL / static link library project, then check for profiling
+	if (fProject.Options.typ in [dptDyn, dptStat]) then begin
 
-	if (fProject.Options.typ in [dptDyn, dptStat]) and (opt.Value > 0) then begin
-		// project is a lib or a dll, and profiling is enabled
-		// check for the existence of "-lgmon" in project's linker options
-		if Pos('-lgmon', fProject.Options.LinkerCmd) = 0 then begin
-			// does not have -lgmon
-			// warn the user that we should update its project options and include
+		// Check if profiling is enabled
+		prof := GetCompilerOption('-pg') <> '0';
+
+		// Check for the existence of "-lgmon" in project's linker options
+		if prof and (Pos('-lgmon', fProject.Options.LinkerCmd) = 0) then begin
+
+			// Warn the user that we should update its project options and include
 			// -lgmon in linker options, or else the compilation will fail
 			if MessageDlg('You have profiling enabled in Compiler Options and you are '+
 			    'working on a dynamic or static library. Do you want to add a special '+
@@ -4735,7 +4752,7 @@ begin
 			    'chances are that your library''s compilation will fail...', mtConfirmation,[mbYes, mbNo], 0) = mrYes
 			then begin
 				fProject.Options.LinkerCmd := fProject.Options.LinkerCmd + ' -lgmon';
-				fProject.Modified:=True;
+				fProject.Modified := True;
 			end;
 		end;
 	end;
@@ -5249,28 +5266,38 @@ begin
 	end;
 end;
 
-procedure TMainForm.GetCompilerOption(const option : AnsiString;var value : char;var index : integer);
+function TMainForm.GetCompilerOption(const OptionString : AnsiString) : Char;
 var
-	optionstruct : PCompilerOption;
+	OptionStruct : PCompilerOption;
+	OptionIndex : integer;
 begin
+	result := '0';
 
 	// Try to find the value in the predefined list
-	if devCompiler.FindOption(option, optionstruct, index) then begin // the option exists...
+	if Assigned(devCompilerSets.CurrentSet) and devCompilerSets.CurrentSet.FindOption(OptionString, OptionStruct, OptionIndex) then begin // the option exists...
 
 		// Search project options...
 		if Assigned(fProject) then
-			value := fProject.Options.CompilerOptions[index + 1]
+			result := fProject.Options.CompilerOptions[OptionIndex + 1]
 		else
-			value := ValueToChar[optionstruct^.Value];
+			result := ValueToChar[OptionStruct^.Value];
 	end;
 end;
 
-procedure TMainForm.SetCompilerOption(index : integer; value : char);
+procedure TMainForm.SetCompilerOption(const OptionString : AnsiString;OptionValue : Char);
+var
+	OptionStruct : PCompilerOption;
+	OptionIndex : integer;
 begin
-	if Assigned(fProject) then
-		fProject.SetCompilerOption(index,value)
-	else
-		devCompiler.SetOption(index,value);
+	// Try to find the value in the predefined list
+	if Assigned(devCompilerSets.CurrentSet) and devCompilerSets.CurrentSet.FindOption(OptionString, OptionStruct, OptionIndex) then begin // the option exists...
+
+		// Search project options...
+		if Assigned(fProject) then
+			fProject.SetCompilerOption(OptionIndex,OptionValue)
+		else
+			devCompilerSets.CurrentSet.SetOption(OptionIndex,OptionValue);
+	end;
 end;
 
 procedure TMainForm.SetupProjectView;
@@ -5288,6 +5315,7 @@ procedure TMainForm.actCompileCurrentFileExecute(Sender: TObject);
 var
 	e: TEditor;
 begin
+	actStopExecuteExecute(nil);
 	if fCompiler.Compiling then begin
 		MessageDlg(Lang[ID_MSG_ALREADYCOMP], mtInformation, [mbOK], 0);
 		Exit;
@@ -5666,7 +5694,7 @@ begin
 	mnuCVSCurrent.Enabled := PageControl.PageCount > 0;
 end;
 
-procedure TMainForm.actDeleteProfileProjectExecute(Sender: TObject);
+procedure TMainForm.actDeleteProfileExecute(Sender: TObject);
 var
 	path : AnsiString;
 	e : TEditor;
@@ -5929,7 +5957,9 @@ begin
 	fCompiler.OnLogEntry := LogEntryProc;
 	fCompiler.OnOutput := CompOutputProc;
 	fCompiler.OnResOutput := CompResOutputProc;
-	fCompiler.OnSuccess:= CompSuccessProc;
+	fCompiler.OnCompEnd := CompEndProc;
+	fCompiler.OnCompSuccess := CompSuccessProc;
+	fCompiler.OnRunEnd := RunEndProc;
 
 	// Create a debugger
 	fDebugger := TDebugger.Create;
@@ -5946,7 +5976,7 @@ begin
 
 	// Don't create the autosave timer when we don't need it
 	if devEditor.EnableAutoSave then begin
-		AutoSaveTimer := TTImer.Create(Self);
+		AutoSaveTimer := TTimer.Create(Self);
 		AutoSaveTimer.OnTimer := EditorSaveTimer;
 		AutoSaveTimer.Interval := devEditor.Interval*60*1000; // miliseconds to minutes
 		AutoSaveTimer.Enabled := devEditor.EnableAutoSave;
@@ -5983,8 +6013,6 @@ begin
 		FloatingReportwindowItem.Click;
 		devData.ReportWindowState.SetPlacement(fReportToolWindow.Handle);
 	end;
-	actCompOnNeed.Checked:=devData.OutputOnNeed;
-	actCompOutput.Checked:=devData.ShowOutput;
 
 	// Set statusbar to previous state
 	actStatusbar.Checked:= devData.Statusbar;
@@ -6039,13 +6067,15 @@ begin
 	else
 		Lang.Open(devData.Language);
 
+	UpdateSplash('Applying translation...');
+
 	// Load bookmarks, captions and hints
 	LoadText;
 
 	UpdateSplash(Lang[ID_LOAD_COMPILERSET]);
 
 	// Load the current compiler set (needs translations)
-	devCompiler.LoadSet(devCompiler.CurrentSet);
+	devCompilerSets.LoadSets;
 
 	// Try to fix the file associations. Needs write access to registry, which might cause exceptions to be thrown
 	DDETopic := DevCppDDEServer.Name;
@@ -6150,7 +6180,7 @@ begin
 			Exit;
 		end;
 
-		OpenCloseMessageSheet(devData.ShowOutput);
+		OpenCloseMessageSheet(false);
 
 		// Toolbar positions, needs to be done here, because on Create, the width of the TControlBar isn't yet set
 		tbMain.Left:= devData.ToolbarMainX;
@@ -6385,6 +6415,7 @@ end;
 
 procedure TMainForm.FindOutputDeletion(Sender: TObject; Item: TListItem);
 begin
+	if DontRecreateSingletons then Exit; // form is being destroyed, don't use Lang which has been freed already...
 	if FindOutput.Items.Count > 1 then
 		FindSheet.Caption := Lang[ID_SHEET_FIND] + ' (' + IntToStr(FindOutput.Items.Count - 1) + ')'
 	else
@@ -6394,6 +6425,7 @@ end;
 procedure TMainForm.CompilerOutputDeletion(Sender: TObject;
   Item: TListItem);
 begin
+	if DontRecreateSingletons then Exit; // form is being destroyed
 	if CompilerOutput.Items.Count > 1 then
 		CompSheet.Caption := Lang[ID_SHEET_COMP] + ' (' + IntToStr(CompilerOutput.Items.Count - 1) + ')'
 	else
@@ -6403,6 +6435,7 @@ end;
 procedure TMainForm.ResourceOutputDeletion(Sender: TObject;
   Item: TListItem);
 begin
+	if DontRecreateSingletons then Exit; // form is being destroyed
 	if ResourceOutput.Items.Count > 1 then
 		ResSheet.Caption := Lang[ID_SHEET_RES] + ' (' + IntToStr(ResourceOutput.Items.Count - 1) + ')'
 	else

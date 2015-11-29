@@ -24,7 +24,7 @@ interface
 uses
 {$IFDEF WIN32}
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, StdCtrls, ComCtrls, ExtCtrls, ShellAPI;
+  Dialogs, StdCtrls, ComCtrls, ExtCtrls, Math, ShellAPI;
 {$ENDIF}
 {$IFDEF LINUX}
   SysUtils, Variants, Classes, QGraphics, QControls, QForms,
@@ -44,6 +44,7 @@ type
     Bevel1: TBevel;
     lblUrl: TLabel;
     btnRandom: TButton;
+    imgDonate: TImage;
     procedure btnCloseClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
@@ -52,6 +53,7 @@ type
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure lblUrlClick(Sender: TObject);
     procedure btnRandomClick(Sender: TObject);
+    procedure imgDonateClick(Sender: TObject);
   private
     { Private declarations }
     sl: TStringList;
@@ -131,6 +133,7 @@ begin
 	if not FileExists(S) then begin
 		btnNext.Enabled := False;
 		btnPrev.Enabled := False;
+		btnRandom.Enabled := False;
 	end else begin
 		LoadFromFile(S);
 		if (TipsCounter < 0) or (TipsCounter >= sl.Count) then
@@ -142,6 +145,11 @@ begin
 			btnPrev.Enabled := False;
 		end;
 	end;
+
+	// For some reason, this fixes the panels' background color
+	Panel1.ParentBackground := False;
+	Panel1.ParentBackground := True;
+	Panel1.ParentBackground := False;
 end;
 
 procedure TTipOfTheDayForm.FormDestroy(Sender: TObject);
@@ -179,7 +187,7 @@ begin
 	Randomize;
 	repeat
 		// Make sure the same tip is never shown twice in a row
-		newval := 1 + Random(sl.Count - 1);
+		newval := RandomRange(0,sl.Count - 1);
 	until newval <> TipsCounter;
 	TipsCounter := newval;
 	Result := ConvertMacros(sl[TipsCounter]);
@@ -246,6 +254,11 @@ begin
   btnPrev.Caption := Lang[ID_TIPS_PREVIOUSTIP];
   btnClose.Caption := Lang[ID_BTN_CLOSE];
   btnRandom.Caption := lang[ID_TIPS_RANDOMTIP];
+end;
+
+procedure TTipOfTheDayForm.imgDonateClick(Sender: TObject);
+begin
+	ShellExecute(GetDesktopWindow(), 'open', PAnsiChar('https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7FD675DNV8KKJ'), nil, nil, SW_SHOWNORMAL);
 end;
 
 end.

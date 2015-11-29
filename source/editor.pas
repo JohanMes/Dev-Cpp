@@ -61,6 +61,7 @@ type
     fIgnoreCaretChange : boolean;
     fPreviousTabs : TList; // list of editor pointers
     fDblClickTime : Cardinal;
+    fDblClickMousePos : TBufferCoord;
 
     fCompletionTimer: TTimer;
     fCompletionBox: TCodeCompletion;
@@ -133,9 +134,11 @@ type
 
     function EvaluationPhrase(p : TBufferCoord): AnsiString;
     function CompletionPhrase(p : TBufferCoord): AnsiString;
-
+    function GetFullFileName(const Line: AnsiString): AnsiString;
+  
     procedure CommentSelection;
     procedure UncommentSelection;
+    procedure ToggleCommentSelection;
     procedure IndentSelection;
     procedure UnindentSelection;
 
@@ -347,7 +350,8 @@ end;
 
 destructor TEditor.Destroy;
 var
-	I, CurIndex: integer;
+	I: integer;
+	CurPage : TTabSheet;
 	e: TEditor;
 begin
 	// Deactivate the file change monitor
@@ -381,9 +385,9 @@ begin
 				end;
 			end;
 		end else begin // we are not the active page
-			CurIndex := ActivePageIndex; // remember active page index
+			CurPage := ActivePage; // remember active page index
 			fTabSheet.Free; // remove old
-			ActivePageIndex := max(0,CurIndex - 1);
+			ActivePage := CurPage;
 		end;
 	end;
 	fPreviousTabs.Free;
@@ -446,18 +450,20 @@ end;
 procedure TEditor.EditorSpecialLineColors(Sender: TObject; Line: Integer;var Special: Boolean; var FG, BG: TColor);
 var
 	pt: TPoint;
+	RealLine: integer;
 begin
-	if (Line = fActiveLine) then begin
+	RealLine := fText.LineToUncollapsedLine(Line);
+	if (RealLine = fActiveLine) then begin
 		StrtoPoint(pt, devEditor.Syntax.Values[cABP]);
 		BG:= pt.X;
 		FG:= pt.Y;
 		Special:= TRUE;
-	end else if (HasBreakpoint(Line) <> -1) then begin
+	end else if (HasBreakpoint(RealLine) <> -1) then begin
 		StrtoPoint(pt, devEditor.Syntax.Values[cBP]);
 		BG:= pt.X;
 		FG:= pt.Y;
 		Special := TRUE;
-	end else if Line = fErrorLine then begin
+	end else if RealLine = fErrorLine then begin
 		StrtoPoint(pt, devEditor.Syntax.Values[cErr]);
 		BG:= pt.X;
 		FG:= pt.Y;
@@ -467,17 +473,18 @@ end;
 
 procedure TEditor.DebugAfterPaint(ACanvas: TCanvas; AClip: TRect;FirstLine, LastLine: integer);
 var
-	X, Y, I: integer;
+	X, Y, I, RealLine: integer;
 begin
 	X := (fText.Gutter.RealGutterWidth(fText.CharWidth) - fText.Gutter.RightOffset) div 2 - 3;
 	Y := (fText.LineHeight - dmMain.GutterImages.Height) div 2 + fText.LineHeight * (FirstLine - fText.TopLine);
 
 	for I := FirstLine to LastLine do begin
-		if fActiveLine = I then // prefer active line over breakpoints
+		RealLine := fText.LineToUncollapsedLine(I);
+		if fActiveLine = RealLine then // prefer active line over breakpoints
 			dmMain.GutterImages.Draw(ACanvas, X, Y, 1)
-		else if HasBreakpoint(I) <> -1 then
+		else if HasBreakpoint(RealLine) <> -1 then
 			dmMain.GutterImages.Draw(ACanvas, X, Y, 0)
-		else if fErrorLine = I then
+		else if fErrorLine = RealLine then
 			dmMain.GutterImages.Draw(ACanvas, X, Y, 2);
 
 		Inc(Y, fText.LineHeight);
@@ -540,7 +547,8 @@ end;
 
 procedure TEditor.EditorStatusChange(Sender: TObject;Changes: TSynStatusChanges);
 begin
-	if scModified in Changes then begin // scModified is only fired when the modified state changes
+	// scModified is only fired when the modified state changes
+	if scModified in Changes then begin
 		if fText.Modified then begin
 			MainForm.SetStatusbarMessage(Lang[ID_MODIFIED]);
 			UpdateCaption('[*] ' + ExtractfileName(fFileName));
@@ -828,9 +836,12 @@ end;
 
 procedure TEditor.UpdateCaption(const NewCaption: AnsiString);
 begin
-	if assigned(fTabSheet) then
-		fTabSheet.Caption:= NewCaption;
-	MainForm.UpdateAppTitle;
+	if Assigned(fTabSheet) then begin // not needed?
+		if NewCaption <> fTabSheet.Caption then begin
+			fTabSheet.Caption:= NewCaption;
+			MainForm.UpdateAppTitle;
+		end;
+	end;
 end;
 
 procedure TEditor.SetFileName(const value: AnsiString);
@@ -1269,19 +1280,51 @@ begin
 	Delete(Result,1,curpos-1);
 end;
 
+function TEditor.GetFullFileName(const Line: AnsiString) : AnsiString;
+var
+	walker, start: integer;
+	filename : AnsiString;
+begin
+	walker := 0;
+	repeat
+		Inc(walker);
+	until (walker = Length(line)) or (line[walker] in ['<','"']);
+	start := walker + 1;
+
+	repeat
+		Inc(walker);
+	until (walker = Length(line)) or (line[walker] in ['>','"']);
+
+	filename := Copy(line, start, walker-start);
+	if Length(filename) = 0 then begin
+		result := '';
+		exit;
+	end;
+
+	// assume std:: C++ header
+	if (filename[1] = 'c') and (Pos('.h',filename) = 0) then begin
+		Delete(filename,1,1); // remove 'c'
+		filename := filename + '.h';
+	end;
+
+	result := MainForm.CppParser.GetFullFileName(filename);
+	if (Length(result) <= 2) or (result[2] <> ':') then // no full path, so prepend path of active file
+		result := ExtractFilePath(fFileName) + filename;
+end;
+
 procedure TEditor.CompletionInsert(const append: AnsiString);
 var
 	Statement: PStatement;
 	FuncAddOn: AnsiString;
 begin
-	Statement:=fCompletionBox.SelectedStatement;
+	Statement := fCompletionBox.SelectedStatement;
 	if not Assigned(Statement) then Exit;
 
 	// if we are inserting a function,
 	if Statement^._Kind in [skFunction, skConstructor, skDestructor] then begin
 
-		// If they argument list is already there, don't add another ()
-		if fText.LineText[fText.WordEnd.Char] <> '(' then begin
+		// If the argument list is already there, don't add another ()
+		if (Length(fText.LineText) = 0) or (fText.LineText[fText.WordEnd.Char] <> '(') then begin
 			FuncAddOn := '()';
 		end else
 			FuncAddOn := '';
@@ -1311,15 +1354,21 @@ end;
 procedure TEditor.EditorDblClick(Sender: TObject);
 begin
 	fDblClickTime := GetTickCount;
+	fText.GetPositionOfMouse(fDblClickMousePos);
 end;
 
 procedure TEditor.EditorClick(Sender: TObject);
 var
 	fTripleClickTime: Cardinal;
+	fTripleClickMousePos: TBufferCoord;
 	fNewState: TSynStateFlags;
 begin
 	fTripleClickTime := GetTickCount;
-	if (fTripleClickTime > fDblClickTime) and (fTripleClickTime - GetDoubleClickTime < fDblClickTime) then begin
+	fText.GetPositionOfMouse(fTripleClickMousePos);
+	if (fTripleClickTime > fDblClickTime) and
+       (fTripleClickTime - GetDoubleClickTime < fDblClickTime) and
+       (fTripleClickMousePos.Char = fDblClickMousePos.Char) and
+       (fTripleClickMousePos.Line = fDblClickMousePos.Line) then begin
 
 		// Don't let the editor change the caret
 		fNewState := fText.StateFlags;
@@ -1339,10 +1388,55 @@ end;
 
 procedure TEditor.EditorMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
 var
-	s : AnsiString;
+	s,Line : AnsiString;
 	p : TBufferCoord;
 	st: PStatement;
 	M : TMemoryStream;
+
+	procedure ShowFileHint;
+	var
+		FileName: AnsiString;
+	begin
+		FileName := GetFullFileName(fText.Lines[p.Line - 1]);
+		if (FileName <> '') and FileExists(FileName) then
+			fText.Hint := FileName + ' - Ctrl+Click for more info'
+		else
+			fText.Hint := '';
+	end;
+
+	procedure ShowParserHint;
+	begin
+		// When debugging, evaluate stuff under cursor, and optionally add to watch list
+		if MainForm.fDebugger.Executing then begin
+
+			// Add to list
+			if devData.WatchHint then
+				MainForm.fDebugger.AddWatchVar(s);
+
+			// Evaluate s
+			fCurrentEvalWord := EvaluationPhrase(p);
+			MainForm.fDebugger.OnEvalReady := OnMouseOverEvalReady;
+			MainForm.fDebugger.SendCommand('print',fCurrentEvalWord);
+
+		// Otherwise, parse code and show information about variable
+		end else if devEditor.ParserHints {and fText.Focused} then begin
+
+			// This piece of code changes the parser database, possibly making hints and code completion invalid...
+			M := TMemoryStream.Create;
+			try
+				fText.UnCollapsedLines.SaveToStream(M);
+				st := MainForm.CppParser.FindStatementOf(fFileName,CompletionPhrase(p),p.Line,M);
+			finally
+				M.Free;
+			end;
+
+			if Assigned(st) then begin
+				fText.Hint := MainForm.CppParser.PrettyPrintStatement(st) + ' - ' + ExtractFileName(st^._FileName) + ' (' + IntToStr(st^._Line) + ') - Ctrl+Click for more info';
+				fText.Hint := StringReplace(fText.Hint,'|',#5,[rfReplaceAll]); // vertical bar is used to split up short and long hint versions...
+			end else // couldn't find anything? disable hint
+				fText.Hint := '';
+		end;
+	end;
 
 	procedure CancelHint;
 	begin
@@ -1378,39 +1472,12 @@ begin
 			else
 				fText.Cursor:=crIBeam;
 
-			// When debugging, evaluate stuff under cursor, and optionally add to watch list
-			if MainForm.fDebugger.Executing then begin
-
-				// Add to list
-				if devData.WatchHint then
-					MainForm.fDebugger.AddWatchVar(s);
-
-				// Evaluate s
-				fCurrentEvalWord := EvaluationPhrase(p);
-				MainForm.fDebugger.OnEvalReady := OnMouseOverEvalReady;
-				MainForm.fDebugger.SendCommand('print',fCurrentEvalWord);
-
-			// Otherwise, parse code and show information about variable
-			end else if devEditor.ParserHints and fText.Focused then begin
-
-				// This piece of code changes the parser database, possibly making hints and code completion invalid...
-				M := TMemoryStream.Create;
-				try
-					fText.UnCollapsedLines.SaveToStream(M);
-					st := MainForm.CppParser.FindStatementOf(fFileName,CompletionPhrase(p),p.Line,M);
-				finally
-					M.Free;
-				end;
-
-				if Assigned(st) then begin
-					if st^._ClassScope <> scsNone then
-						fText.Hint := MainForm.CppParser.StatementClassScopeStr(st^._ClassScope) + ' ' + Trim(st^._FullText) + ' - ' + ExtractFileName(st^._FileName) + ' (' + IntToStr(st^._Line) + ') - Ctrl+Click to follow'
-					else
-						fText.Hint := Trim(st^._FullText) + ' - ' + ExtractFileName(st^._FileName) + ' (' + IntToStr(st^._Line) + ') - Ctrl+Click to follow';
-				end else
-					// couldn't find anything? disable hint
-					fText.Hint := '';
-			end;
+			// Either show an include filename or parser info
+			Line := Trim(fText.Lines[p.Line -1]);
+			if StartsStr('#include',line) or StartsStr('# include',line) then // show filename hint
+				ShowFileHint
+			else
+				ShowParserHint;
 		end;
 	end else begin
 		fText.Cursor:=crIBeam;
@@ -1437,8 +1504,7 @@ end;
 procedure TEditor.CommentSelection;
 var
 	oldbbegin,oldbend,oldcaret : TBufferCoord;
-	localcopy : string;
-	CurPos,len : integer;
+	I,EndLine : integer;
 begin
 	oldbbegin := fText.BlockBegin;
 	oldbend := fText.BlockEnd;
@@ -1446,42 +1512,24 @@ begin
 
 	// Prevent repaints while we're busy
 	fText.BeginUpdate;
+	fText.BeginUndoBlock;
 
-	if fText.BlockBegin.Line <> fText.BlockEnd.Line then begin
+	// Ignore the last line the cursor is placed on
+	if oldbend.Char = 1 then
+		EndLine := max(oldbbegin.Line-1,oldbend.Line-2)
+	else
+		EndLine := oldbend.Line-1;
 
-		// Comment the first one
-		localcopy := '//' + fText.SelText;
-		CurPos := 1;
-		len := Length(localcopy);
-		while CurPos <= len do begin
-
-			// find any enter sequence...
-			if(localcopy[CurPos] in [#13,#10]) then begin
-				repeat
-					Inc(CurPos);
-				until (CurPos = len + 1) or not (localcopy[CurPos] in [#13,#10]);
-
-				// and comment only when this enter isn't trailing
-				if (CurPos <= len) then begin
-					Inc(len,2);
-					Insert('//',localcopy,CurPos); // 1 based
-				end;
-			end;
-			Inc(CurPos);
-		end;
-		fText.SelText := localcopy;
-	end else begin
-		fText.BeginUndoBlock;
-
-		fText.LineText := '//' + fText.LineText;
-
+	for I := oldbbegin.Line-1 to EndLine do begin
+		fText.Lines[i] := '//' + fText.Lines[i];
 		fText.UndoList.AddChange(crInsert,
-			BufferCoord(1,fText.CaretY),
-			BufferCoord(3,fText.CaretY),
+			BufferCoord(1,i+1),
+			BufferCoord(3,i+1),
 			'',smNormal);
-
-		fText.EndUndoBlock;
 	end;
+
+	// When grouping similar commands, process one comment action per undo/redo
+	fText.UndoList.AddChange(crNothing,BufferCoord(0,0),BufferCoord(0,0),'',smNormal);
 
 	// Move begin of selection
 	if oldbbegin.Char > 1 then
@@ -1500,6 +1548,7 @@ begin
 	fText.BlockEnd := oldbend;
 
 	// Prevent repaints while we're busy
+	fText.EndUndoBlock;
 	fText.EndUpdate;
 
 	fText.UpdateCaret;
@@ -1509,8 +1558,8 @@ end;
 procedure TEditor.UncommentSelection;
 var
 	oldbbegin,oldbend,oldcaret : TBufferCoord;
-	localcopy : AnsiString;
-	CurPos : integer;
+	editcopy : AnsiString;
+	I,J,EndLine : integer;
 begin
 	oldbbegin := fText.BlockBegin;
 	oldbend := fText.BlockEnd;
@@ -1518,84 +1567,87 @@ begin
 
 	// Prevent repaints while we're busy
 	fText.BeginUpdate;
+	fText.BeginUndoBlock;
 
-	if fText.BlockBegin.Line <> fText.BlockEnd.Line then begin
-		localcopy := fText.SelText;
-		CurPos := 1;
-		while(CurPos <= Length(localcopy)) do begin
+	// Ignore the last line the cursor is placed on
+	if oldbend.Char = 1 then
+		EndLine := max(oldbbegin.Line-1,oldbend.Line-2)
+	else
+		EndLine := oldbend.Line-1;
 
-			// find any enter sequence, and skip all blanks after that...
-			if (localcopy[CurPos] in [#13,#10]) or (CurPos = 1) then begin
-				while (CurPos <= Length(localcopy)) and (localcopy[CurPos] in [#0..#32]) do
-					Inc(CurPos);
+	for I := oldbbegin.Line-1 to EndLine do begin
+		editcopy := fText.Lines[i];
 
-				// Is the first nonblank text equal to '//' ?
-				if (CurPos + 1 <= Length(localcopy)) and (StrLComp(@localcopy[CurPos],'//',2) = 0) then
-					Delete(localcopy,CurPos,2);
-			end;
-			Inc(CurPos);
-		end;
-		fText.SelText := localcopy;
-	end else begin
+		// Find // after blanks only
+		J := 1;
+		while (J+1 <= length(editcopy)) and (editcopy[j] in [#0..#32]) do
+			Inc(J);
+		if (j+1 <= length(editcopy)) and (editcopy[j] = '/') and (editcopy[j+1] = '/') then begin
+			Delete(EditCopy,J,2);
+			fText.Lines[i] := editcopy;
 
-		localcopy := fText.LineText;
-		CurPos := 1;
-
-		// Skip spaces
-		while(CurPos <= Length(localcopy)) and (localcopy[CurPos] in [#0..#32]) do
-			Inc(CurPos);
-
-		// First nonblank is comment? Remove
-		if (CurPos+1 <= Length(localcopy)) and (StrLComp(@localcopy[CurPos],'//',2) = 0) then begin
-			fText.BeginUndoBlock;
-
-			Delete(localcopy,CurPos,2);
+			fText.UndoList.AddChange(crDelete,
+				BufferCoord(J,i+1),
+				BufferCoord(J+2,i+1),
+				'//',smNormal);
 
 			// Move begin of selection
-			if oldbbegin.Char = 2 then
-				Dec(oldbbegin.Char,1)
-			else if oldbbegin.Char > 2 then
+			if (I = oldbbegin.Line-1) and (oldbbegin.Char > 1) then
 				Dec(oldbbegin.Char,2);
 
 			// Move end of selection
-			if oldbend.Char = 2 then
-				Dec(oldbend.Char,1)
-			else if oldbend.Char > 2 then
+			if (I = oldbend.Line-1) and (oldbend.Char > 1) then
 				Dec(oldbend.Char,2);
 
 			// Move caret
-			if oldcaret.Char = 2 then
-				Dec(oldcaret.Char,1)
-			else if oldcaret.Char > 2 then
+			if (I = oldcaret.Line-1) and (oldcaret.Char > 1) then
 				Dec(oldcaret.Char,2);
-
-			fText.LineText := localcopy;
-
-			fText.UndoList.AddChange(crDelete,
-				BufferCoord(CurPos,fText.CaretY),
-				BufferCoord(CurPos,fText.CaretY),
-				'//',smNormal);
-
-			fText.EndUndoBlock;
 		end;
 	end;
 
-	// Prevent repaints while we're busy
-	fText.EndUpdate;
+	// When grouping similar commands, process one uncomment action per undo/redo
+	fText.UndoList.AddChange(crNothing,BufferCoord(0,0),BufferCoord(0,0),'',smNormal);
 
 	fText.CaretXY := oldcaret;
 	fText.BlockBegin := oldbbegin;
 	fText.BlockEnd := oldbend;
 
+	// Prevent repaints while we're busy
+	fText.EndUndoBlock;
+	fText.EndUpdate;
+
 	fText.UpdateCaret;
 	fText.Modified := true;
+end;
+
+procedure TEditor.ToggleCommentSelection;
+var
+	caretbegin, caretend : TBufferCoord;
+	I,EndLine : integer;
+begin
+	caretbegin := fText.BlockBegin;
+	caretend := fText.BlockEnd;
+
+	// Ignore the last line the cursor is placed on
+	if caretend.Char = 1 then
+		EndLine := max(caretbegin.Line-1,caretbegin.Line-1)
+	else
+		EndLine := caretend.Line-1;
+
+	// if everything is commented, then uncomment
+	for I := caretbegin.Line-1 to EndLine do begin
+		if not StartsStr('//',Trimleft(fText.Lines[i])) then begin
+			CommentSelection;
+			Exit;
+		end;
+	end;
+	UncommentSelection;
 end;
 
 procedure TEditor.EditorMouseUp(Sender: TObject; Button: TMouseButton;Shift: TShiftState; X, Y: Integer);
 var
 	p: TDisplayCoord;
-	line,fname,headername: AnsiString;
-	walker,start : integer;
+	line,FileName: AnsiString;
 	e : TEditor;
 begin
 	// if ctrl+clicked
@@ -1607,34 +1659,11 @@ begin
 			// reset the cursor
 			fText.Cursor := crIBeam;
 
+			// Try to open the header
 			line := Trim(fText.Lines[p.Row-1]);
 			if StartsStr('#include',line) then begin
-
-				// We've clicked an #include...
-				walker := 0;
-				repeat
-					Inc(walker);
-				until (walker = Length(line)) or (line[walker] in ['<','"']);
-				start := walker + 1;
-
-				repeat
-					Inc(walker);
-				until (walker = Length(line)) or (line[walker] in ['>','"']);
-
-				headername := Copy(line, start, walker-start);
-
-				// assume std:: C++ header
-				if (headername[1] = 'c') and (Pos('.h',headername) = 0) then begin
-					Delete(headername,1,1); // remove 'c'
-					headername := headername + '.h';
-				end;
-
-				fname := MainForm.CppParser.GetFullFileName(headername);
-				if fname = ExtractFileName(fname) then // no path info, so prepend path of active file
-					fname := ExtractFilePath(fFileName)+fname;
-
-				// refer to the editor of the filename (will open if needed and made active)
-				e:=MainForm.GetEditorFromFileName(fname);
+				FileName := GetFullFileName(line);
+				e := MainForm.GetEditorFromFileName(FileName);
 				if Assigned(e) then
 					e.SetCaretPos(1,1);
 			end else

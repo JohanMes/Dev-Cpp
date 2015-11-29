@@ -118,9 +118,9 @@ var
 type
 {$IFDEF SYN_CLX}
   TSynBorderStyle = bsNone..bsSingle;
-	TBufferCoord = QSynEditTypes.TBufferCoord;
-	TDisplayCoord = QSynEditTypes.TDisplayCoord;
-	TSynEditMark = QSynEditMiscClasses.TSynEditMark;
+  TBufferCoord = QSynEditTypes.TBufferCoord;
+  TDisplayCoord = QSynEditTypes.TDisplayCoord;
+  TSynEditMark = QSynEditMiscClasses.TSynEditMark;
 {$ELSE}
   TSynBorderStyle = TBorderStyle;
   TBufferCoord = SynEditTypes.TBufferCoord;
@@ -305,7 +305,6 @@ type
     fEditingFolds:           boolean;
     fUseCodeFolding:         boolean;
     //### End Code Folding ###
-
     fAlwaysShowCaret: Boolean;
     fBlockBegin: TBufferCoord;
     fBlockEnd: TBufferCoord;
@@ -410,7 +409,6 @@ type
     fChainedEditor: TCustomSynEdit;
     fChainUndoAdded: TNotifyEvent;
     fChainRedoAdded: TNotifyEvent;
-
 {$IFDEF SYN_LINUX}
     FDeadKeysFixed: Boolean;
 {$ENDIF}
@@ -2144,6 +2142,12 @@ begin
     Exit;
   {$ENDIF}
 
+  // don't perform a click when we click the gutter
+  if (X < fGutterWidth) then begin
+    DoOnGutterClick(Button, X, Y);
+    Exit;
+  end;
+
   TmpBegin := FBlockBegin;
   TmpEnd := FBlockEnd;
 
@@ -2187,7 +2191,7 @@ begin
 
   if Button = mbLeft then
   begin
-    //I couldn't track down why, but sometimes (and definately not all the time)
+    //I couldn't track down why, but sometimes (and definitely not all the time)
     //the block positioning is lost.  This makes sure that the block is
     //maintained in case they started a drag operation on the block
     FBlockBegin := TmpBegin;
@@ -2228,7 +2232,7 @@ begin
     end;
   end;
 
-  if (X < fGutterWidth +2) then
+  if (X < fGutterWidth) then
   begin
     if Button = mbRight then
       DoOnGutterClick(Button, X, Y)
@@ -5455,9 +5459,9 @@ begin
     inherited;
     Include(fStateFlags, sfDblClicked);
     MouseCapture := FALSE;
-  end
-  else
-    inherited;
+  end;
+ // else
+ //   inherited; // do NOT send double click messages when clicking on the gutter
 end;
 
 function TCustomSynEdit.GetCanUndo: Boolean;
@@ -9611,7 +9615,7 @@ var
   vDummy: string;
   attr:TSynHighlighterAttributes;
   p: TBufferCoord;
-  isCommentOrString:boolean;
+  isCommentOrStringOrChar:boolean;
 begin
   Result.Char := 0;
   Result.Line := 0;
@@ -9651,12 +9655,12 @@ begin
               if (Test = BracketInc) or (Test = BracketDec) then
               begin
                 if GetHighlighterAttriAtRowCol( p, vDummy, attr ) then
-                  isCommentOrString:=
-                   (attr = Highlighter.StringAttribute) or (attr=Highlighter.CommentAttribute)
-                else isCommentOrString:=false;
-                if (Test = BracketInc) and (not isCommentOrString) then
+                  isCommentOrStringOrChar:=
+                   (attr = Highlighter.StringAttribute) or (attr=Highlighter.CommentAttribute) or (attr.Name = 'Character')
+                else isCommentOrStringOrChar:=false;
+                if (Test = BracketInc) and (not isCommentOrStringOrChar) then
                   Inc(NumBrackets)
-                else if (Test = BracketDec) and (not isCommentOrString) then
+                else if (Test = BracketDec) and (not isCommentOrStringOrChar) then
                 begin
                   Dec(NumBrackets);
                   if NumBrackets = 0 then
@@ -9695,12 +9699,12 @@ begin
               if (Test = BracketInc) or (Test = BracketDec) then
               begin
                 if GetHighlighterAttriAtRowCol( p, vDummy, attr ) then
-                  isCommentOrString:=
-                    (attr=Highlighter.StringAttribute) or (attr=Highlighter.CommentAttribute)
-                else isCommentOrString:=false;
-                if (Test = BracketInc) and (not isCommentOrString) then
+                  isCommentOrStringOrChar:=
+                    (attr=Highlighter.StringAttribute) or (attr=Highlighter.CommentAttribute) or (attr.Name = 'Character')
+                else isCommentOrStringOrChar:=false;
+                if (Test = BracketInc) and (not isCommentOrStringOrChar) then
                   Inc(NumBrackets)
-                else if (Test = BracketDec)and (not isCommentOrString) then
+                else if (Test = BracketDec)and (not isCommentOrStringOrChar) then
                 begin
                   Dec(NumBrackets);
                   if NumBrackets = 0 then
