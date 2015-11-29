@@ -33,15 +33,15 @@ const
 resourcestring
 	// misc strings
 	DEVCPP               = 'Dev-C++';
-	DEVCPP_VERSION       = '5.1.0.0';
-	DEVCPP_BUILDTIME     = 'Dec 27 2011 - 15:17';
+	DEVCPP_VERSION       = '5.1.1.0';
+	DEVCPP_BUILDTIME     = 'Feb 16 2012 - 15:45';
 	DEFAULT_LANG_FILE    = 'English.lng';
 	HTTP                 = 'http://';
 	DEV_INTERNAL_OPEN    = '$__DEV_INTERNAL_OPEN';
 	DEV_SEARCHLOOP       = '$__DEV_SEARCH_LOOP';
 	DEV_COMPLETION_CACHE = 'cache.ccc';
 	DEV_DEFAULTCODE_FILE = 'defaultcode.cfg';
-	DEV_DEVSHORTCUTS_FILE= 'devShortcuts.cfg';
+	DEV_SHORTCUTS_FILE   = 'devShortcuts.cfg';
 	DEV_CLASSFOLDERS_FILE= 'classfolders.dcf';
 	DEV_WEBMIRRORS_FILE  = 'mirrors.cfg';
 	DEV_MAKE_FILE        = 'Makefile.win';
@@ -124,7 +124,7 @@ resourcestring
   cABP                 = 'Active Breakpoints';
   cGut                 = 'Gutter';
   cSel                 = 'Selected text';
-  
+
 const
   // source file extensions
   C_EXT                = '.c';

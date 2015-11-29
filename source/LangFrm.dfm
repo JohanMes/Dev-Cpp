@@ -249,9 +249,7 @@ object LangForm: TLangForm
         Width = 257
         Height = 17
         Caption = 'Yes, cache the default include folder'
-        Checked = True
         TabOrder = 0
-        TabStop = True
       end
       object NoCache: TRadioButton
         Left = 8
@@ -267,7 +265,9 @@ object LangForm: TLangForm
         Width = 257
         Height = 17
         Caption = 'Only cache these files and their includes:'
+        Checked = True
         TabOrder = 2
+        TabStop = True
       end
       object AltFileList: TListBox
         Left = 4
@@ -277,16 +277,30 @@ object LangForm: TLangForm
         Columns = 2
         ItemHeight = 13
         Items.Strings = (
+          'assert.h'
+          'complex.h'
+          'ctype.h'
+          'errno.h'
+          'fenv.h'
+          'float.h'
+          'inttypes.h'
+          'limits.h'
+          'locale.h'
+          'math.h'
+          'setjmp.h'
+          'signal.h'
+          'stdarg.h'
+          'stddef.h'
+          'stdint.h'
           'stdio.h'
           'stdlib.h'
-          'math.h'
           'string.h'
           'time.h'
+          'wchar.h'
+          'wctype.h'
           'windows.h'
-          'windowsx.h'
           'd3d9.h'
-          'd3dx9.h'
-          'gdiplus.h')
+          'd3dx9.h')
         TabOrder = 3
       end
       object ButtonAddFile: TButton

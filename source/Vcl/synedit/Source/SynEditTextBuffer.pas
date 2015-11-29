@@ -27,14 +27,13 @@ replace them with the notice and other provisions required by the GPL.
 If you do not delete the provisions above, a recipient may use your version
 of this file under either the MPL or the GPL.
 
-$Id: SynEditTextBuffer.pas,v 1.6 2005/01/08 17:04:29 specu Exp $
+$Id: SynEditTextBuffer.pas,v 1.63 2004/07/29 19:24:40 maelh Exp $
 
 You may retrieve the latest version of this file at the SynEdit home page,
 located at http://SynEdit.SourceForge.net
 
 Known Issues:
 -------------------------------------------------------------------------------}
-//todo: Avoid calculating expanded string unncessarily (just calculate expandedLength instead).
 
 {$IFNDEF QSYNEDITTEXTBUFFER}
 unit SynEditTextBuffer;
@@ -113,6 +112,7 @@ type
     procedure InsertItem(Index: integer; const S: string);
     procedure PutRange(Index: integer; ARange: TSynEditRange);
   protected
+    fLongestLineIndex: integer;
     function Get(Index: integer): string; override;
     function GetCapacity: integer;
       {$IFDEF SYN_COMPILER_3_UP} override; {$ENDIF}
@@ -218,8 +218,8 @@ type
   public
     constructor Create;
     destructor Destroy; override;
-    procedure AddChange(AReason: TSynChangeReason; const AStart, AEnd: TBufferCoord;
-      const ChangeText: string; SelMode: TSynSelectionMode);
+
+    procedure AddChange(AReason: TSynChangeReason; const AStart, AEnd: TBufferCoord;const ChangeText: string; SelMode: TSynSelectionMode);
     procedure BeginBlock;
     procedure Clear;
     procedure EndBlock;
@@ -487,6 +487,7 @@ end;
 constructor TSynEditStringList.Create;
 begin
   inherited Create;
+  fAppendNewLineAtEOF := True; //Retain current behavior
   fFileFormat := sffDos;
   fIndexOfLongestLine := -1;
   TabWidth := 8;
@@ -732,7 +733,7 @@ end;
 function TSynEditStringList.GetTextStr: string;
 begin
   Result := inherited GetTextStr;
-  System.Delete(Result, Length(Result) - Length(SLineBreak) + 1, MaxInt);
+  System.Delete(Result, Length(Result) - Length(SLineBreak) + 1, Length(SLineBreak));
 end;
 
 procedure TSynEditStringList.Grow;
@@ -1141,6 +1142,7 @@ begin
         fChangeStartPos := AStart;
         fChangeEndPos := AEnd;
         fChangeStr := ChangeText;
+
         if fBlockChangeNumber <> 0 then
           fChangeNumber := fBlockChangeNumber
         else begin

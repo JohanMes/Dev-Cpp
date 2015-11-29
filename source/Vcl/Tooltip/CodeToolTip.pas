@@ -85,7 +85,7 @@ interface
 uses
 {$IFDEF WIN32}
   SysUtils, Dialogs, Classes, Windows, Messages, Graphics, Controls, Menus, Forms, StdCtrls,
-  SynEditKbdHandler, SynEdit, SynEditHighlighter, CppParser, utils;
+  SynEditKbdHandler, SynEdit, SynEditHighlighter, CppParser;
 {$ENDIF}
 {$IFDEF LINUX}
   SysUtils, QDialogs, Classes, Xlib, QGraphics, QControls, QMenus, QForms, QStdCtrls,
@@ -169,8 +169,8 @@ type
     function FindClosestToolTip(ToolTip: string; CommaIndex: Integer): string;
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
     procedure Paint; override;
-    function PaintToolTip : integer;
-    function RemoveEditor(AEditor: TCustomSynEdit): boolean;
+    procedure PaintToolTip;
+    procedure RemoveEditor(AEditor: TCustomSynEdit);
     procedure RethinkCoordAndActivate;
     procedure SetEditor(const Value: TCustomSynEdit);
     property Hints: TStringList read FToolTips write SetToolTips;
@@ -397,12 +397,12 @@ begin
 	if Activated then ReleaseHandle;
 
 	FKeyDownProc := nil;
-
 	FEditor := nil;
 
 	FreeAndNil(FUpButton);
 	FreeAndNil(FDownButton);
 
+	FBmp.Free;
 	FList.Free;
 	FToolTips.Free;
 	FLookupEditor.Free;
@@ -587,9 +587,7 @@ begin
 	Canvas.CopyRect(ClientRect, FBmp.Canvas, ClientRect);
 end;
 
-function TCodeToolTip.PaintToolTip : Integer;
-const
-	cStipple : array [0..3] of Integer = (0,1,2,1);
+procedure TCodeToolTip.PaintToolTip;
 var
 	BracePos: Integer;
 	WidthParam: Integer;
@@ -633,89 +631,84 @@ var
 begin
 
 	BracePos := AnsiPos('(', Caption);
-	if BracePos > 0 then begin
+	CurParam := 0;
+	WidthParam := 4; // left start position in pixels
 
-		CurParam := 0;
-		WidthParam := 4; // left start position in pixels
-
-		// Clear the backbuffer and set options
-		with FBmp.Canvas do begin
-			Brush.Color := TColor($E1FFFF);
-			FillRect(ClientRect);
-			Font.Name := 'Courier New';
-			Font.Size := 10;
-			Brush.Style := bsClear;
-		end;
-
-		// when more than one tooltip is in the list
-		// we must draw the buttons as well ...
-		if FToolTips.Count > 1 then begin
-			// paint the UP button
-			FUpButton.Paint(FBmp.Canvas);
-			Inc(WidthParam, FUpButton.Left + FUpButton.Width);
-
-			// output text between the buttons
-			FBmp.Canvas.Font.Style := [];
-			S := Format(SCodeToolTipIndexXOfX, [FSelIndex+1, FToolTips.Count]);
-			FBmp.Canvas.TextOut(WidthParam, 1, S);
-			Inc(WidthParam, FBmp.Canvas.TextWidth(S)+3);
-
-			// paint the DOWN button
-			FDownButton.Paint(FBmp.Canvas);
-			FDownButton.Left := WidthParam;
-			Inc(WidthParam, 3 + FDownButton.Width+FUpButton.Left);
-		end;
-
-		// now loop through the hint and draw each letter
-		for i := 1 to Length(Caption)-1 do begin
-			CurChar := Caption[I];
-
-			// if the current char is one of our delimiters
-			// we must increase the CurParam variable which indicates
-			// at which comma index our cursor is.
-			if AnsiPos(CurChar, FDelimiters) > 0 then
-				Inc(CurParam);
-
-			if (CurParam = FCurParamIndex) and (AnsiPos(CurChar, FDelimiters)=0) and (I > BracePos) and (CurChar <> ')') and (CurChar <> ' ') and (AnsiPos(')',Caption) > I) then
-				DrawParamLetterEx(I, True) // at current comma index
-			else
-				DrawParamLetterEx(I, False); // normal
-		end;
+	// Clear the backbuffer and set options
+	with FBmp.Canvas do begin
+		Brush.Color := TColor($E1FFFF);
+		FillRect(ClientRect);
+		Font.Name := 'Courier New';
+		Font.Size := 10;
+		Brush.Style := bsClear;
 	end;
 
-	Result := WidthParam+4;
+	// when more than one tooltip is in the list
+	// we must draw the buttons as well ...
+	if FToolTips.Count > 1 then begin
+
+		// paint the UP button
+		FUpButton.Paint(FBmp.Canvas);
+		Inc(WidthParam, FUpButton.Left + FUpButton.Width);
+
+		// output text between the buttons
+		FBmp.Canvas.Font.Style := [];
+		S := Format(SCodeToolTipIndexXOfX, [FSelIndex+1, FToolTips.Count]);
+		FBmp.Canvas.TextOut(WidthParam, 1, S);
+		Inc(WidthParam, FBmp.Canvas.TextWidth(S)+3);
+
+		// paint the DOWN button
+		FDownButton.Left := WidthParam;
+		FDownButton.Paint(FBmp.Canvas);
+		Inc(WidthParam, 3 + FDownButton.Width+FUpButton.Left);
+	end;
+
+	// now loop through the hint and draw each letter
+	for I := 1 to Length(Caption)-1 do begin
+		CurChar := Caption[I];
+
+		// if the current char is one of our delimiters
+		// we must increase the CurParam variable which indicates
+		// at which comma index our cursor is.
+		if AnsiPos(CurChar, FDelimiters) > 0 then
+			Inc(CurParam);
+
+		if (CurParam = FCurParamIndex) and (AnsiPos(CurChar, FDelimiters)=0) and (I > BracePos) and (CurChar <> ')') and (CurChar <> ' ') and (AnsiPos(')',Caption) > I) then
+			DrawParamLetterEx(I, True) // at current comma index
+		else
+			DrawParamLetterEx(I, False) // Normal
+	end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
-function TCodeToolTip.RemoveEditor(aEditor: TCustomSynEdit): boolean;
+procedure TCodeToolTip.RemoveEditor(aEditor: TCustomSynEdit);
 begin
-  Result := Assigned (aEditor);
-
-  if Result then
-  begin
-    aEditor.RemoveKeyDownHandler(fKeyDownProc);
-    if aEditor = fEditor then
-      fEditor := nil;
-  {$IFDEF SYN_COMPILER_5_UP}
-    RemoveFreeNotification(aEditor);
-  {$ENDIF}
-  end;
+	if Assigned(aEditor) then begin
+		aEditor.RemoveKeyDownHandler(fKeyDownProc);
+		if aEditor = fEditor then
+			fEditor := nil;
+		{$IFDEF SYN_COMPILER_5_UP}
+		RemoveFreeNotification(aEditor);
+		{$ENDIF}
+	end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
 
 procedure TCodeToolTip.RethinkCoordAndActivate;
 var
-  Pt: TPoint;
-  Width : integer;
+	Pt: TPoint;
+	Width : integer;
 begin
 
-	// Paint to obtain size
-	Width := PaintToolTip;
+	// Simulate size to prevent drawing twice...
+	Width := FBmp.Canvas.TextWidth(Caption);
+	if FToolTips.Count > 1 then
+		Width := Width + 72; // Button stuff
 
 	// this displays the rect below the current line and at the same position where the token begins
-	Pt := FEditor.ClientToScreen(FEditor.RowColumnToPixels(FEditor.BufferToDisplayPos(FEditor.CharIndexToRowCol(FTokenPos))));
+	Pt := FEditor.ClientToScreen(FEditor.RowColumnToPixels(FEditor.BufferToDisplayPos(FEditor.CharIndexToRowCol(FTokenPos,true))));
 
 	ActivateHint(Rect(Pt.X,
                     Pt.Y+FEditor.LineHeight+2,
@@ -759,16 +752,15 @@ end;
 
 procedure TCodeToolTip.SetEditor(const Value: TCustomSynEdit);
 begin
-  if (FEditor <> nil) then
-    RemoveEditor (fEditor);
+	if Assigned(FEditor) then
+		RemoveEditor(fEditor);
 
-  FEditor := Value;
+	FEditor := Value;
 
-  if (FEditor <> nil) then
-  begin
-    FEditor.AddKeyDownHandler(FKeyDownProc);
-    FEditor.FreeNotification(FEditor);
-  end;
+	if Assigned(FEditor) then begin
+		FEditor.AddKeyDownHandler(FKeyDownProc);
+		FEditor.FreeNotification(FEditor);
+	end;
 end;
 
 //----------------------------------------------------------------------------------------------------------------------
@@ -828,11 +820,11 @@ var
 	end;
 begin
 
-	// get the current position in the text
-	Idx := FEditor.SelStart;
-	CurPos := FEditor.SelStart;
+	// get the current position in the uncollapsed text
+	Idx := FEditor.RowColToCharIndex(FEditor.CaretXY,true);
+	CurPos := Idx;
 
-	// get a pointer to the text
+	// get a pointer to the uncollapsed text
 	P := PChar(FEditor.Lines.Text);
 
 	nBraces := 0;
@@ -845,7 +837,7 @@ begin
 		if P[CurPos] = '(' then begin
 			Inc(nBraces);
 
-		// Ending brace, decreace count or success!
+		// Ending brace, decrease count or success!
 		end else if P[CurPos] = ')' then begin
 			Dec(nBraces);
 			if nBraces = -1 then

@@ -91,7 +91,11 @@ begin
 end;
 
 procedure TNewProjectForm.FormDestroy(Sender: TObject);
+var
+	I : integer;
 begin
+	for I := 0 to fTemplates.Count - 1 do
+		TTemplate(fTemplates[i]).Free;
 	fTemplates.Free;
 end;
 
@@ -207,13 +211,13 @@ begin
 		LTemplate:= TTemplate(fTemplates[idx]);
 		if not HasPage(LTemplate.Catagory) then
 			TabsMain.Tabs.Append(LTemplate.Catagory);
-   end;
+	end;
 
-  // create current page
-  if TabsMain.TabIndex> 0 then
-   ProjView.LargeImages:= ImageList1
-  else
-   ProjView.LargeImages:= ImageList;
+	// create current page
+	if TabsMain.TabIndex> 0 then
+		ProjView.LargeImages:= ImageList1
+	else
+		ProjView.LargeImages:= ImageList;
 
 	ProjView.Items.Clear;
 	for idx:= pred(ImageList1.Count) downto 1 do

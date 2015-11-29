@@ -68,8 +68,9 @@ function CommaStrToStr(s : string; formatstr : string) : string;
 function IncludeQuoteIfSpaces(s : string) : string;
 function IncludeQuoteIfNeeded(s : string) : string;
 
-procedure MsgBox(text,caption:string); overload;
-procedure MsgBox(text:string); overload;
+procedure MsgBox(text:string;caption:string = 'Message'); overload;
+procedure MsgBox(textlist:TStrings;caption:string = 'Message'); overload;
+procedure MsgBox(text:integer;caption:string = 'Message'); overload;
 
 // Added by MikeB
 procedure LoadFilefromResource(const FileName: string; ms: TMemoryStream);
@@ -134,14 +135,28 @@ procedure MsgBox(text,caption:string);
 begin
 	MessageBox(application.handle,PChar(text),PChar(caption),MB_OK);
 end;
-procedure MsgBox(text:string);
+procedure MsgBox(textlist:TStrings;caption:string);
+var
+	I : integer;
+	final : string;
 begin
-	MessageBox(application.handle,PChar(text),PChar('Message'),MB_OK);
+	if not Assigned(textlist) then Exit;
+	final := '';
+	for I := 0 to textList.Count - 1 do
+		final := final + inttostr(Succ(I)) + #9 + textList.Strings[i] + #13#10;
+	MessageBox(application.handle,PChar(final),PChar(caption),MB_OK);
+end;
+procedure MsgBox(text:integer;caption:string);
+begin
+	MessageBox(application.handle,PChar(inttostr(text)),PChar(caption),MB_OK);
 end;
 
 procedure OpenHelpFile;
+var
+	abshelp : string;
 begin
-	ShellExecute(GetDesktopWindow(), 'open', PChar(devDirs.Help + DEV_MAINHELP_FILE), nil, nil, SW_SHOWNORMAL);
+	abshelp := StringReplace(devDirs.Help,  '%path%\',devDirs.Exec,[rfReplaceAll]) + DEV_MAINHELP_FILE;
+	ShellExecute(GetDesktopWindow(), 'open', PChar(abshelp), nil, nil, SW_SHOWNORMAL);
 end;
 
 procedure FilesFromWildcard(Directory, Mask: String;var Files : TStringList; Subdirs, ShowDirs, Multitasking: Boolean);

@@ -17,7 +17,7 @@ All Rights Reserved.
 Contributors to the SynEdit and mwEdit projects are listed in the
 Contributors.txt file.
 
-$Id: SynEditHighlighter.pas,v 1.6 2005/01/08 17:04:28 specu Exp $
+$Id: SynEditHighlighter.pas,v 1.36 2004/07/10 21:38:29 markonjezic Exp $
 
 You may retrieve the latest version of this file at the SynEdit home page,
 located at http://SynEdit.SourceForge.net
@@ -50,7 +50,6 @@ uses
 {$ENDIF}
   SysUtils,
   Classes;
-
 {$IFNDEF SYN_CLX}
 type
   TBetterRegistry = SynEditMiscClasses.TBetterRegistry;
@@ -118,6 +117,9 @@ const
   SYN_ATTR_SYMBOL            =   5;
 
 type
+	TCodeFoldingSkipFunc = function(var Ptr: PChar; var Line: Integer): Boolean of object; // pjura
+  TCodeFoldingSkipFuncArr = array of TCodeFoldingSkipFunc;
+
   TSynCustomHighlighter = class(TComponent)
   private
     fAttributes: TStringList;
@@ -152,6 +154,9 @@ type
     class function GetCapabilities: TSynHighlighterCapabilities; virtual;
     class function GetLanguageName: string; virtual;
   public
+  	SkipFunctions: TCodeFoldingSkipFuncArr;
+    function SkipCrLf(var Ptr: PChar; var Line: Integer): Boolean; // pjura
+
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
     procedure Assign(Source: TPersistent); override;
@@ -952,7 +957,39 @@ begin
   DefHighlightChange( nil );
 end;
 
+function TSynCustomHighlighter.SkipCrLf(var Ptr: PChar;
+  var Line: Integer): Boolean;
+begin
+	Result := False;
+  
+	repeat
+  	// Win
+		if ((Ptr^ = #13) and ((Ptr+1)^ = #10)) or ((Ptr^ = #10) and ((Ptr+1)^ = #13)) then
+  		repeat
+  			Inc(Ptr, 2);
+  			Inc(Line);
+        Result := True;
+  		until not (((Ptr^ = #13) and ((Ptr+1)^ = #10)) or ((Ptr^ = #10) and ((Ptr+1)^ = #13)));
+    // Unix
+  	if Ptr^ = #13 then
+  		repeat
+  			Inc(Ptr);
+        Inc(Line);
+        Result := True;
+  		until Ptr^ <> #13;
+    // Mac
+  	if Ptr^ = #10 then
+  		repeat
+  			Inc(Ptr);
+      	Inc(Line);
+        Result := True;
+  		until Ptr^ <> #10;
+  until (Ptr^ <> #10) and (Ptr^ <> #13);
+end;
+
 {$IFNDEF SYN_CPPB_1}
+{ TSkipFuncList }
+
 initialization
   G_PlaceableHighlighters := TSynHighlighterList.Create;
 finalization

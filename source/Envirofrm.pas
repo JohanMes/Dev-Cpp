@@ -104,6 +104,7 @@ type
     UIfontlabel: TLabel;
     cbUIfont: TComboBox;
     cvsdownloadlabel: TLabel;
+    cbUIfontsize: TComboBox;
     procedure BrowseClick(Sender: TObject);
     procedure btnOkClick(Sender: TObject);
     procedure FormShow(Sender: TObject);
@@ -117,6 +118,7 @@ type
     procedure cvsdownloadlabelClick(Sender: TObject);
     procedure cbUIfontSelect(Sender: TObject);
     procedure cbUIfontDrawItem(Control: TWinControl; Index: Integer; Rect: TRect; State: TOwnerDrawState);
+    procedure cbUIfontsizeDrawItem(Control: TWinControl; Index: Integer; Rect: TRect; State: TOwnerDrawState);
   private
     procedure LoadText;
   end;
@@ -201,17 +203,9 @@ begin
   end;
 end;
 
-function EnumFontFamilyProc(LogFont: PEnumLogFont; var TextMetric: PNewTextMetric;FontType: integer; LParam: integer): integer; stdcall;
-begin
-	// if LogFont.elfLogFont.lfPitchAndFamily and FF_MODERN = FF_MODERN then
-	TStrings(LParam).Add(LogFont.elfLogFont.lfFaceName); // Just add all fonts, SynEdit will monospace them
-	result:= -1;
-end;
-
 procedure TEnviroForm.FormShow(Sender: TObject);
 var
 	idx: integer;
-	DC: HDC;
 begin
 	with devData do begin
 		rgbAutoOpen.ItemIndex:= AutoOpen;
@@ -223,19 +217,18 @@ begin
 		cbdblFiles.Checked:= DblFiles;
 		cbNoSplashScreen.Checked:= NoSplashScreen;
 		seMRUMax.Value:= MRUMax;
+
+		// List the languages
 		cboLang.Clear;
 		for idx:= 0 to pred(Lang.Langs.Count) do
-		 cboLang.Items.append(Lang.Langs.Values[idx]);
+			cboLang.Items.append(Lang.Langs.Values[idx]);
 		cboLang.ItemIndex:= cboLang.Items.Indexof(Lang.CurrentLanguage);
 		rgbOpenStyle.ItemIndex:= OpenStyle;
 
-		{*** Modified by Peter ***}
+		// List the themes
 		cboTheme.Items.Clear;
 		devImageThemes.GetThemeTitles(cboTheme.Items);
 		cboTheme.ItemIndex := devImageThemes.IndexOf(devImageThemes.CurrentTheme.Title);
-		//cboTheme.Text := devImageThemes.CurrentTheme.Title;
-		//cboTheme.Items.AddStrings(devTheme.ThemeList);
-		//cboTheme.ItemIndex := cboTheme.Items.IndexOf(devData.Theme);
 
 		cbShowProgress.Checked := ShowProgress;
 		cbAutoCloseProgress.Checked := AutoCloseProgress;
@@ -270,12 +263,15 @@ begin
 		chkCVSUseSSH.Checked:= devCVSHandler.UseSSH;
 
 		// Font opstellen
-		DC:= GetDC(application.handle);
-		EnumFontFamilies(DC, nil, @EnumFontFamilyProc, integer(cbUIfont.Items));
-		ReleaseDC(0, DC);
+		cbUIfont.Items.Assign(Screen.Fonts);
 		for idx:=0 to pred(cbUIfont.Items.Count) do
 			if cbUIfont.Items.Strings[idx] = InterfaceFont then begin
 				cbUIfont.ItemIndex := idx;
+				break;
+			end;
+		for idx:=0 to pred(cbUIfontsize.Items.Count) do
+			if strtoint(cbUIfontsize.Items.Strings[idx]) = InterfaceFontSize then begin
+				cbUIfontsize.ItemIndex := idx;
 				break;
 			end;
 	end;
@@ -324,9 +320,10 @@ begin
 		WatchHint := cbWatchHint.Checked;
 		WatchError := cbWatchError.Checked;
 		InterfaceFont := cbUIFont.Text;
+		InterfaceFontSize := strtoint(cbUIfontsize.Text);
 
-		// Set the UI font
-		MainForm.UpdateFont;
+		MainForm.Font.Name := devData.InterfaceFont;
+		MainForm.Font.Size := devData.InterfaceFontSize;
 	end;
 
 	devDirs.Icons:= IncludeTrailingPathDelimiter(ExpandFileto(edIcoLib.Text, devDirs.Exec));
@@ -518,15 +515,27 @@ end;
 
 procedure TEnviroForm.cbUIfontSelect(Sender: TObject);
 begin
-	(Sender as TComboBox).Font.Name := (Sender as TComboBox).Text;
+	(Sender as TComboBox).Font.Name := cbUIfont.Text;
+	(Sender as TComboBox).Font.Size := strtoint(cbUIfontsize.Text);
 end;
 
 procedure TEnviroForm.cbUIfontDrawItem(Control: TWinControl; Index: Integer; Rect: TRect; State: TOwnerDrawState);
 begin
 	with (Control as TComboBox) do begin
 		Canvas.Font.Name := Items.Strings[Index];
+		Canvas.Font.Size := strtoint(cbUIfontsize.Text);
 		Canvas.FillRect(Rect);
 		Canvas.TextOut(Rect.Left, Rect.Top, Canvas.Font.Name);
+	end;
+end;
+
+procedure TEnviroForm.cbUIfontsizeDrawItem(Control: TWinControl; Index: Integer; Rect: TRect; State: TOwnerDrawState);
+begin
+	with (Control as TComboBox) do begin
+		Canvas.Font.Name := cbUIfont.Text;
+		Canvas.Font.Size := strtoint(Items.Strings[Index]);
+		Canvas.FillRect(Rect);
+		Canvas.TextOut(Rect.Left, Rect.Top, Items.Strings[Index]);
 	end;
 end;
 
