@@ -403,10 +403,10 @@ begin
   rgbAutoOpen.Caption:=      '  '+Lang[ID_ENV_AUTOOPEN]+'  ';
   rgbAutoOpen.Items[0]:=     Lang[ID_ENV_AUTOALL];
   rgbAutoOpen.Items[1]:=     Lang[ID_ENV_AUTOFIRST];
-  rgbAutoOpen.Items[2]:=     Lang[ID_ENV_AUTONONE];
+  rgbAutoOpen.Items[2]:=     Lang[ID_ENV_AUTOREMEMBER];
+  rgbAutoOpen.Items[3]:=     Lang[ID_ENV_AUTONONE];
 
   gbAltConfig.Caption:=      Lang[ID_ENV_GBALTCONFIG];
-  chkAltConfig.Caption:=     Lang[ID_ENV_USEALTCONFIG];
   lblLang.Caption:=          Lang[ID_ENV_LANGUAGE];
   lblTheme.Caption:=         Lang[ID_ENV_THEME];
   lblmsgTabs.Caption:=       Lang[ID_ENV_MSGTABS];
