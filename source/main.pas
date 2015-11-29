@@ -638,18 +638,18 @@ type
     procedure CodeCompletionResize(Sender: TObject);
     procedure actSwapHeaderSourceExecute(Sender: TObject);
     procedure actSyntaxCheckExecute(Sender: TObject);
-    procedure EditorPageControlLeftChange(Sender: TObject);
+    procedure EditorPageControlChange(Sender: TObject);
     procedure actConfigdevShortcutsExecute(Sender: TObject);
     procedure DateTimeMenuItemClick(Sender: TObject);
     procedure CommentheaderMenuItemClick(Sender: TObject);
-    procedure EditorPageControlLeftMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
+    procedure EditorPageControlMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
     procedure actNewTemplateUpdate(Sender: TObject);
     procedure actCommentExecute(Sender: TObject);
     procedure actUncommentExecute(Sender: TObject);
     procedure actIndentExecute(Sender: TObject);
     procedure actUnindentExecute(Sender: TObject);
-    procedure EditorPageControlLeftDragDrop(Sender, Source: TObject; X, Y: Integer);
-    procedure EditorPageControlLeftDragOver(Sender, Source: TObject; X, Y: Integer; State: TDragState; var Accept:
+    procedure EditorPageControlDragDrop(Sender, Source: TObject; X, Y: Integer);
+    procedure EditorPageControlDragOver(Sender, Source: TObject; X, Y: Integer; State: TDragState; var Accept:
       Boolean);
     procedure actGotoFunctionExecute(Sender: TObject);
     procedure actBrowserGotoDeclUpdate(Sender: TObject);
@@ -744,7 +744,7 @@ type
     procedure actToggleExecute(Sender: TObject);
     procedure actGotoExecute(Sender: TObject);
     procedure FormCreate(Sender: TObject);
-    procedure EditorPageControlLeftMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
+    procedure EditorPageControlMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
     procedure actBreakPointExecute(Sender: TObject);
     procedure EvaluateInputKeyPress(Sender: TObject; var Key: Char);
     procedure FormShow(Sender: TObject);
@@ -846,6 +846,7 @@ type
     procedure UpdateAppTitle;
     procedure OpenCloseMessageSheet(Open: boolean);
     procedure OpenFile(const FileName: AnsiString);
+    procedure OpenFileList(List: TStringList);
     procedure OpenProject(const s: AnsiString);
     procedure GotoBreakpoint(const FileName: AnsiString; Line: integer);
     procedure RemoveActiveBreakpoints;
@@ -1045,45 +1046,29 @@ begin
     TCustomAction(ActionList.Actions[idx]).Hint := StripHotKey(TCustomAction(ActionList.Actions[idx]).Caption);
 end;
 
-// allows user to drop files from explorer on to form
-
 procedure TMainForm.WMDropFiles(var msg: TMessage);
 var
-  idx,
-    count: integer;
-  szFileName: array[0..260] of char;
-  pt: TPoint;
-  hdl: THandle;
-  ProjectFN: AnsiString;
-  e: TEditor;
+  I, Count: integer;
+  FileNameBuffer: array[0..260] of char;
+  MessageHandle: THandle;
+  FileList: TStringList;
 begin
   try
-    ProjectFN := '';
-    hdl := THandle(msg.wParam);
-    count := DragQueryFile(hdl, $FFFFFFFF, nil, 0);
-    DragQueryPoint(hdl, pt);
+    // Get drop information
+    MessageHandle := THandle(msg.wParam);
+    Count := DragQueryFile(MessageHandle, $FFFFFFFF, nil, 0);
 
-    for idx := 0 to pred(count) do begin
-      DragQueryFile(hdl, idx, szFileName, sizeof(szFileName));
-
-      // Is there a project?
-      if SameText(ExtractFileExt(szFileName), DEV_EXT) then begin
-        ProjectFN := szFileName;
-        Break;
+    // Build file list
+    FileList := TStringList.Create;
+    try
+      for I := 0 to Count - 1 do begin
+        DragQueryFile(MessageHandle, I, FileNameBuffer, SizeOf(FileNameBuffer));
+        FileList.Add(FileNameBuffer);
       end;
+      OpenFileList(FileList);
+    finally
+      FileList.Free;
     end;
-
-    if Length(ProjectFN) > 0 then
-      OpenProject(ProjectFN)
-    else
-      for idx := 0 to pred(count) do begin
-        DragQueryFile(hdl, idx, szFileName, sizeof(szFileName));
-        e := fEditorList.FileIsOpen(szFileName);
-        if Assigned(e) then
-          e.Activate
-        else // open file
-          OpenFile(szFileName)
-      end;
   finally
     msg.Result := 0;
     DragFinish(THandle(msg.WParam));
@@ -1472,7 +1457,6 @@ var
   idx: integer;
 begin // TODO: ask on SO
   idx := (Sender as TMenuItem).Tag;
-  //	MsgBox('icon index:' + inttostr((Sender as TMenuItem).ImageIndex),(Sender as TMenuItem).Caption);
 
   with fTools.ToolList[idx]^ do
     ExecuteFile(ParseParams(Exec), ParseParams(Params), ParseParams(WorkDir), SW_SHOW);
@@ -1548,6 +1532,36 @@ begin
   // Parse it after is has been shown so the user will not see random unpainted stuff for a while.
   if not Assigned(fProject) then
     CppParser.ReParseFile(e.FileName, e.InProject, True);
+end;
+
+procedure TMainForm.OpenFileList(List: TStringList);
+var
+  I: integer;
+begin
+  if List.Count = 0 then
+    Exit;
+
+  // Check if there is a project file inside the list
+  for I := 0 to List.Count - 1 do begin
+    if GetFileTyp(List[I]) = utPrj then begin
+      OpenProject(List[I]); // open only the first found project
+      Exit;
+    end;
+  end;
+
+  // Didn't find a project? Open the whole list
+  ClassBrowser.BeginUpdate;
+  try
+    fEditorList.BeginUpdate;
+    try
+      for I := 0 to List.Count - 1 do
+        OpenFile(List[I]); // open all files
+    finally
+      fEditorList.EndUpdate;
+    end;
+  finally
+    ClassBrowser.EndUpdate;
+  end;
 end;
 
 procedure TMainForm.AddFindOutputItem(const line, col, filename, msg, keyword: AnsiString);
@@ -1958,30 +1972,15 @@ begin
 end;
 
 procedure TMainForm.actOpenExecute(Sender: TObject);
-var
-  I: integer;
 begin
   with TOpenDialog.Create(Self) do try
     Filter := BuildFilter([FLT_PROJECTS, FLT_CS, FLT_CPPS, FLT_RES, FLT_HEADS]);
     Title := Lang[ID_NV_OPENFILE];
     Options := Options + [ofAllowMultiSelect];
 
-    if Execute and (Files.Count > 0) then begin
-      for I := 0 to Files.Count - 1 do
-        if GetFileTyp(Files[I]) = utPrj then begin
-          OpenProject(Files[I]); // open only the first found project
-          Exit;
-        end;
-
-      // Didn't find a project? Open the whole list
-      ClassBrowser.BeginUpdate;
-      try
-        for I := 0 to Files.Count - 1 do
-          OpenFile(Files[I]); // open all files
-      finally
-        ClassBrowser.EndUpdate;
-      end;
-    end;
+    // Open all provided files
+    if Execute then
+      OpenFileList(TStringList(Files));
   finally
     Free;
   end;
@@ -2051,7 +2050,7 @@ procedure TMainForm.actCloseAllExecute(Sender: TObject);
 begin
   ClassBrowser.BeginUpdate;
   try
-    fEditorList.CloseAll;
+    fEditorList.CloseAll; // PageControlChange triggers other UI updates
   finally
     ClassBrowser.EndUpdate;
   end;
@@ -2064,7 +2063,7 @@ begin
   // Stop executing program
   actStopExecuteExecute(Self);
 
-  // Pause monitoring
+  // Only update file monitor once (and ignore updates)
   FileMonitor.BeginUpdate;
   try
     // TODO: should we save watches?
@@ -2090,16 +2089,35 @@ begin
     end else
       fProject.SaveLayout; // always save layout, but not when SaveAll has been called
 
+    // Remember it
     dmMain.AddtoHistory(fProject.FileName);
 
-    FreeandNil(fProject);
-    ProjectView.Items.Clear;
-    ClearMessageControl;
-    UpdateCompilerList;
-    UpdateAppTitle;
-    ClassBrowser.ProjectDir := '';
-    CppParser.Reset;
-    SetStatusbarLineCol;
+    // Only update class browser once
+    ClassBrowser.BeginUpdate;
+    try
+      // Only update page control once
+      fEditorList.BeginUpdate;
+      try
+        FreeandNil(fProject);
+      finally
+        fEditorList.EndUpdate;
+      end;
+
+      // Clear project browser
+      ProjectView.Items.Clear;
+
+      // Clear error browser
+      ClearMessageControl;
+
+      // Clear class browser
+      ClassBrowser.ProjectDir := '';
+      CppParser.Reset;
+
+      // Because fProject was assigned during editor closing, force update trigger again
+      EditorPageControlLeft.OnChange(EditorPageControlLeft);
+    finally
+      ClassBrowser.EndUpdate;
+    end;
   finally
     FileMonitor.EndUpdate;
   end;
@@ -3712,7 +3730,7 @@ var
   e: TEditor;
 begin
   e := fEditorList.GetEditor;
-  actSaveAs.Enabled := assigned(e);
+  actSaveAs.Enabled := Assigned(e);
 end;
 
 procedure TMainForm.ClearCompileMessages;
@@ -4014,24 +4032,22 @@ begin
   editorlist.Free;
 end;
 
-procedure TMainForm.EditorPageControlLeftChange(Sender: TObject);
+procedure TMainForm.EditorPageControlChange(Sender: TObject);
 var
   e: TEditor;
   PageControl: TPageControl;
+  I: integer;
 begin
+  // Determine who sent this message
   PageControl := TPageControl(Sender);
   e := fEditorList.GetEditor(-1, PageControl);
   if Assigned(e) then begin
-    PageControl.Visible := True;
-
     // Update focus so user can keep typing
     if e.Text.CanFocus then // TODO: can fail for some reason
       e.Text.SetFocus; // this should trigger then OnEnter even of the Text control
 
     // No editors are visible
   end else begin
-    PageControl.Visible := False;
-
     // Set title bar to current file
     UpdateAppTitle;
 
@@ -4044,7 +4060,11 @@ begin
     // Update status bar
     SetStatusbarLineCol;
 
-    // TODO: set bookmarks?
+    // Update bookmark menu
+    for i := 1 to 9 do begin
+      TogglebookmarksPopItem.Items[i - 1].Checked := false;
+      TogglebookmarksItem.Items[i - 1].Checked := false;
+    end;
 
     // Update focus of incremental search
     if Assigned(IncrementalForm) and IncrementalForm.Showing then
@@ -4092,7 +4112,7 @@ begin
   end;
 end;
 
-procedure TMainForm.EditorPageControlLeftMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y:
+procedure TMainForm.EditorPageControlMouseDown(Sender: TObject; Button: TMouseButton; Shift: TShiftState; X, Y:
   Integer);
 var
   PageIndex: integer;
@@ -4167,7 +4187,7 @@ begin
     e.UnindentSelection;
 end;
 
-procedure TMainForm.EditorPageControlLeftDragDrop(Sender, Source: TObject; X, Y: Integer);
+procedure TMainForm.EditorPageControlDragDrop(Sender, Source: TObject; X, Y: Integer);
 var
   I: integer;
   SenderPageControl: TPageControl;
@@ -4178,7 +4198,7 @@ begin
     SenderPageControl.Pages[SenderPageControl.ActivePageIndex].PageIndex := I;
 end;
 
-procedure TMainForm.EditorPageControlLeftDragOver(Sender, Source: TObject; X, Y: Integer; State: TDragState; var Accept:
+procedure TMainForm.EditorPageControlDragOver(Sender, Source: TObject; X, Y: Integer; State: TDragState; var Accept:
   Boolean);
 var
   I: integer;
@@ -6023,7 +6043,7 @@ begin
   devData.First := FALSE;
 end;
 
-procedure TMainForm.EditorPageControlLeftMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
+procedure TMainForm.EditorPageControlMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
 var
   PageIndex: integer;
   newhint: AnsiString;

@@ -1,6 +1,6 @@
 object MainForm: TMainForm
-  Left = 818
-  Top = 326
+  Left = 824
+  Top = 324
   HorzScrollBar.Visible = False
   VertScrollBar.Visible = False
   AutoScroll = False
@@ -1077,11 +1077,11 @@ object MainForm: TMainForm
       PopupMenu = EditorPopup
       TabOrder = 0
       Visible = False
-      OnChange = EditorPageControlLeftChange
-      OnDragDrop = EditorPageControlLeftDragDrop
-      OnDragOver = EditorPageControlLeftDragOver
-      OnMouseDown = EditorPageControlLeftMouseDown
-      OnMouseMove = EditorPageControlLeftMouseMove
+      OnChange = EditorPageControlChange
+      OnDragDrop = EditorPageControlDragDrop
+      OnDragOver = EditorPageControlDragOver
+      OnMouseDown = EditorPageControlMouseDown
+      OnMouseMove = EditorPageControlMouseMove
     end
     object EditorPageControlRight: TPageControl
       Left = 804
@@ -1094,11 +1094,11 @@ object MainForm: TMainForm
       PopupMenu = EditorPopup
       TabOrder = 1
       Visible = False
-      OnChange = EditorPageControlLeftChange
-      OnDragDrop = EditorPageControlLeftDragDrop
-      OnDragOver = EditorPageControlLeftDragOver
-      OnMouseDown = EditorPageControlLeftMouseDown
-      OnMouseMove = EditorPageControlLeftMouseMove
+      OnChange = EditorPageControlChange
+      OnDragDrop = EditorPageControlDragDrop
+      OnDragOver = EditorPageControlDragOver
+      OnMouseDown = EditorPageControlMouseDown
+      OnMouseMove = EditorPageControlMouseMove
     end
   end
   object MainMenu: TMainMenu
@@ -1896,6 +1896,7 @@ object MainForm: TMainForm
       Category = 'File'
       Caption = 'Save A&ll'
       ImageIndex = 8
+      ShortCut = 24659
       OnExecute = actSaveAllExecute
       OnUpdate = actSaveAllUpdate
     end
@@ -1913,6 +1914,7 @@ object MainForm: TMainForm
       Category = 'File'
       Caption = 'Close All'
       ImageIndex = 50
+      ShortCut = 24663
       OnExecute = actCloseAllExecute
       OnUpdate = actUpdatePageCount
     end
@@ -1921,6 +1923,7 @@ object MainForm: TMainForm
       Category = 'File'
       Caption = 'Close Project'
       ImageIndex = 11
+      ShortCut = 49239
       OnExecute = actCloseProjectExecute
       OnUpdate = actUpdateProject
     end

@@ -24,7 +24,7 @@ interface
 uses
 {$IFDEF WIN32}
   Windows, SysUtils, Dialogs, StdCtrls, Controls, ComCtrls, Forms, Editor, ExtCtrls,
-  devrun, version, project, utils, ProjectTypes, Classes, Graphics, Math;
+  devrun, version, project, utils, ProjectTypes, Classes, Graphics, Math, Messages;
 {$ENDIF}
 {$IFDEF LINUX}
 SysUtils, QDialogs, QStdCtrls, QComCtrls, QForms,
@@ -32,20 +32,20 @@ devrun, version, project, utils, prjtypes, Classes, QGraphics;
 {$ENDIF}
 
 type
-  TLayoutShowType = (lstLeft, lstRight, lstBoth, lstNone);
+  TLayoutShowType = (lstNone, lstLeft, lstRight, lstBoth);
   TEditorList = class
   private
     fLayout: TLayoutShowType;
     fLeftPageControl: TPageControl;
     fRightPageControl: TPageControl;
     fSplitter: TSplitter;
+    fPanel: TPanel; // ui component that is the base layer for all page controls
     fUpdateCount: integer;
-    fPanel: TPanel;
     function GetForEachEditor(index: integer): TEditor;
     function GetPageCount: integer;
     function GetFocusedPageControl: TPageControl;
+    function GetNewEditorPageControl: TPageControl;
     procedure ShowLayout(Layout: TLayoutShowType);
-    procedure Update; // reconfigures layout
   public
     function NewEditor(const Filename: AnsiString; InProject, NewFile: boolean; PageControl: TPageControl = nil):
       TEditor;
@@ -54,6 +54,7 @@ type
     function GetEditorFromFileName(const FileName: AnsiString): TEditor;
     function GetEditorFromTag(tag: integer): TEditor;
     function GetPreviousEditor(Editor: TEditor): TEditor;
+    procedure ForceCloseEditor(Editor: TEditor); // close, no questions asked
     function CloseEditor(Editor: TEditor): Boolean;
     function CloseAll: boolean;
     function CloseAllButThis: boolean;
@@ -61,8 +62,9 @@ type
     procedure OnPanelResize(Sender: TObject);
     procedure SelectNextPage;
     procedure SelectPrevPage;
-    procedure BeginUpdate;
-    procedure EndUpdate;
+    procedure BeginUpdate; // stops redraws
+    procedure EndUpdate; // ends redraws
+    procedure UpdateLayout; // reconfigures layout
     procedure GetVisibleEditors(var Left: TEditor; var Right: TEditor);
     procedure SetPreferences(TabPosition: TTabPosition; MultiLine: boolean);
     property LeftPageControl: TPageControl read fLeftPageControl write fLeftPageControl;
@@ -84,26 +86,47 @@ begin
   Result := fLeftPageControl.PageCount + fRightPageControl.PageCount;
 end;
 
-function TEditorList.GetFocusedPageControl: TPageControl;
-begin
-  if Assigned(fLeftPageControl.ActivePage) and TEditor(fLeftPageControl.ActivePage.Tag).Text.Focused then
-    Result := fLeftPageControl
-  else if Assigned(fRightPageControl.ActivePage) and TEditor(fRightPageControl.ActivePage.Tag).Text.Focused then
-    Result := fRightPageControl
-  else
-    Result := fLeftPageControl; // default one
-end;
-
 procedure TEditorList.BeginUpdate;
 begin
   Inc(fUpdateCount);
+  if fUpdateCount = 1 then
+    SendMessage(fPanel.Handle, WM_SETREDRAW, 0, 0); // stop drawing, it's slow
 end;
 
 procedure TEditorList.EndUpdate;
 begin
   Dec(fUpdateCount);
-  if fUpdateCount = 0 then
-    Update;
+  if fUpdateCount = 0 then begin
+    SendMessage(fPanel.Handle, WM_SETREDRAW, 1, 0); // allow drawing again
+    RedrawWindow(fPanel.Handle, nil, 0, RDW_ERASE or RDW_FRAME or RDW_INVALIDATE or RDW_ALLCHILDREN); // draw once
+  end;
+end;
+
+function TEditorList.GetFocusedPageControl: TPageControl;
+var
+  ActivePage: TTabSheet;
+begin
+  case fLayout of
+    lstLeft: begin
+        Result := fLeftPageControl
+      end;
+    lstRight: begin
+        Result := fRightPageControl
+      end;
+    lstBoth: begin
+        // Check if left is focused, otherwise assume right one is focused
+        ActivePage := fLeftPageControl.ActivePage;
+        if TEditor(ActivePage.Tag).Text.Focused then
+          Result := fLeftPageControl
+        else
+          Result := fRightPageControl;
+      end;
+    lstNone: begin
+        Result := nil;
+      end;
+  else
+    Result := nil;
+  end;
 end;
 
 function TEditorList.GetForEachEditor(index: integer): TEditor;
@@ -124,6 +147,26 @@ begin
   Result := nil;
 end;
 
+function TEditorList.GetNewEditorPageControl;
+begin
+  case fLayout of
+    lstNone: begin
+        Result := fLeftPageControl; // first editor should be shown in the leftmost control
+      end;
+    lstLeft: begin
+        Result := fLeftPageControl;
+      end;
+    lstRight: begin
+        Result := fRightPageControl;
+      end;
+    lstBoth: begin
+        Result := GetFocusedPageControl; // depends on the current keyboard focus
+      end;
+  else
+    Result := nil;
+  end;
+end;
+
 function TEditorList.NewEditor(const Filename: AnsiString; InProject, NewFile: boolean; PageControl: TPageControl =
   nil):
   TEditor;
@@ -133,12 +176,15 @@ begin
   BeginUpdate;
   try
     if PageControl = nil then
-      ParentPageControl := GetFocusedPageControl
+      ParentPageControl := GetNewEditorPageControl
     else
       ParentPageControl := PageControl;
     Result := TEditor.Create(FileName, InProject, NewFile, ParentPageControl);
+
+    // Force layout update when creating, destroying or moving editors
+    UpdateLayout;
   finally
-    EndUpdate;
+    EndUpdate; // redraw once
   end;
 end;
 
@@ -256,6 +302,19 @@ begin
   end;
 end;
 
+procedure TEditorList.ForceCloseEditor(Editor: TEditor);
+begin
+  BeginUpdate;
+  try
+    FreeAndNil(Editor);
+
+    // Update layout
+    UpdateLayout;
+  finally
+    EndUpdate; // redraw once
+  end;
+end;
+
 function TEditorList.CloseEditor(Editor: TEditor): Boolean;
 var
   projindex: integer;
@@ -265,52 +324,51 @@ begin
   if not Assigned(Editor) then
     Exit;
 
+  // Ask user if he wants to save
+  if Editor.Text.Modified and not Editor.Text.IsEmpty then begin
+    case MessageDlg(Format(Lang[ID_MSG_ASKSAVECLOSE], [Editor.FileName]), mtConfirmation, mbYesNoCancel, 0) of
+      mrYes:
+        if not Editor.Save then
+          Exit;
+      mrCancel:
+        Exit; // stop closing
+    end;
+  end;
+
+  // Select editor to open when this one closes
+  PrevEditor := GetPreviousEditor(Editor);
+
   BeginUpdate;
   try
-    // Ask user if he wants to save
-    if Editor.Text.Modified and not Editor.Text.IsEmpty then begin
-      case MessageDlg(Format(Lang[ID_MSG_ASKSAVECLOSE], [Editor.FileName]), mtConfirmation, mbYesNoCancel, 0) of
-        mrYes:
-          if not Editor.Save then
-            Exit;
-        mrCancel:
-          Exit; // stop closing
-      end;
+    // We're allowed to close...
+    Result := True;
+    if Editor.InProject and Assigned(MainForm.Project) then begin
+      projindex := MainForm.Project.Units.IndexOf(Editor);
+      if projindex <> -1 then
+        MainForm.Project.CloseUnit(projindex);
+    end else begin
+      dmMain.AddtoHistory(Editor.FileName);
+      FreeAndNil(Editor);
     end;
 
-    // Select editor to open when this one closes
-    PrevEditor := GetPreviousEditor(Editor);
+    // Force layout update when creating, destroying or moving editors
+    UpdateLayout;
 
-    // Using this thing, because WM_SETREDRAW doesn't work :(
-    LockWindowUpdate(Editor.PageControl.Handle);
-    try
-      // We're allowed to close...
-      Result := True;
-      if Editor.InProject and Assigned(MainForm.Project) then begin
-        projindex := MainForm.Project.Units.IndexOf(Editor);
-        if projindex <> -1 then
-          MainForm.Project.CloseUnit(projindex);
-      end else begin
-        dmMain.AddtoHistory(Editor.FileName);
-        FreeAndNil(Editor);
-      end;
-
-      // Show new editor
-      if Assigned(PrevEditor) then
-        PrevEditor.Activate;
-    finally
-      LockWindowUpdate(0);
-    end;
+    // Show new editor after forcing an layout update
+    if Assigned(PrevEditor) then
+      PrevEditor.Activate;
   finally
-    EndUpdate;
+    EndUpdate; // redraw once
   end;
 end;
 
 function TEditorList.CloseAll: boolean;
 begin
+  Result := False;
+
+  // Redraw once after the whole ordeal
   BeginUpdate;
   try
-    Result := False;
     // Keep closing the first one to prevent redrawing
     while fLeftPageControl.PageCount > 0 do
       if not CloseEditor(GetEditor(0, fLeftPageControl)) then
@@ -320,11 +378,11 @@ begin
     while fRightPageControl.PageCount > 0 do
       if not CloseEditor(GetEditor(0, fRightPageControl)) then
         Exit;
-
-    Result := True;
   finally
     EndUpdate;
   end;
+
+  Result := True;
 end;
 
 function TEditorList.CloseAllButThis: boolean;
@@ -332,9 +390,11 @@ var
   I: integer;
   ActiveEditor, Editor: TEditor;
 begin
+  Result := False;
+
+  // Redraw once after the whole ordeal
   BeginUpdate;
   try
-    Result := False;
     // Keep closing the first one to prevent redrawing
     ActiveEditor := GetEditor(-1, fLeftPageControl);
     for I := fLeftPageControl.PageCount - 1 downto 0 do begin
@@ -352,11 +412,11 @@ begin
         if not CloseEditor(Editor) then
           Exit;
     end;
-
-    Result := True;
   finally
     EndUpdate;
   end;
+
+  Result := True;
 end;
 
 function TEditorList.GetEditorFromFileName(const FileName: AnsiString): TEditor;
@@ -432,15 +492,16 @@ end;
 function TEditorList.SwapEditor(Editor: TEditor): boolean;
 var
   FromPageControl: TPageControl;
-  FromPageControlIndex: integer;
+  FromPageControlPrevTab: TTabSheet;
 begin
+  Result := True;
+
+  // Redraw once after the whole ordeal
   BeginUpdate;
   try
-    Result := True;
-
     // Remember old index
     FromPageControl := Editor.PageControl;
-    FromPageControlIndex := Editor.PageControl.ActivePageIndex;
+    FromPageControlPrevTab := Editor.PageControl.FindNextPage(Editor.TabSheet, False, True);
 
     // Determine how to swap
     if Editor.PageControl = fLeftPageControl then
@@ -449,16 +510,19 @@ begin
       Editor.PageControl := fLeftPageControl;
 
     // Switch to previous editor in the other one
-    FromPageControl.ActivePageIndex := max(0, FromPageControlIndex - 1);
+    FromPageControl.ActivePage := FromPageControlPrevTab;
 
-    // Notify component of changes
+    // Force layout update when creating, destroying or moving editors
+    UpdateLayout;
+
+    // Move editor focus too
     Editor.Activate;
   finally
     EndUpdate;
   end;
 end;
 
-procedure TEditorList.Update;
+procedure TEditorList.UpdateLayout;
 begin
   if (fLeftPageControl.PageCount = 0) and (fRightPageControl.PageCount = 0) then
     ShowLayout(lstNone)
@@ -474,9 +538,10 @@ procedure TEditorList.ShowLayout(Layout: TLayoutShowType);
 begin
   if Layout = fLayout then
     Exit;
+  fLayout := Layout;
 
   // Apply widths if layout does not change
-  case Layout of
+  case fLayout of
     lstLeft: begin
         fLeftPageControl.Align := alClient;
         fLeftPageControl.Visible := True;
@@ -524,11 +589,11 @@ begin
         fSplitter.Visible := False;
         fSplitter.Width := 0;
 
-        // Normally, change events are trigger by editor focus, but since there's no one left, fake it
-        fRightPageControl.OnChange(fRightPageControl);
+        // Normally, change events are triggered by editor focus, but since there's no one left, fake it
+        // Notify of change AFTER we change the official layout
+        fLeftPageControl.OnChange(fLeftPageControl);
       end;
   end;
-  fLayout := Layout;
 end;
 
 procedure TEditorList.SelectNextPage;
@@ -551,14 +616,18 @@ end;
 
 procedure TEditorList.GetVisibleEditors(var Left: TEditor; var Right: TEditor);
 begin
-  Left := nil;
-  Right := nil;
   case fLayout of
+    lstNone: begin
+        Left := nil;
+        Right := nil;
+      end;
     lstLeft: begin
         Left := GetEditor(-1, fLeftPageControl);
+        Right := nil;
       end;
     lstRight: begin
-        Right := GetEditor(-1, fLeftPageControl);
+        Left := nil;
+        Right := GetEditor(-1, fRightPageControl);
       end;
     lstBoth: begin
         Left := GetEditor(-1, fLeftPageControl);
