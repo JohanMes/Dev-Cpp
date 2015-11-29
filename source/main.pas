@@ -978,19 +978,18 @@ end;
 
 procedure TMainForm.FormDestroy(Sender: TObject);
 begin
-  fFilesToOpen.Free;
-  fCriticalSection.Free;
-  fLogOutputRawData.Free;
-  fTools.Free;
-  AutoSaveTimer.Free;
-  devImageThemes.Free;
-  fEditorList.Free;
-  fCompiler.Free;
-  fDebugger.Free;
-  devExecutor.Free;
-  dmMain.Free;
-  Lang.Free;
-  devData.Free;
+  FreeAndNil(fFilesToOpen);
+  FreeAndNil(fCriticalSection);
+  FreeAndNil(fLogOutputRawData);
+  FreeAndNil(fTools);
+  FreeAndNil(fAutoSaveTimer);
+  FreeAndNil(devImageThemes);
+  FreeAndNil(fEditorList);
+  FreeAndNil(fCompiler);
+  FreeAndNil(fDebugger);
+  FreeAndNil(dmMain);
+  devExecutor.Free; // sets itself to nil
+  Lang.Free; // sets itself to nil
   DestroyOptions;
 end;
 
@@ -1240,7 +1239,7 @@ begin
   // Help menu
   actHelp.Caption := Lang[ID_ITEM_HELPDEVCPP];
   actAbout.Caption := Lang[ID_ITEM_ABOUT];
-  actShowTips.Caption := Lang[ID_TIPS_CAPTION];
+  actShowTips.Caption := Lang[ID_ITEM_TIP];
   actDonate.Caption := Lang[ID_ITEM_DONATE];
 
   // Debugging buttons
@@ -2589,7 +2588,7 @@ begin
         FolderNode := fProject.Node;
 
       // Add all files
-      for idx := 0 to Files.Count-1 do begin
+      for idx := 0 to Files.Count - 1 do begin
         fProject.AddUnit(Files[idx], FolderNode, false); // add under folder
         CppParser.AddFileToScan(Files[idx], true);
       end;

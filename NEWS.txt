@@ -1,3 +1,16 @@
+Version 5.11 - 27 April 2015
+
+- Fixed crash related to double clicking on a compiler error when a selection was made.
+- Upgraded the default compiler to TDM-GCC 4.9.2.
+- Improved startup speed.
+- Fixed Abort Compilation button not working anymore.
+- Fixed crash in TCppParser.CheckForTypedefStruct.
+- Fixed crash in TCppParser.HandleEnum.
+- Fixed some typos in the English translation (thanks to Hiro5).
+- Updated the Catalan translation (thanks to Hiro5).
+- Updated the Czech translation (thanks to tringi).
+- Fixed some hickups in the build process of Dev-C++ itself.
+
 Version 5.10 - 11 March 2015
 
 - Improved startup speed.

@@ -343,10 +343,10 @@ begin
   DestroyCompletion;
 
   // Free everything
-  fFunctionTip.Free;
-  fText.Free;
-  fTabSheet.Free;
-  fPreviousEditors.Free;
+  FreeAndNil(fFunctionTip);
+  FreeAndNil(fText);
+  FreeAndNil(fTabSheet);
+  FreeAndNil(fPreviousEditors);
 
   // Move into TObject.Destroy...
   inherited;
@@ -873,9 +873,8 @@ begin
   if not fText.Focused then
     Self.Activate;
 
-  // Position the caret
-  fText.SetCaretXYEx(False, BufferCoord(Col, Line)); // prop CaretXY calls EnsureCursorPosVisibleEx(False)
-  fText.EnsureCursorPosVisibleEx(True); // scroll to line
+  // Position the caret, call EnsureCursorPosVisibleEx after setting block
+  fText.SetCaretXYCentered(True,BufferCoord(Col, Line));
 end;
 
 procedure TEditor.CompletionKeyPress(Sender: TObject; var Key: Char);
@@ -1304,10 +1303,8 @@ end;
 
 procedure TEditor.DestroyCompletion;
 begin
-  if Assigned(fCompletionTimer) then
-    FreeAndNil(fCompletionTimer);
-  if Assigned(fFunctionTipTimer) then
-    FreeAndNil(fFunctionTipTimer);
+  FreeAndNil(fCompletionTimer);
+  FreeAndNil(fFunctionTipTimer);
 end;
 
 function TEditor.GetWordAtPosition(P: TBufferCoord; Purpose: TWordPurpose): AnsiString;

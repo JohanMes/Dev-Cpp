@@ -149,7 +149,7 @@ object MainForm: TMainForm
         Left = 0
         Top = 0
         Width = 156
-        Height = 155
+        Height = 154
         Align = alLeft
         BevelOuter = bvNone
         TabOrder = 0
@@ -194,7 +194,7 @@ object MainForm: TMainForm
           Left = 0
           Top = 0
           Width = 835
-          Height = 155
+          Height = 154
           Align = alClient
           Font.Charset = DEFAULT_CHARSET
           Font.Color = clWindowText
@@ -245,7 +245,7 @@ object MainForm: TMainForm
           Left = 4
           Top = 30
           Width = 395
-          Height = 119
+          Height = 118
           Anchors = [akLeft, akTop, akRight, akBottom]
           ReadOnly = True
           ScrollBars = ssVertical
@@ -410,7 +410,7 @@ object MainForm: TMainForm
           Left = 4
           Top = 100
           Width = 578
-          Height = 48
+          Height = 47
           Anchors = [akLeft, akTop, akRight, akBottom]
           ReadOnly = True
           ScrollBars = ssBoth
@@ -2538,6 +2538,8 @@ object MainForm: TMainForm
     object actAbortCompilation: TAction
       Category = 'Execute'
       Caption = 'Abort compilation'
+      OnExecute = actAbortCompilationExecute
+      OnUpdate = actAbortCompilationUpdate
     end
     object actBrowserShowInherited: TAction
       Category = 'ClassBrowser'

@@ -1,18 +1,10 @@
-1. Environment setup
-
-To be able to use compiled executables directly, please place the Source folder 
-(the one this file you're looking at is placed in) in the root folder of a 
-Dev-C++ installation. This makes sure that after compiling, devcpp.exe will end 
-up in the right location so you end up with a usable and testable product right 
-away.
-
-2. Compiling devcpp.exe
+1. Compiling devcpp.exe
 
 The main executable devcpp.exe can be built using the following steps:
 
 	1) Compile and install the following package(s):
 		Source\VCL\DevCpp.dpk
-		Source\VCL\SynEditPackages\SynEdit_<Delphi Version>.dpk
+		Source\VCL\SynEdit\Packages\SynEdit_<Delphi Version>.dpk
 		Source\VCL\ClassBrowsing\ClassBrowsing.dpk
 
 	2) Compile resources by running the following script(s):
@@ -22,19 +14,21 @@ The main executable devcpp.exe can be built using the following steps:
 	   'Module Not Found' or 'Resource Not Found' errors when opening files, 
 	   compiling files or running devcpp.exe.
 
-	4) It is advisable to run CleanSource.bat before commiting work, when you get
- 	   errors complaining about old versions of code or when you want to diff the
-	   source folder.
+	4) It is advisable to run CleanSource.bat before commiting work, when you
+	   get errors complaining about old versions of code or when you want to 
+	   diff the source folder.
 
 This process has only been tested using Delphi 6 and Delphi 7. The code base
 should be compatible with more recent versions of Delphi, but there is no 
 guarantee anything will work.
 
-3. Compiling associated tools
+2. Compiling associated tools
 
 There are a couple of executables that need to be compiled and/or put in the
-right folder when building a release. These files can be found in the Tools
-subfolder.
+right folder when building a release. These files can be found in the 
+Source\Tools subfolder. Precompiled files are available in the Tools folder in
+the SourceForge repository. All three associated are required to be present by
+the setup scripts.
 
 	1) ConsolePauser.exe. This needs to be put in the root directory next to
 	   devcpp.exe. This executable is launched by devcpp.exe when a console 
@@ -53,7 +47,7 @@ subfolder.
 	   Tools >> Package Manager and provides .pak plugin support. This file has
 	   not been touched since like 2005 so do what you wish with it.
 	   
-4. Other tools
+3. Other tools
 
 Other tools provided for legacy reasons or to easy the developer's life are:
 
@@ -69,7 +63,7 @@ Other tools provided for legacy reasons or to easy the developer's life are:
 	   
 	4) PackMaker (legacy). Used to create PAK extension files.
 	   
-5. UPX
+4. UPX
 
 To decrease the main executable size, the old developers from Bloodshed used a
 program called UPX to compress it. Here is a copy of their instructions on how
@@ -83,7 +77,7 @@ of the provided compiler):
 	Otherwise upx will compress all icons and the file associations will point
 	to nonexisting (moved) icons within devcpp.exe
 	
-6. Shortcut Map
+5. Shortcut Map
 
 This is an up to date map of the default shortcuts of Dev-C++. All Ctrl+(Letter)
 combinations are in use, except for the following letters: UJKL. The Shift 
