@@ -190,6 +190,7 @@ begin
 		GprofEdit.Text := '';
 
 		// TODO: disable controls?
+		// Tried that. Enabled = False looks weird on page controls though
 	end else begin
 
 		// Apply the new set to the UI
@@ -267,7 +268,7 @@ end;
 
 procedure TCompOptForm.btnHelpClick(Sender: TObject);
 begin
-	OpenHelpFile;
+	OpenHelpFile('Interface\Dialog Windows\Compiler Options\index.htm'); // TODO: open iframe instead of page
 end;
 
 procedure TCompOptForm.DirTabsChange(Sender: TObject);

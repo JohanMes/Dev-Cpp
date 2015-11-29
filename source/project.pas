@@ -143,7 +143,7 @@ type
     function GetUnitFromEditor(ed : TEditor) : integer;
     function GetUnitFromString(const s : AnsiString) : integer;
     procedure RebuildNodes;
-    function ListUnitStr(sep: char): AnsiString;
+    function ListUnitStr(Separator : char): AnsiString;
     procedure ExportToHTML;
     procedure ShowOptions;
     function AssignTemplate(const aFileName: AnsiString;aTemplate: TTemplate): boolean;
@@ -188,11 +188,11 @@ var
 begin
 	try
 		result := true;
-		if not Assigned(fEditor) and not FileExists(fFileName) then begin  // create dummy editor
-			workeditor := TSynEdit.Create(nil); // does this even happen???
-			workeditor.UnCollapsedLines.SaveToFile(fFileName); // create blank file
+		if not Assigned(fEditor) and not FileExists(fFileName) then begin  // file is neither open, nor saved
+			workeditor := TSynEdit.Create(nil);
+			workeditor.UnCollapsedLines.SaveToFile(fFileName);
 			workeditor.Free;
-		end else if assigned(fEditor) and fEditor.Text.Modified then begin
+		end else if Assigned(fEditor) and fEditor.Text.Modified then begin
 			result := fEditor.Save;
 			if FileExists(fEditor.FileName) then
 				FileSetDate(fEditor.FileName, DateTimeToFileDate(Now));
@@ -263,15 +263,16 @@ end;
 
 destructor TProject.Destroy;
 begin
-  if fModified then Save;
-  fFolders.Free;
-  fFolderNodes.Free;
-  fIniFile.Free;
-  fUnits.Free;
-  if (fNode <> nil) and (not fNode.Deleting) then
-    fNode.Free;
-  fOptions.Free;
-  inherited;
+	if fModified then
+		Save;
+	fFolders.Free;
+	fFolderNodes.Free;
+	fIniFile.Free;
+	fUnits.Free;
+	if Assigned(fNode) and (not fNode.Deleting) then
+		fNode.Free;
+	fOptions.Free;
+	inherited;
 end;
 
 procedure TProject.SetCompilerOption(index : integer; value : char);
@@ -1308,17 +1309,13 @@ begin
   result := ExtractFilePath(FileName);
 end;
 
-function TProject.ListUnitStr(sep: char): AnsiString;
+function TProject.ListUnitStr(Separator : char): AnsiString;
 var
- idx: integer;
-  sDir: AnsiString;
+	I : integer;
 begin
-  Result:='';
-  sDir:=Directory;
-  if not CheckChangeDir(sDir) then
-    Exit;
-  for idx:= 0 to pred(fUnits.Count) do
-   result:= result +sep +'"'+ExpandFileName(fUnits[idx].FileName)+'"';
+	Result := '';
+	for I := 0 to fUnits.Count -1 do
+		result := result + '"' + ExpandFileName(fUnits[I].FileName) + '"' + Separator;
 end;
 
 procedure TProject.SetFileName(const value: AnsiString);
