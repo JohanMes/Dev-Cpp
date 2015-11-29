@@ -108,8 +108,6 @@ type
     procedure btnOkClick(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure btnHelpClick(Sender: TObject);
-    procedure PagesMainChange(Sender: TObject);
-    procedure FormKeyDown(Sender: TObject; var Key: Word;Shift: TShiftState);
     procedure FormCreate(Sender: TObject);
     procedure vleExternalEditButtonClick(Sender: TObject);
     procedure vleExternalValidate(Sender: TObject; ACol, ARow: Integer;const KeyName, KeyValue: String);
@@ -306,7 +304,7 @@ begin
 		MRUMax:= seMRUMax.Value;
 		if MultiLineTab = FALSE then begin
 			if cboTabsTop.ItemIndex in [2,3] then begin
-				MainForm.MsgBox('Multiline tabs must be enabled when using vertical tabs.'+#13#10#13#10+'Reverting to Top Tabs...','Error');
+				MessageBox(application.handle,PChar('Multiline tabs must be enabled when using vertical tabs.'+#13#10#13#10+'Reverting to Top Tabs...'),PChar('Error'),MB_OK);
 				cboTabsTop.ItemIndex := 0;
 			end;
 		end;
@@ -368,7 +366,7 @@ begin
 			else
 				Unassociate(idx);
 	except
-		MainForm.MsgBox(Lang[ID_ENV_UACERROR],'Error');
+		MessageBox(application.handle,PChar(Lang[ID_ENV_UACERROR]),PChar('Error'),MB_OK);
 	end;
 
 	devCVSHandler.Executable:= edCVSExec.Text;
@@ -453,26 +451,7 @@ end;
 
 procedure TEnviroForm.btnHelpClick(Sender: TObject);
 begin
-  HelpFile:= devDirs.Help +DEV_MAINHELP_FILE;
-  // **temporary removal** Application.HelpJump(HelpKeyword);
-  Application.HelpJump('ID_ENVIRONMENT');
-end;
-
-procedure TEnviroForm.PagesMainChange(Sender: TObject);
-begin
-  HelpKeyword:= Help_Topics[PagesMain.ActivePageIndex];
-end;
-
-procedure TEnviroForm.FormKeyDown(Sender: TObject; var Key: Word;
-  Shift: TShiftState);
-begin
-{$IFDEF WIN32}
-  if key = vk_F1 then
-{$ENDIF}
-{$IFDEF LINUX}
-  if key = XK_F1 then
-{$ENDIF}
-   Application.HelpJump(HelpKeyword);
+	OpenHelpFile;
 end;
 
 procedure TEnviroForm.FormCreate(Sender: TObject);

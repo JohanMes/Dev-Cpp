@@ -17,8 +17,6 @@ object EditorOptForm: TEditorOptForm
   Position = poOwnerFormCenter
   OnActivate = FormActivate
   OnCreate = FormCreate
-  OnHelp = FormHelp
-  OnKeyDown = FormKeyDown
   OnShow = FormShow
   DesignSize = (
     464
@@ -30,9 +28,8 @@ object EditorOptForm: TEditorOptForm
     Top = 0
     Width = 464
     Height = 375
-    ActivePage = tabGeneral
+    ActivePage = tabSyntax
     TabOrder = 0
-    OnChange = PagesMainChange
     object tabGeneral: TTabSheet
       Caption = 'General'
       object cbSyntaxHighlight: TCheckBox
@@ -806,6 +803,7 @@ object EditorOptForm: TEditorOptForm
         OnSelect = cboQuickColorSelect
         Items.Strings = (
           'Classic'
+          'Classic Plus'
           'Twilight'
           'Ocean'
           'Visual Studio'
@@ -1112,27 +1110,20 @@ object EditorOptForm: TEditorOptForm
             Caption = 'Background color:'
           end
           object btnCCCnew: TSpeedButton
-            Left = 328
-            Top = 136
+            Left = 8
+            Top = 264
             Width = 101
             Height = 25
             Caption = 'Add files'
             OnClick = btnCCCnewClick
           end
           object btnCCCdelete: TSpeedButton
-            Left = 328
-            Top = 168
+            Left = 112
+            Top = 264
             Width = 101
             Height = 25
             Caption = 'Clear'
             OnClick = btnCCCdeleteClick
-          end
-          object lblCCCache: TLabel
-            Left = 8
-            Top = 120
-            Width = 68
-            Height = 13
-            Caption = 'Files in cache:'
           end
           object tbCompletionDelay: TTrackBar
             Left = 16
@@ -1161,7 +1152,7 @@ object EditorOptForm: TEditorOptForm
           object chkCCCache: TCheckBox
             Left = 8
             Top = 96
-            Width = 353
+            Width = 433
             Height = 17
             Caption = 'Use code-completion cache'
             TabOrder = 2
@@ -1169,18 +1160,20 @@ object EditorOptForm: TEditorOptForm
           end
           object lbCCC: TListBox
             Left = 8
-            Top = 136
-            Width = 313
+            Top = 116
+            Width = 433
             Height = 145
             ItemHeight = 13
+            ParentShowHint = False
+            ShowHint = True
             Sorted = True
             TabOrder = 3
           end
           object pbCCCache: TProgressBar
-            Left = 328
-            Top = 200
-            Width = 101
-            Height = 20
+            Left = 216
+            Top = 264
+            Width = 225
+            Height = 25
             BorderWidth = 1
             TabOrder = 4
             Visible = False
@@ -1296,15 +1289,15 @@ object EditorOptForm: TEditorOptForm
     Left = 5
     Top = 378
   end
-  object CppTokenizer1: TCppTokenizer
+  object CppTokenizer: TCppTokenizer
     LogTokens = False
     Left = 40
     Top = 376
   end
-  object CppParser1: TCppParser
+  object CppParser: TCppParser
     Enabled = True
     OnTotalProgress = CppParser1TotalProgress
-    Tokenizer = CppTokenizer1
+    Tokenizer = CppTokenizer
     ParseLocalHeaders = True
     ParseGlobalHeaders = True
     LogStatements = False

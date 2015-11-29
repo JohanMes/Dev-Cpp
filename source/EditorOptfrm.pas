@@ -123,10 +123,9 @@ type
     chkCCCache: TCheckBox;
     btnCCCnew: TSpeedButton;
     btnCCCdelete: TSpeedButton;
-    CppTokenizer1: TCppTokenizer;
-    CppParser1: TCppParser;
+    CppTokenizer: TCppTokenizer;
+    CppParser: TCppParser;
     lbCCC: TListBox;
-    lblCCCache: TLabel;
     pbCCCache: TProgressBar;
     chkCBShowInherited: TCheckBox;
     cbMatch: TCheckBox;
@@ -182,15 +181,12 @@ type
     procedure btnEditClick(Sender: TObject);
     procedure btnRemoveClick(Sender: TObject);
     procedure btnHelpClick(Sender: TObject);
-    procedure PagesMainChange(Sender: TObject);
     procedure btnOkClick(Sender: TObject);
     procedure btnCancelClick(Sender: TObject);
     procedure lvCodeinsColumnClick(Sender: TObject; Column: TListColumn);
     procedure lvCodeinsCompare(Sender: TObject; Item1, Item2: TListItem;Data: Integer; var Compare: Integer);
     procedure lvCodeinsSelectItem(Sender: TObject; Item: TListItem;Selected: Boolean);
     procedure CodeInsStatusChange(Sender: TObject;Changes: TSynStatusChanges);
-    function FormHelp(Command: Word; Data: Integer;var CallHelp: Boolean): Boolean;
-    procedure FormKeyDown(Sender: TObject; var Key: Word;Shift: TShiftState);
     procedure cboDblClick(Sender: TObject);
     procedure cboQuickColorSelect(Sender: TObject);
     procedure CppEditSpecialLineColors(Sender: TObject; Line: Integer;var Special: Boolean; var FG, BG: TColor);
@@ -277,7 +273,6 @@ begin
   LoadCodeIns;
   LoadFontNames;
   LoadSampleText;
-  PagesMainChange(Self);
   cbLineNumClick(Self);
   FillSyntaxSets;
 end;
@@ -298,33 +293,12 @@ end;
 
 procedure TEditorOptForm.FormActivate(Sender: TObject);
 begin
-	// Lees inibestand of register
+	// Read ini file
 	GetOptions;
 
 	// Update code insertion
 	UpdateCIButtons;
 end;
-
-function TEditorOptForm.FormHelp(Command: Word; Data: Integer;
-  var CallHelp: Boolean): Boolean;
-begin
-  result:= false;
-  // another debug message
-  showmessage('Hello from FormHelp');
-end;
-
-procedure TEditorOptForm.FormKeyDown(Sender: TObject; var Key: Word;
-  Shift: TShiftState);
-begin
-{$IFDEF WIN32}
-  if key = VK_F1 then
-{$ENDIF}
-{$IFDEF LINUX}
-  if key = XK_F1 then
-{$ENDIF}
-   Application.HelpJump(HelpKeyword);
-end;
-
 
 { ---------- Font Methods ---------- }
 
@@ -597,7 +571,6 @@ begin
   chkCBParseGlobalH.Caption:=    Lang[ID_EOPT_BROWSERGLOBAL];
   chkCBUseColors.Caption:=       Lang[ID_POP_USECOLORS];
   chkCCCache.Caption:=           Lang[ID_EOPT_CCCACHECHECK];
-  lblCCCache.Caption:=           Lang[ID_EOPT_CCCACHELABEL];
   btnCCCnew.Caption:=            Lang[ID_BTN_ADD];
   btnCCCdelete.Caption:=         Lang[ID_BTN_CLEAR];
 
@@ -972,14 +945,7 @@ end;
 
 procedure TEditorOptForm.btnHelpClick(Sender: TObject);
 begin
-  HelpFile:= devDirs.Help +DEV_MAINHELP_FILE;
-  // ** temporary removal ** Application.HelpJump(HelpKeyword);
-  Application.HelpJump('ID_EDITORSETTINGS');
-end;
-
-procedure TEditorOptForm.PagesMainChange(Sender: TObject);
-begin
-	HelpKeyword:= Help_Topic[PagesMain.ActivePageIndex];
+	OpenHelpFile;
 end;
 
 procedure TEditorOptForm.btnCancelClick(Sender: TObject);
@@ -1273,7 +1239,7 @@ var
  i: integer;
  attr: TSynHighlighterAttributes;
 begin
-  if cboQuickColor.ItemIndex > 5 then begin
+  if cboQuickColor.ItemIndex > 6 then begin
     // custom style; load from disk
     LoadSyntax(cboQuickColor.Items[cboQuickColor.ItemIndex]);
     Exit;
@@ -1291,7 +1257,7 @@ begin
     end;
   end;
 
-  StrtoPoint(fBPColor, LoadStr(offset +17));  // breakpoints
+  StrtoPoint(fBPColor,  LoadStr(offset +17));  // breakpoints
   StrtoPoint(fErrColor, LoadStr(offset +18)); // error line
   StrtoPoint(fABPColor, LoadStr(offset +19)); // active breakpoint
   StrtoPoint(fgutColor, LoadStr(offset +20)); // gutter
@@ -1605,10 +1571,10 @@ begin
           MaxIndex:=I1;
         end;
       end;
-      CppParser1.ProjectDir:=IncludeTrailingPathDelimiter(sl[MaxIndex]);
+      CppParser.ProjectDir:=IncludeTrailingPathDelimiter(sl[MaxIndex]);
     end
     else
-      CppParser1.ProjectDir:=IncludeTrailingPathDelimiter(devDirs.C);
+      CppParser.ProjectDir:=IncludeTrailingPathDelimiter(devDirs.C);
   finally
     sl.Free;
   end;
@@ -1620,10 +1586,10 @@ begin
       Application.ProcessMessages;
       Screen.Cursor:=crHourglass;
       for I:=0 to OpenDialog.Files.Count-1 do
-        CppParser1.AddFileToScan(OpenDialog.Files[I]);
-      CppParser1.ParseList;
-      CppParser1.Save(devDirs.Config+DEV_COMPLETION_CACHE);
-      lbCCC.Items.Assign(CppParser1.CacheContents);
+        CppParser.AddFileToScan(OpenDialog.Files[I]);
+      CppParser.ParseList;
+      CppParser.Save(devDirs.Config+DEV_COMPLETION_CACHE);
+      lbCCC.Items.Assign(CppParser.CacheContents);
       Screen.Cursor:=crDefault;
       chkCCCache.Tag:=1; // mark modified
     end;
@@ -1636,15 +1602,15 @@ begin
     Exit;
   if MessageDlg('Are you sure you want to clear the cache?', mtConfirmation, [mbYes, mbNo], 0)=mrYes then begin
     DeleteFile(devDirs.Config+DEV_COMPLETION_CACHE);
-    FreeAndNil(CppParser1);
-    CppParser1:=TCppParser.Create(Self);
-    CppParser1.Tokenizer:=CppTokenizer1;
-    CppParser1.ParseLocalHeaders:=True;
-    CppParser1.ParseGlobalHeaders:=True;
-    CppParser1.OnStartParsing:=CppParser1StartParsing;
-    CppParser1.OnEndParsing:=CppParser1EndParsing;
-    CppParser1.OnTotalProgress:=CppParser1TotalProgress;
-    lbCCC.Items.Assign(CppParser1.CacheContents);
+    FreeAndNil(CppParser);
+    CppParser:=TCppParser.Create(Self);
+    CppParser.Tokenizer:=CppTokenizer;
+    CppParser.ParseLocalHeaders:=True;
+    CppParser.ParseGlobalHeaders:=True;
+    CppParser.OnStartParsing:=CppParser1StartParsing;
+    CppParser.OnEndParsing:=CppParser1EndParsing;
+    CppParser.OnTotalProgress:=CppParser1TotalProgress;
+    lbCCC.Items.Assign(CppParser.CacheContents);
     chkCCCache.Tag:=1; // mark modified
   end;
 end;
@@ -1653,8 +1619,8 @@ procedure TEditorOptForm.FillCCC;
 begin
   Screen.Cursor:=crHourglass;
   Application.ProcessMessages;
-  CppParser1.Load(devDirs.Config+DEV_COMPLETION_CACHE);
-  lbCCC.Items.Assign(CppParser1.CacheContents);
+  CppParser.Load(devDirs.Config+DEV_COMPLETION_CACHE);
+  lbCCC.Items.Assign(CppParser.CacheContents);
   Screen.Cursor:=crDefault;
 end;
 
@@ -1689,7 +1655,7 @@ end;
 
 procedure TEditorOptForm.ClassCodePageChange(Sender: TObject);
 begin
-	if (ClassCodePage.ActivePage=tabCBCompletion) and (CppParser1.Statements.Count=0) then
+	if (ClassCodePage.ActivePage=tabCBCompletion) and (CppParser.Statements.Count=0) then
 		FillCCC;
 end;
 
