@@ -78,10 +78,11 @@ type
 		fCompOpt : string;
 		flinkOpt : string;
 
+		fDelay : integer;
+		fFastDep : boolean;
+
 		// All options
 		fOptions : string;
-
-		// Not included in each compiler profile: fastdep,delay
 
 		procedure WriteSets;
 		procedure UpdateSets;
@@ -117,6 +118,9 @@ type
 		property AddtoLink: boolean read fLinkAdd write fLinkAdd;
 		property CompOpts: string read fCompOpt write fCompOpt;
 		property LinkOpts: string read fLinkOpt write fLinkOpt;
+
+		property Delay: integer read fDelay write fDelay;
+		property FastDep: boolean read fFastDep write fFastDep;
 	end;
 
 	// Each compiler is contained in one class
@@ -148,14 +152,12 @@ type
 
 		// All options
 		fOptions: TList;
-
-		// Makefile (global)
-		fFastDep: Boolean;
+		fDelay : integer;
+		fFastDep : boolean;
 
 		// Debugger
 		fModified: boolean;         // has options been changed since last compile
 		fSaveLog: boolean;          // Save Compiler Output
-		fDelay: integer;            // delay in milliseconds -- for compiling
 
 		procedure SetCompilerSet(const Value: integer);
 		function GetOptions(Index: integer): TCompilerOption;
@@ -182,12 +184,11 @@ type
 		procedure ChangeOptionsLang;
 		function ConvertCharToValue(c : char) : integer;
 	published
-		property FastDep: Boolean read fFastDep write fFastDep;
-
 		property RunParams: string read fRunParams write fRunParams;
 		property UseExecParams: boolean read fUseParams write fUseParams;
 		property SaveLog: boolean read fSaveLog write fSaveLog;
 		property Delay: integer read fDelay write fDelay;
+		property FastDep: boolean read fFastDep write fFastDep;
 
 		property gccName: string read fgccName write fgccName;
 		property gppName: string read fgppName write fgppName;
@@ -459,7 +460,7 @@ type
    fTheme: string;                   // Theme file
    fFindCols: string;                // Find Column widths (comma sep)
    fCompCols: string;                // Compiler Column Widths (comma sep)
-   fMsgTabs: boolean;                // Message Control Tabs (Top/Bottom)
+   fMsgTabs: integer;                // Editor Tabs
    fMinOnRun: boolean;               // Minimize IDE on run
    fOpenStyle: integer;              // Open Dialog Style
    fMRUMax: integer;                 // Max number of files in history list
@@ -562,7 +563,7 @@ type
    property AutoOpen: integer read fAutoOpen write fAutoOpen;
 
    //Windows
-   property MsgTabs: boolean read fMsgTabs write fMsgTabs;
+   property MsgTabs: integer read fMsgTabs write fMsgTabs;
 
    property ShowBars: boolean read fShowbars write fShowbars;
    property MultiLineTab: boolean read fMultiLineTab write fMultiLineTab;
@@ -663,11 +664,11 @@ implementation
 
 uses
 {$IFDEF WIN32}
-  MultiLangSupport, SysUtils, Forms, Controls, version, utils, SynEditMiscClasses,
+  MultiLangSupport, SysUtils, StrUtils, Forms, Controls, version, utils, SynEditMiscClasses,
   datamod, FileAssocs;
 {$ENDIF}
 {$IFDEF LINUX}
-  MultiLangSupport, SysUtils, QForms, QControls, version, utils, QSynEditMiscClasses,
+  MultiLangSupport, SysUtils, StrUtils, QForms, QControls, version, utils, QSynEditMiscClasses,
   datamod, FileAssocs, Types;
 {$ENDIF}
 
@@ -945,7 +946,7 @@ begin
   fLang:= DEFAULT_LANG_FILE;
   fFindCols:= '75, 75, 120, 150';
   fCompCols:= '75, 75, 120, 150';
-  fMsgTabs:= TRUE; // Top
+  fMsgTabs:= 0; // Top
   fMRUMax:= 10;
   fMinOnRun:= FALSE;
   fBackup:= FALSE;
@@ -981,7 +982,7 @@ begin
   fToolbarSearchX:=261;
   fToolbarSearchY:=2;
   fToolbarClasses:=TRUE;
-  fToolbarClassesX:=267;
+  fToolbarClassesX:=255;
   fToolbarClassesY:=30;
 
   //read associations set by installer as defaults
@@ -1041,6 +1042,9 @@ begin
 	AddOption(Lang[ID_COPT_WARNINGPLUS], False, True,  True,  False, 0, '-Wall',                     Lang[ID_COPT_GRP_WARN],    [],       nil);
 	AddOption(Lang[ID_COPT_WARNINGEX],   False, True,  True,  False, 0, '-Wextra',                   Lang[ID_COPT_GRP_WARN],    [],       nil);
 	AddOption(Lang[ID_COPT_ISOCONFORM],  False, True,  True,  False, 0, '-pedantic',                 Lang[ID_COPT_GRP_WARN],    [],       nil);
+	AddOption(Lang[ID_COPT_SYNTAXONLY],  False, True,  True,  False, 0, '-fsyntax-only',             Lang[ID_COPT_GRP_WARN],    [],       nil);
+	AddOption(Lang[ID_COPT_TREATASERROR],False, True,  True,  False, 0, '-Werror',                   Lang[ID_COPT_GRP_WARN],    [],       nil);
+	AddOption(Lang[ID_COPT_FAILONFIRST], False, True,  True,  False, 0, '-Wfatal-errors',            Lang[ID_COPT_GRP_WARN],    [],       nil);
 	AddOption(Lang[ID_COPT_PROFILE],     False, True,  True,  False, 0, '-pg',                       Lang[ID_COPT_PROFILING],   [],       nil);
 	AddOption(Lang[ID_COPT_OBJC],        False, False, False, True,  0, '-lobjc',                    Lang[ID_COPT_LINKERTAB],   [],       nil);
 	AddOption(Lang[ID_COPT_DEBUG],       False, True,  True,  True,  0, '-g3',                       Lang[ID_COPT_LINKERTAB],   [],       nil);
@@ -1051,7 +1055,6 @@ begin
 	// Architecture params
 	sl := TStringList.Create;
 	sl.Add(''); // /!\ Must contain a starting empty value in order to do not have always to pass the parameter
-	sl.Add('Generic=generic');
 	sl.Add('This CPU=native');
 	sl.Add('i386=i386');
 	sl.Add('i486=i486');
@@ -1064,6 +1067,8 @@ begin
 	sl.Add('Pentium 3=pentium3');
 	sl.Add('Pentium 4=pentium4');
 	sl.Add('Conroe=core2');
+	sl.Add('Nehalem=corei7');
+	sl.Add('Sandy=corei7-avx');
 	sl.Add('K6=k6');
 	sl.Add('K6-2=k6-2');
 	sl.Add('K6-3=k6-3');
@@ -1081,14 +1086,19 @@ begin
 	sl := TStringList.Create;
 	sl.Add(''); // /!\ Must contain a starting empty value in order to do not have always to pass the parameter
 	sl.Add('MMX=mmx');
+	sl.Add('3D Now=3dnow');
 	sl.Add('SSE=sse');
 	sl.Add('SSE2=sse2');
 	sl.Add('SSE3=sse3');
 	sl.Add('SSSE3=ssse3');
+	sl.Add('SSE4=sse4');
 	sl.Add('SSE4A=sse4a');
 	sl.Add('SSE4.1=sse4.1');
 	sl.Add('SSE4.2=sse4.2');
-	sl.Add('3D Now=3dnow');
+	sl.Add('AVX=avx');
+	sl.Add('FMA4=fma4');
+	sl.Add('XOP=xop');
+	sl.Add('AES=aes');
 	AddOption(Lang[ID_COPT_BUILTINPROC], False, True, True, True, 0, '-m', Lang[ID_COPT_GRP_CODEGEN], [], sl);
 
 	// Optimization
@@ -1097,14 +1107,17 @@ begin
 	sl.Add('Low=1');
 	sl.Add('Med=2');
 	sl.Add('High=3');
+	sl.Add('Highest (fast)=fast');
 	AddOption(Lang[ID_COPT_OPTIMIZE], False, True, True, True, 0, '-O', Lang[ID_COPT_GRP_CODEGEN], [], sl);
 
 	// C++ Standards
 	sl := TStringList.Create;
-	sl.Add('GNU C++=gnu++98');
+	sl.Add('ISO C99=c99');
 	sl.Add('ISO C++=c++98');
-	sl.Add('GNU C++0x=gnu++0x');
 	sl.Add('ISO C++0x=c++0x');
+	sl.Add('GNU C99=gnu99');
+	sl.Add('GNU C++=gnu++98');
+	sl.Add('GNU C++0x=gnu++0x');
 	AddOption(Lang[ID_COPT_STD], False, True, True, True, 0, '-std=', Lang[ID_COPT_GRP_CODEGEN], [], sl);
 end;
 
@@ -1209,20 +1222,20 @@ begin
 		CompilerSet := StrToIntDef(LoadSettingS('Compiler', 'CompilerSet'), 0);
 		key := 'CompilerSets_' + IntToStr(CompilerSet);
 
-		fUseParams:=    LoadSettingB(key, 'UseParams');
-		fIntermediate:= LoadSettingS(key, 'InterDir');
-		fOutputDir:=    LoadSettingS(key, 'OutputDir');
-		fRunParams:=    LoadSettingS(key, 'RunParams');
-		fCompAdd:=      LoadSettingB(key, 'CompAdd');
-		fLinkAdd:=      LoadSettingB(key, 'LinkAdd');
-		fCompOpt:=      LoadSettingS(key, 'CompOpt');
-		fLinkOpt:=      LoadSettingS(key, 'LinkOpt');
-		fSaveLog:=      LoadSettingB(key, 'Log');
+		fUseParams:=      LoadSettingB(key, 'UseParams');
+		fIntermediate:=   LoadSettingS(key, 'InterDir');
+		fOutputDir:=      LoadSettingS(key, 'OutputDir');
+		fRunParams:=      LoadSettingS(key, 'RunParams');
+		fCompAdd:=        LoadSettingB(key, 'CompAdd');
+		fLinkAdd:=        LoadSettingB(key, 'LinkAdd');
+		fCompOpt:=        LoadSettingS(key, 'CompOpt');
+		fLinkOpt:=        LoadSettingS(key, 'LinkOpt');
+		fSaveLog:=        LoadSettingB(key, 'Log');
 
-		dummystring:=   LoadSettingS(key, 'Delay');
-		fDelay:= StrToIntDef(dummystring,0);
+		fDelay:= strtointdef(LoadSettingS(key, 'Delay'),0);
+		fFastDep:=        LoadSettingB(key, 'FastDep','1');
 
-		dummystring := LoadSettingS(key, 'Options');
+		dummystring :=    LoadSettingS(key, 'Options');
 		for I := 0 to fOptions.Count - 1 do begin
 			opt := Options[I];
 			// Unknown options are set to false
@@ -1238,9 +1251,6 @@ begin
 				end;
 			Options[I] := opt;
 		end;
-
-		// Entry might nog exist yet, so pass a default
-		fFastDep:= LoadSettingB('Makefile', 'FastDep','1');
 	end;
 end;
 
@@ -1285,6 +1295,9 @@ begin
 	fLinkOpt := devCompilerSet.LinkOpts;
 	fCompAdd := devCompilerSet.AddToComp;
 	fLinkAdd := devCompilerSet.AddToLink;
+
+	fDelay := devCompilerSet.fDelay;
+	fFastDep := devCompilerSet.fFastDep;
 end;
 
 procedure TdevCompiler.SetOptions(Index: integer;const Value: TCompilerOption);
@@ -1620,7 +1633,7 @@ procedure TdevCodeCompletion.SettoDefaults;
 begin
   fWidth:=320;
   fHeight:=240;
-  fDelay:=200;
+  fDelay:=100;
   fBackColor:=clWindow;
   fEnabled:=True;
   fUseCacheFiles:=False;
@@ -1757,6 +1770,9 @@ begin
 		fCompAdd:= LoadSettingB(key, 'CompAdd');
 		fLinkAdd:= LoadSettingB(key, 'LinkAdd');
 
+		fDelay:= strtointdef(LoadSettingS(key, 'Delay'),0);
+		fFastDep:=        LoadSettingB(key, 'FastDep','1');
+
 		// dirs
 		devDirs.Exec   := IncludeTrailingPathDelimiter(ExtractFilePath(Application.ExeName));
 		fBinDir := StringReplace(LoadSettingS(key, 'Bins'),'%path%\',devDirs.Exec,[rfReplaceAll]);
@@ -1814,45 +1830,66 @@ begin
 		end;
 	end;
 
-	//check if make is in path + bins directory
+	// The code below checks for makefile processors...
 	if devDirs.OriginalPath = '' then // first time only
 		devDirs.OriginalPath := GetEnvironmentVariable('PATH');
 
-	// Hier wordt de oude bins nog gebruikt. Niet doen.
+	// First check if the current one exist
 	SetPath(fBinDir);
-	gnumakereply := RunAndGetOutput(devCompilerSet.makeName + ' --v',fBinDir, nil, nil, nil);
+	mingwmakereply := RunAndGetOutput(devCompilerSet.makeName + ' -v',fBinDir, nil, nil, nil);
 
-	// If GNU does not reply
-	if Pos('GNU Make', gnumakereply) = 0 then begin
+	// If the currently selected Make does not reply
+	if not AnsiStartsStr('GNU Make ', mingwmakereply) then begin
 
-		// Try MinGW
+		// Try the old GNU one
 		SetPath(fBinDir);
-		mingwmakereply := RunAndGetOutput('mingw32-make --v',fBinDir, nil, nil, nil);
+		gnumakereply := RunAndGetOutput('make.exe --v',fBinDir, nil, nil, nil);
 
-		if Pos('mingw32-make:', mingwmakereply) > 0 then begin
-			msg := 'Dev-C++ was unable to find GNU Make with current settings '
-			+ 'however there''s a mingw32-make that seems to be GNU Make. '
+		// Yay, there's an old make.exe in the bin directory!
+		if AnsiStartsStr('GNU Make ', gnumakereply) then begin
+			msg := 'Dev-C++ was unable to find the current make processor ('
+			+ devCompilerSet.makeName  + ') in '
+			+ fBinDir + ' with current settings, '
+			+ 'however a probably older GNU make.exe has been found in that folder. '
 			+ 'Would you like Dev-C++ to adjust the settings for you to '
-			+ 'use mingw32-make?'
+			+ 'use GNU Make?'
 			+ #13#10#13#10
 			+ 'Unless you know exactly what you''re doing, it is recommended '
-			+ 'that you click Yes';
+			+ 'that you click Yes.';
 
 			if MessageDlg(msg, mtConfirmation, [mbYes, mbNo], 0) = mrYes then begin
-				devCompilerSet.makeName := 'mingw32-make';
-				devCompiler.makeName := 'mingw32-make';
+				devCompilerSet.makeName := 'make.exe';
+				devCompiler.makeName := 'make.exe';
 			end;
-		end;
+		end else begin
 
-		//if nothing's found just display the warning message
-		if (Pos('mingw32-make:', mingwmakereply) = 0) and (Pos('GNU Make', gnumakereply) = 0) then begin
-			msg := 'There doesn''t seem to be GNU Make file in Dev-C++''s Bin path. '
-			+ 'Please make sure that you have correctly set '
-			+ 'GNU Make and adjust Bin settings environment '
-			+ 'variable and that make setting in Compiler Option '
-			+ 'contains correct filename, otherwise you will not '
-			+ 'be able to compile anything.';
-			MessageDlg(msg, mtConfirmation, [mbOK], 0);
+			// Try MinGW
+			SetPath(fBinDir);
+			mingwmakereply := RunAndGetOutput('mingw32-make.exe -v',fBinDir, nil, nil, nil);
+
+			if AnsiStartsStr('GNU Make ', mingwmakereply) then begin
+				msg := 'Dev-C++ was unable to find the current make processor ('
+				+ devCompilerSet.makeName  + ') in '
+				+ fBinDir + ' with current settings, '
+				+ 'however a MinGW mingw32-make.exe has been found in that folder. '
+				+ 'Would you like Dev-C++ to adjust the settings for you to '
+				+ 'use MinGW Make?'
+				+ #13#10#13#10
+				+ 'Unless you know exactly what you''re doing, it is recommended '
+				+ 'that you click Yes.';
+				if MessageDlg(msg, mtConfirmation, [mbYes, mbNo], 0) = mrYes then begin
+					devCompilerSet.makeName := 'mingw32-make.exe';
+					devCompiler.makeName := 'mingw32-make.exe';
+				end;
+			end else begin
+				msg := 'There doesn''t seem to be any Make file in Dev-C++''s Bin path ('
+				+ fBinDir + '). Please make sure that you have correctly set '
+				+ 'GNU Make and adjust the Bin settings environment '
+				+ 'variable and that the make setting in Compiler Option '
+				+ 'contains a correct filename, otherwise you will not '
+				+ 'be able to compile anything.';
+				MessageDlg(msg, mtConfirmation, [mbOK], 0);
+			end;
 		end;
 	end;
 end;
@@ -1881,6 +1918,9 @@ begin
 		SaveSettingS(key, 'LinkOpt',       fLinkOpt);
 		SaveSettingB(key, 'CompAdd',       fCompAdd);
 		SaveSettingB(key, 'LinkAdd',       fLinkAdd);
+		SaveSettingS(key, 'Delay',         inttostr(fDelay));
+		SaveSettingB(key, 'FastDep',       fFastDep);
+
 		// Paths
 		SaveSettingS(key, 'Bins',  StringReplace(fBinDir,devDirs.fExec,'%path%\',[rfReplaceAll]));
 		SaveSettingS(key, 'C',     StringReplace(fCDir,  devDirs.fExec,'%path%\',[rfReplaceAll]));
@@ -1915,6 +1955,9 @@ begin
   fCompAdd:= FALSE;
   fLinkAdd:= TRUE;
   fCompOpt:='';
+  fDelay:=0;
+  fFastDep:=TRUE;
+
   fLinkOpt:='-static-libstdc++ -static-libgcc';
 
   // dirs

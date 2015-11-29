@@ -32,9 +32,9 @@ const
 
 resourcestring
 	// misc strings
-	GCC_VERSION          = '4.5.2';
+	GCC_VERSION          = '4.6.1';
 	DEVCPP               = 'Dev-C++';
-	DEVCPP_VERSION       = '5.0.0.4';
+	DEVCPP_VERSION       = '5.0.0.5';
 	DEFAULT_LANG_FILE    = 'English.lng';
 	HTTP                 = 'http://';
 	DEV_INTERNAL_OPEN    = '$__DEV_INTERNAL_OPEN';
@@ -58,11 +58,11 @@ resourcestring
 	BIN_DIR              = '%path%' + pd + 'bin';
 	LIB_DIR              = '%path%' + pd + 'lib;%path%' + pd + 'lib' + pd + 'gcc';
 	C_INCLUDE_DIR        = '%path%' + pd + 'include';
-	CPP_INCLUDE_DIR      = '%path%' + pd + 'include';// +
-                        // '%path%' + pd + 'include' + pd + 'sys;' +
-                        //   '%path%' + pd + 'include' + pd + 'ddk;' +
-                        //   '%path%' + pd + 'include' + pd + 'gdiplus;' +
-                        //   '%path%' + pd + 'include' + pd + 'GL';
+	CPP_INCLUDE_DIR      = '%path%' + pd + 'include;';//' +
+                         //  '%path%' + pd + 'include' + pd + 'sys;' +
+                         //  '%path%' + pd + 'include' + pd + 'ddk;' +
+                         //  '%path%' + pd + 'include' + pd + 'gdiplus;' +
+                         //  '%path%' + pd + 'include' + pd + 'GL';
 	LANGUAGE_DIR         = 'Lang' + pd;
 	ICON_DIR             = 'Icons' + pd;
 	HELP_DIR             = ''; // exe folder
@@ -83,7 +83,7 @@ resourcestring
 	SYNTAX_EXT           = '.syntax';
 
   // programs
-  MAKE_PROGRAM         = 'make.exe';
+  MAKE_PROGRAM         = 'mingw32-make.exe';
   GCC_PROGRAM          = 'gcc.exe';
   GPP_PROGRAM          = 'g++.exe';
   GDB_PROGRAM          = 'gdb.exe';

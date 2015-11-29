@@ -187,6 +187,7 @@ type
    procedure CloseUnit(index: integer);
    procedure SaveUnitAs(i : integer; sFileName : string);
    procedure Save;
+   procedure SaveProjectFile;
    procedure LoadLayout;
    procedure LoadUnitLayout(e: TEditor; Index: integer);
    procedure SaveLayout;
@@ -225,6 +226,9 @@ type
    { end XXXKF }
    procedure CheckProjectFileForUpdate;
    procedure IncrementBuildNumber;
+
+	// Orwell
+	procedure SaveToLog;
  end;
 
 implementation
@@ -248,6 +252,62 @@ begin
     FreeAndNil(fEditor);
   fNode:=nil;
   inherited;
+end;
+
+procedure TProject.SaveToLog;
+var
+	temp: string;
+	temp2: string;
+	i : integer;
+	logfile : TextFile;
+begin
+	temp := '';
+
+	// The commented line below is used by the project logger
+	if fOptions.LogOutputEnabled and (MainForm.CompilerOutput.Items.Count > 0) then begin
+
+		// Formatted log
+		AssignFile(logfile,fOptions.LogOutput + '\Formatted Compiler Output.txt');
+		try
+			if FileExists(fOptions.LogOutput + '\Formatted Compiler Output.txt') = false then begin
+				Rewrite(logfile);
+				Write(logfile,DateTimeToStr(Now) + ': Creating log...' + #13#10#13#10);
+			end else begin
+				Reset(logfile);
+				Append(logfile);
+				Write(logfile,#13#10 + DateTimeToStr(Now) + ': Appending to log...' + #13#10#13#10);
+			end;
+
+			for i:=0 to pred(MainForm.CompilerOutput.Items.Count) do begin
+				temp2 := MainForm.CompilerOutput.Items[i].Caption + #10 + MainForm.CompilerOutput.Items[i].SubItems.Text;
+				temp2 := StringReplace(temp2,#10,#9,[]);
+				temp2 := StringReplace(temp2,#13#10,#9,[]);
+				temp2 := StringReplace(temp2,#13#10,#9,[]);
+				temp := temp + temp2;
+			end;
+			Write(logfile,temp);
+		finally
+			CloseFile(logfile);
+		end;
+
+		// Raw log
+		if Length(MainForm.LogOutput.Text) > 0 then begin
+			AssignFile(logfile,fOptions.LogOutput + '\Raw Build Output.txt');
+			try
+				if FileExists(fOptions.LogOutput + '\Raw Build Output.txt') = false then begin
+					Rewrite(logfile);
+					Write(logfile,DateTimeToStr(Now) + ': Creating log...' + #13#10#13#10);
+				end else begin
+					Reset(logfile);
+					Append(logfile);
+					Write(logfile,#13#10 + DateTimeToStr(Now) + ': Appending to log...' + #13#10#13#10);
+				end;
+				Write(logfile,MainForm.LogOutput.Lines.Text);
+			finally
+				CloseFile(logfile);
+			end;
+		end;
+	end;
 end;
 
 function TProjUnit.Save: boolean;
@@ -846,6 +906,8 @@ begin
 			fOptions.UseGpp:= Read('IsCpp', FALSE);
 			fOptions.ExeOutput := Read('ExeOutput', '');
 			fOptions.ObjectOutput := Read('ObjectOutput', '');
+			fOptions.LogOutput := Read('LogOutput', '');
+			fOptions.LogOutputEnabled := Read('LogOutputEnabled', FALSE);
 			fOptions.OverrideOutput := Read('OverrideOutput', FALSE);
 			fOptions.OverridenOutput := Read('OverrideOutputName', '');
 			fOptions.HostApplication := Read('HostApplication', '');
@@ -880,7 +942,7 @@ begin
         fOptions.VersionInfo.LegalTrademarks:=  Read('LegalTrademarks',   '');
         fOptions.VersionInfo.OriginalFilename:= Read('OriginalFilename',  ExtractFilename(Executable));
         fOptions.VersionInfo.ProductName:=      Read('ProductName',       Name);
-        fOptions.VersionInfo.ProductVersion:=   Read('ProductVersion',    '0.1');
+        fOptions.VersionInfo.ProductVersion:=   Read('ProductVersion',    '0.1.1.1');
         fOptions.VersionInfo.AutoIncBuildNr:=   Read('AutoIncBuildNr',    False);
         fOptions.VersionInfo.SyncProduct:=      Read('SyncProduct',       False);
       end
@@ -932,6 +994,8 @@ begin
 		Write('Icon', ExtractRelativePath(Directory, fOptions.Icon));
 		Write('ExeOutput', fOptions.ExeOutput);
 		Write('ObjectOutput', fOptions.ObjectOutput);
+		Write('LogOutput', fOptions.LogOutput);
+		Write('LogOutputEnabled', fOptions.LogOutputEnabled);
 		Write('OverrideOutput', fOptions.OverrideOutput);
 		Write('OverrideOutputName', fOptions.OverridenOutput);
 		Write('HostApplication', fOptions.HostApplication);
@@ -1310,12 +1374,19 @@ begin
   end;
 end;
 
+procedure TProject.SaveProjectFile;
+begin
+	UpdateFile;  // so data is current before going to disk
+	if fModified then
+		finiFile.UpdateFile;
+end;
+
 procedure TProject.Save;
 begin
 	if not UpdateUnits then
 		Exit;
 	UpdateFile;  // so data is current before going to disk
-	SaveLayout; // save current opened files, and which is "active".
+	SaveLayout;  // save current opened files, and which is "active".
 	if fModified then
 		finiFile.UpdateFile;
 	setModified(FALSE);
@@ -1850,7 +1921,7 @@ begin
     for idx := 0 to Items.Count -1 do
     begin
       tempnode := Items[idx];
-      if tempnode.Expanded AND (tempnode.Data=Pointer(-1)) then //data=pointer(-1) - it's folder
+      if tempnode.Expanded and (tempnode.Data=Pointer(-1)) then //data=pointer(-1) - it's folder
         oldPaths.Add(GetFolderPath(tempnode));
     end;
 
