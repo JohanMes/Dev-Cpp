@@ -58,7 +58,6 @@ type
     fTabSheet: TTabSheet;
     fErrorLine: integer;
     fActiveLine: integer;
-    fErrSetting: boolean;
     fDebugGutter: TDebugGutter;
     fOnBreakPointToggle: TBreakpointToggleEvent;
     fCurrentWord: AnsiString;
@@ -93,14 +92,13 @@ type
     procedure MouseOverTimer(Sender : TObject);
 
     procedure SetEditorText(Key: Char);
-    procedure InitCompletion;
-    procedure DestroyCompletion;
     function CurrentPhrase: AnsiString;
     procedure CompletionTimer(Sender: TObject);
 
     procedure TurnOffBreakpoint(line: integer);
     procedure TurnOnBreakpoint(line: integer);
 
+    function FunctionTipAllowed : boolean;
     procedure FunctionTipTimer(Sender : TObject);
 
     procedure SetFileName(const value: AnsiString);
@@ -137,7 +135,8 @@ type
     procedure UnindentSelection;
 
     procedure UpdateParser; // Must be called after recreating the parser
-    procedure ReconfigCompletion;
+    procedure InitCompletion;
+    procedure DestroyCompletion;
 
     property OnBreakpointToggle: TBreakpointToggleEvent read fOnBreakpointToggle write fOnBreakpointToggle;
     property FileName: AnsiString read fFileName write SetFileName;
@@ -623,19 +622,20 @@ begin
 		FLastPos.Char := fText.CaretX;
 		FLastPos.Line := fText.CaretY;
 
-		if not fErrSetting and (fErrorLine <> -1) then begin
+		if Assigned(fFunctionTipTimer) then begin
+			if fFunctionTip.Activated and FunctionTipAllowed then
+				fFunctionTip.Show
+			else begin // Reset the timer
+				fFunctionTipTimer.Enabled := false;
+				fFunctionTipTimer.Enabled := true;
+			end;
+		end;
+
+		// Remove error line colors
+		if (fErrorLine <> -1) then begin
 			fText.InvalidateLine(fErrorLine);
 			fText.InvalidateGutterLine(fErrorLine);
 			fErrorLine:= -1;
-			fText.InvalidateLine(fErrorLine);
-			fText.InvalidateGutterLine(fErrorLine);
-		end;
-
-		if fFunctionTip.Activated and not fText.SelAvail and fText.Focused and Assigned(fText.Highlighter) then
-			fFunctionTip.Show
-		else begin // Reset the timer
-			fFunctionTipTimer.Enabled := false;
-			fFunctionTipTimer.Enabled := true;
 		end;
 	end;
 
@@ -652,9 +652,14 @@ begin
 	end;
 end;
 
+function TEditor.FunctionTipAllowed : boolean;
+begin
+	Result := not fText.IsScrolling and fText.Focused and not fText.SelAvail and devEditor.ShowFunctionTip and Assigned(fText.Highlighter);
+end;
+
 procedure TEditor.FunctionTipTimer(Sender : TObject);
 begin
-	if not fText.IsScrolling and fText.Focused and not fText.SelAvail and devEditor.ShowFunctionTip and Assigned(fText.Highlighter) then
+	if FunctionTipAllowed then
 		fFunctionTip.Show;
 end;
 
@@ -793,19 +798,14 @@ end;
 
 procedure TEditor.SetErrorFocus(Col, Line: integer);
 begin
-	fErrSetting:= TRUE;
-	if fErrorLine <> Line then begin
-		if fErrorLine <> -1 then
-			fText.InvalidateLine(fErrorLine);
+	// Fool EditorStatusChange
+	fErrorLine := -1;
 
-		fText.InvalidateGutterLine(fErrorLine);
-		fErrorLine := Line;
-		fText.InvalidateLine(fErrorLine);
-		fText.InvalidateGutterLine(fErrorLine);
-	end;
 	fText.CaretXY := BufferCoord(Col, Line);
 	fText.EnsureCursorPosVisible;
-	fErrSetting := FALSE;
+
+	// Fool EditorStatusChange
+	fErrorLine := Line;
 end;
 
 procedure TEditor.SetActiveBreakpointFocus(Line: integer);
@@ -924,7 +924,8 @@ begin
 				HasCompletedParentheses := 2;
 
 				// immediately activate function hint
-				fFunctionTip.Activated := true;
+				if FunctionTipAllowed then
+					fFunctionTip.Activated := true;
 			end else if (Key = ')') and (HasCompletedParentheses > 0) then begin
 				fText.CaretXY := BufferCoord(fText.CaretX + 1,fText.CaretY);
 				HasCompletedParentheses := 0;
@@ -965,10 +966,11 @@ begin
 						InsertString('{' + #13#10 + Copy(fText.LineText,1,indent-1) + '}',false);
 						fText.CaretXY := BufferCoord(fText.CaretX + 1,fText.CaretY);
 						Key:=#0;
-					end else if StartsStr('struct',TrimLeft(fText.LineText)) or
-								StartsStr('union', TrimLeft(fText.LineText)) or
-								StartsStr('class', TrimLeft(fText.LineText)) or
-								StartsStr('enum',  TrimLeft(fText.LineText)) then begin
+					end else if StartsStr('struct',  TrimLeft(fText.LineText)) or
+								StartsStr('union',   TrimLeft(fText.LineText)) or
+								StartsStr('class',   TrimLeft(fText.LineText)) or
+								StartsStr('enum',    TrimLeft(fText.LineText)) or
+								StartsStr('typedef', TrimLeft(fText.LineText)) then begin
 
 						// Check indentation
 						indent:=0;
@@ -1100,14 +1102,14 @@ procedure TEditor.CompletionTimer(Sender: TObject);
 var
 	M: TMemoryStream;
 	curr,s: AnsiString;
-	attri: TSynHighlighterAttributes;
+	attr: TSynHighlighterAttributes;
 begin
 	fCompletionTimer.Enabled:=False;
 	curr:=CurrentPhrase;
 
-	if(fText.GetHighlighterAttriAtRowCol(BufferCoord(fText.CaretX-1, fText.CaretY), s, attri)) then begin
-		if (Attri = fText.Highlighter.StringAttribute) or
-		   (Attri = fText.Highlighter.CommentAttribute) then begin
+	if(fText.GetHighlighterAttriAtRowCol(BufferCoord(fText.CaretX-1, fText.CaretY), s, attr)) then begin
+		if (attr = fText.Highlighter.StringAttribute) or
+		   (attr = fText.Highlighter.CommentAttribute) then begin
 
 			fCompletionTimerKey:=#0;
 			Exit;
@@ -1137,16 +1139,6 @@ begin
 	fCompletionTimerKey:=#0;
 end;
 
-procedure TEditor.ReconfigCompletion;
-begin
-	// re-read completion options
-	fCompletionBox.Enabled:=devClassBrowsing.Enabled and devCodeCompletion.Enabled;
-	if fCompletionBox.Enabled then
-		InitCompletion
-	else
-		DestroyCompletion;
-end;
-
 procedure TEditor.DestroyCompletion;
 begin
 	if Assigned(fCompletionTimer) then
@@ -1160,24 +1152,29 @@ end;
 procedure TEditor.InitCompletion;
 begin
 	fCompletionBox:=MainForm.CodeCompletion;
-	fCompletionBox.Enabled:=devCodeCompletion.Enabled;
+	fCompletionBox.Enabled:=devClassBrowsing.Enabled and devCodeCompletion.Enabled;
 
 	// This way symbols and tabs are also completed without code completion
 	fText.OnKeyPress := EditorKeyPress;
 	fText.OnKeyDown := EditorKeyDown;
 	fText.OnKeyUp := EditorKeyUp;
 
-	if not Assigned(fFunctionTipTimer) then
-		fFunctionTipTimer:=TTimer.Create(nil);
-	fFunctionTipTimer.Enabled:=devEditor.ShowFunctionTip;
-	fFunctionTipTimer.OnTimer:=FunctionTipTimer;
-	fFunctionTipTimer.Interval:=600;
+	if devEditor.ShowFunctionTip then begin
+		if not Assigned(fFunctionTipTimer) then
+			fFunctionTipTimer:=TTimer.Create(nil);
+		fFunctionTipTimer.Enabled:=True;
+		fFunctionTipTimer.OnTimer:=FunctionTipTimer;
+		fFunctionTipTimer.Interval:=2*GetCaretBlinkTime; // fancy
+	end else if Assigned(fFunctionTip) then
+		fFunctionTip.ReleaseHandle;
 
-	if not Assigned(fMouseOverTimer) then
-		fMouseOverTimer:=TTimer.Create(nil);
-	fMouseOverTimer.Enabled:=devEditor.ParserHints or devData.WatchHint;
-	fMouseOverTimer.OnTimer:=MouseOverTimer;
-	fMouseOverTimer.Interval:=600;
+	if devEditor.ParserHints or devData.WatchHint then begin
+		if not Assigned(fMouseOverTimer) then
+			fMouseOverTimer:=TTimer.Create(nil);
+		fMouseOverTimer.Enabled:=True;
+		fMouseOverTimer.OnTimer:=MouseOverTimer;
+		fMouseOverTimer.Interval:=500;
+	end;
 
 	// The other stuff is fully completion dependant
 	if fCompletionBox.Enabled then begin
@@ -1295,7 +1292,8 @@ begin
 		// and function takes arguments...
 		if (not (Key in ['.', '>'])) and (FuncAddOn<>'') and ( (Length(Statement^._Args)>2) or (Statement^._Args='()') ) then begin
 			fText.CaretX:=fText.CaretX-Length(FuncAddOn)+1;
-			fFunctionTip.Show;
+			if FunctionTipAllowed then
+				fFunctionTip.Show;
 		end;
 	end;
 end;
@@ -1309,18 +1307,21 @@ var
 	attr : TSynHighlighterAttributes;
 	st: PStatement;
 begin
-	// If the mouse van be found INSIDE the window
+
+	TabSheet.PageControl.Hint := '';
+
+	// If the mouse can be found INSIDE the window
 	if fText.GetPositionOfMouse(p) and fAllowMouseOver then begin
 
-		// Check if we're inside a comment or string by looking at text color. If we are, skip without showing a tooltip
+		// Only show info about variables
 		if fText.GetHighlighterAttriAtRowCol(p, s, attr) then
-			if (attr = fText.Highlighter.StringAttribute) or (attr = fText.Highlighter.CommentAttribute) then begin
+			if not (attr = fText.Highlighter.IdentifierAttribute) then begin
 				Application.CancelHint;
 				fText.Hint := '';
 				Exit;
 			end;
 
-		s := TrimLeft(fText.GetWordAtRowCol(p));
+		s := fText.GetWordAtRowCol(p);
 
 		if(s <> '')then begin
 
@@ -1527,11 +1528,6 @@ var
 	walker,start : integer;
 	e : TEditor;
 begin
-	if (Button = mbMiddle) then begin
-		MainForm.actCloseExecute(nil);
-		Exit;
-	end;
-
 	p := fText.PixelsToRowColumn(X,Y);
 
 	// if ctrl+clicked

@@ -30,7 +30,7 @@ uses
 	Project, editor, compiler, ActnList, oysUtils, ToolFrm, AppEvnts,
 	debugger, ClassBrowser, CodeCompletion, CppParser, CppTokenizer,
 	StrUtils, SynEditTypes, devFileMonitor, devMonitorTypes, DdeMan,
-	CVSFrm, devShortcuts;
+	CVSFrm, devShortcuts, VistaAltFixUnit;
 {$ENDIF}
 {$IFDEF LINUX}
 	SysUtils, Classes, QGraphics, QControls, QForms, QDialogs,
@@ -856,6 +856,9 @@ type
 		procedure actToggleExecute(Sender: TObject);
 		procedure actGotoExecute(Sender: TObject);
 		procedure actEditMenuUpdate(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure PageControlMouseMove(Sender: TObject; Shift: TShiftState; X,
+      Y: Integer);
 
 	private
 		fmsgHeight			: integer;
@@ -2327,16 +2330,17 @@ begin
 				SizeFile.Text := SizeFile.Text + ' (' + IntToStr(F.Size div 1024) + ' KB)';
 		end else
 			SizeFile.Text := '0';
-		end else begin
-			// errors exist; goto first one...
-			for I:=0 to CompilerOutput.Items.Count-1 do begin
-				if StrToIntDef(CompilerOutput.Items[I].Caption, -1)<>-1 then begin
-					CompilerOutput.Selected:=CompilerOutput.Items[I];
-					CompilerOutputDblClick(nil);
-					Break;
-				end;
+	end else begin
+
+		// errors exist; goto first one...
+		for I := 0 to CompilerOutput.Items.Count-1 do begin
+			if StrToIntDef(CompilerOutput.Items[I].Caption, -1) <> -1 then begin
+				CompilerOutput.Selected:=CompilerOutput.Items[I];
+				CompilerOutputDblClick(nil);
+				Break;
 			end;
 		end;
+	end;
 
 	if (CompilerOutput.Items.Count = 0) and actCompOnNeed.Checked then
 		OpenCloseMessageSheet(FALSE)
@@ -2953,8 +2957,8 @@ begin
 				for I:= 0 to pred(PageControl.PageCount) do
 					with TEditor(PageControl.Pages[I].Tag) do begin
 						devEditor.AssignEditor(Text);
-						Text.Highlighter:= dmMain.GetHighlighter(FileName);
-						ReconfigCompletion;
+						Text.Highlighter := dmMain.GetHighlighter(FileName);
+						InitCompletion;
 					end;
 
 				InitClassBrowser(chkCCCache.Tag=1);
@@ -3141,7 +3145,7 @@ end;
 procedure TMainForm.actProjectSourceExecute(Sender: TObject);
 begin
 	if assigned(fProject) then
-	 OpenFile(fProject.FileName);
+		OpenFile(fProject.FileName);
 end;
 
 procedure TMainForm.actFindExecute(Sender: TObject);
@@ -3288,7 +3292,6 @@ begin
 	if fCompiler.Target = ctProject then
 		DeleteFile(fProject.Executable);
 	fCompiler.Compile;
-	//Application.ProcessMessages;
 end;
 
 procedure TMainForm.actRunExecute(Sender: TObject);
@@ -3332,7 +3335,6 @@ begin
 	if not PrepareForCompile then
 		Exit;
 	fCompiler.RebuildAll;
-	//Application.ProcessMessages;
 end;
 
 procedure TMainForm.actCleanExecute(Sender: TObject);
@@ -3343,7 +3345,6 @@ begin
 		Exit;
 	end;
 	fCompiler.Clean;
-	//Application.ProcessMessages;
 end;
 
 procedure TMainForm.PrepareDebugger;
@@ -3820,10 +3821,10 @@ begin
 		errorfile:= SubItems[1];
 		errorfiletab := GetEditorFromFileName(errorfile);
 	end;
-	//Application.ProcessMessages;
-	if assigned(errorfiletab) then begin
-		errorfiletab.SetErrorFocus(Col, Line);
+
+	if Assigned(errorfiletab) then begin
 		errorfiletab.Activate;
+		errorfiletab.SetErrorFocus(Col, Line);
 	end;
 end;
 
@@ -3942,7 +3943,6 @@ end;
 
 procedure TMainForm.actNextStepExecute(Sender: TObject);
 begin
-	//if fDebugger.Executing then begin
 	if fDebugger.isBroken and fDebugger.Executing then begin
 		fDebugger.RefreshContext();
 		fDebugger.SendCommand(GDB_NEXT, '');
@@ -3951,7 +3951,6 @@ end;
 
 procedure TMainForm.actStepSingleExecute(Sender: TObject);
 begin
-	//if fDebugger.Executing then begin
 	if fDebugger.isBroken and fDebugger.Executing then begin
 		fDebugger.RefreshContext();
 		fDebugger.SendCommand(GDB_STEP, '');
@@ -3993,7 +3992,6 @@ begin
 	bfile:= StringReplace(bfile, '/', '\', [rfReplaceAll]);
 
 	e := GetEditorFromFileName(bfile);
-	//Application.ProcessMessages;
 	if assigned(e) then begin
 		e.SetActiveBreakpointFocus(bline);
 		e.Activate;
@@ -4235,7 +4233,6 @@ var
  I1: Cardinal;
  e: TEditor;
 begin
-	Application.ProcessMessages;
 	if not ClassBrowser1.Enabled then
 		Exit;
 	if Assigned(fProject) then
@@ -4485,14 +4482,16 @@ end;
 
 procedure TMainForm.PageControlMouseDown(Sender: TObject;Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
 var
-	I	: integer;
+	thispage : integer;
 begin
-	I:=PageControl.IndexOfTabAt(X, Y);
+	thispage:=PageControl.IndexOfTabAt(X, Y);
 	if Button = mbRight then begin // select new tab even with right mouse button
-		if I>-1 then begin
-			PageControl.ActivePageIndex:=I;
+		if thispage>-1 then begin
+			PageControl.ActivePageIndex:=thispage;
 			PageControlChange(nil);
 		end;
+	end else if Button = mbMiddle then begin
+		MainForm.actCloseExecute(nil);
 	end else // see if it's a drag operation
 		PageControl.Pages[PageControl.ActivePageIndex].BeginDrag(False);
 end;
@@ -5769,7 +5768,6 @@ begin
 	if not PrepareForCompile then
 		Exit;
 	fCompiler.Compile(e.FileName);
-	//Application.ProcessMessages;
 end;
 
 procedure TMainForm.actCompileCurrentFileUpdate(Sender: TObject);
@@ -6290,7 +6288,7 @@ begin
 		// Then scan back trying to find the base function (or class)
 		cursorindex := e.Text.RowColToCharIndex(cursorpos,true);
 		I := cursorindex;
-		while (I > max(0,cursorindex-1024)) do begin
+		while (I > max(0,cursorindex-2048)) do begin
 			if (text[I] = ':') and (text[I+1] = ':') then begin
 				// Then find the word itself
 				wordend := I;
@@ -6658,6 +6656,25 @@ begin
 	InsertItem.Enabled := PageControl.PageCount > 0;
 	ToggleBookmarksItem.Enabled := PageControl.PageCount > 0;
 	GotoBookmarksItem.Enabled := PageControl.PageCount > 0;
+end;
+
+procedure TMainForm.FormCreate(Sender: TObject);
+begin
+	TVistaAltFix.Create(Self);
+end;
+
+procedure TMainForm.PageControlMouseMove(Sender: TObject;Shift: TShiftState; X, Y: Integer);
+var
+	thispage : integer;
+	e : TEditor;
+begin
+	thispage:=PageControl.IndexOfTabAt(X, Y);
+	if thispage <> -1 then begin
+		e:=GetEditor(thispage);
+		if Assigned(e) then
+			PageControl.Hint:=e.FileName;
+	end else
+		PageControl.Hint := '';
 end;
 
 end.

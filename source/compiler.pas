@@ -76,7 +76,6 @@ type
 		procedure Compile(const SingleFile: AnsiString = '');
 		procedure Run;
 		procedure CompileAndRun;
-		procedure Debug;
 		function Clean: Boolean;
 		function RebuildAll: Boolean;
 		function FindDeps(const TheFile: AnsiString): AnsiString;
@@ -626,7 +625,6 @@ begin
 
 	if fTarget = ctProject then begin
 		BuildMakeFile;
-		Application.ProcessMessages;
 
 		if SingleFile <> '' then begin
 			if fProject.Options.ObjectOutput<>'' then begin
@@ -758,10 +756,6 @@ begin
 	fRunAfterCompileFinish:= TRUE;
 end;
 
-procedure TCompiler.Debug;
-begin
-end;
-
 function TCompiler.Clean: Boolean;
 const
 	cCleanLine = '%s clean -f "%s"';
@@ -845,7 +839,6 @@ begin
 	if Assigned(fDevRun) then
 		MessageDlg(Lang[ID_MSG_ALREADYCOMP], mtInformation, [mbOK], 0)
 	else begin
-		Application.ProcessMessages;
 		fAbortThread:=False;
 		fDevRun := TDevRun.Create(true);
 		fDevRun.Command := s;
@@ -898,7 +891,6 @@ begin
 	end else if fAbortThread then
 		DoLogEntry(Lang[ID_COMPILEABORT]);
 	SwitchToOriginalCompilerSet(fOriginalSet);
-	Application.ProcessMessages;
 end;
 
 procedure TCompiler.OnLineOutput(Sender: TObject; const Line: AnsiString);

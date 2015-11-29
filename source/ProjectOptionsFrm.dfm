@@ -1,6 +1,6 @@
 object frmProjectOptions: TfrmProjectOptions
-  Left = 550
-  Top = 315
+  Left = 897
+  Top = 75
   BorderIcons = [biSystemMenu]
   BorderStyle = bsDialog
   Caption = 'Project Options'
@@ -20,9 +20,9 @@ object frmProjectOptions: TfrmProjectOptions
   PixelsPerInch = 96
   TextHeight = 15
   object btnOk: TBitBtn
-    Left = 268
+    Left = 260
     Top = 350
-    Width = 80
+    Width = 85
     Height = 25
     Caption = '&OK'
     Default = True
@@ -49,9 +49,9 @@ object frmProjectOptions: TfrmProjectOptions
     NumGlyphs = 2
   end
   object btnCancel: TBitBtn
-    Left = 358
+    Left = 350
     Top = 350
-    Width = 80
+    Width = 85
     Height = 25
     Caption = '&Cancel'
     TabOrder = 1
@@ -59,9 +59,9 @@ object frmProjectOptions: TfrmProjectOptions
     Kind = bkCancel
   end
   object btnHelp: TBitBtn
-    Left = 448
+    Left = 440
     Top = 350
-    Width = 80
+    Width = 85
     Height = 25
     TabOrder = 2
     OnClick = btnHelpClick
@@ -407,21 +407,19 @@ object frmProjectOptions: TfrmProjectOptions
     end
     object tabCompiler: TTabSheet
       Caption = 'Compiler'
-      DesignSize = (
-        526
-        312)
       object lblCompilerSet: TLabel
         Left = 8
-        Top = 36
+        Top = 28
         Width = 52
         Height = 15
         Caption = 'Compiler:'
       end
       object lblCompileInfo: TLabel
-        Left = 23
+        Left = 0
         Top = 0
-        Width = 441
-        Height = 25
+        Width = 526
+        Height = 22
+        Alignment = taCenter
         AutoSize = False
         Caption = 
           'NOTE: These settings will override the global Compiler Options a' +
@@ -437,7 +435,7 @@ object frmProjectOptions: TfrmProjectOptions
       end
       object OptionsTip: TLabel
         Left = 0
-        Top = 272
+        Top = 268
         Width = 521
         Height = 17
         Alignment = taCenter
@@ -464,39 +462,35 @@ object frmProjectOptions: TfrmProjectOptions
         OnClick = OptionsLinkClick
       end
       inline CompOptionsFrame1: TCompOptionsFrame
-        Left = 9
-        Top = 60
-        Width = 514
-        Height = 203
-        Anchors = [akLeft, akTop, akRight, akBottom]
+        Left = 0
+        Top = 48
+        Width = 526
+        Height = 217
+        HorzScrollBar.Visible = False
+        VertScrollBar.Visible = False
         TabOrder = 0
-        inherited Splitter1: TSplitter
-          Left = 120
-          Height = 203
-        end
-        inherited tv: TTreeView
-          Width = 120
-          Height = 203
-        end
-        inherited vle: TValueListEditor
-          Left = 124
-          Width = 390
-          Height = 203
-          DefaultColWidth = 215
-          DisplayOptions = [doKeyColFixed]
-          ParentShowHint = False
-          ColWidths = (
-            215
-            215)
+        inherited tabs: TTabControl
+          Width = 526
+          Height = 217
+          inherited vle: TValueListEditor
+            Width = 518
+            Height = 207
+            DefaultColWidth = 215
+            DisplayOptions = [doKeyColFixed]
+            ParentShowHint = False
+            ColWidths = (
+              215
+              215)
+          end
         end
       end
       object cmbCompiler: TComboBox
         Left = 72
-        Top = 32
-        Width = 385
+        Top = 24
+        Width = 449
         Height = 23
         Style = csDropDownList
-        ItemHeight = 0
+        ItemHeight = 15
         TabOrder = 1
       end
     end
@@ -618,7 +612,7 @@ object frmProjectOptions: TfrmProjectOptions
         OnChange = SubTabsChange
         object btnDown: TSpeedButton
           Left = 495
-          Top = 154
+          Top = 160
           Width = 23
           Height = 22
           Enabled = False
@@ -753,37 +747,37 @@ object frmProjectOptions: TfrmProjectOptions
           OnClick = BrowseClick
         end
         object lstList: TListBox
-          Left = 14
-          Top = 37
-          Width = 475
-          Height = 204
+          Left = 4
+          Top = 26
+          Width = 485
+          Height = 220
           ItemHeight = 15
           TabOrder = 0
           OnClick = ListClick
         end
         object btnDelInval: TButton
           Tag = 4
-          Left = 403
+          Left = 384
           Top = 281
-          Width = 81
+          Width = 100
           Height = 23
           Caption = 'Delete Invalid'
           TabOrder = 1
           OnClick = ButtonClick
         end
         object edEntry: TEdit
-          Left = 14
-          Top = 251
-          Width = 475
+          Left = 4
+          Top = 250
+          Width = 485
           Height = 23
           TabOrder = 2
           OnChange = EditChange
         end
         object btnReplace: TButton
           Tag = 1
-          Left = 158
+          Left = 54
           Top = 281
-          Width = 75
+          Width = 100
           Height = 23
           Caption = '&Replace'
           Enabled = False
@@ -792,9 +786,9 @@ object frmProjectOptions: TfrmProjectOptions
         end
         object btnDelete: TButton
           Tag = 3
-          Left = 321
+          Left = 274
           Top = 281
-          Width = 75
+          Width = 100
           Height = 23
           Caption = '&Delete'
           Enabled = False
@@ -803,9 +797,9 @@ object frmProjectOptions: TfrmProjectOptions
         end
         object btnAdd: TButton
           Tag = 2
-          Left = 239
+          Left = 164
           Top = 281
-          Width = 75
+          Width = 100
           Height = 23
           Caption = '&Add'
           Enabled = False
@@ -1032,7 +1026,7 @@ object frmProjectOptions: TfrmProjectOptions
       end
       object btnMakDown: TSpeedButton
         Left = 495
-        Top = 189
+        Top = 200
         Width = 23
         Height = 22
         Enabled = False
@@ -1117,7 +1111,7 @@ object frmProjectOptions: TfrmProjectOptions
       end
       object btnMakUp: TSpeedButton
         Left = 495
-        Top = 165
+        Top = 170
         Width = 23
         Height = 22
         Enabled = False
@@ -1202,9 +1196,9 @@ object frmProjectOptions: TfrmProjectOptions
       end
       object btnMakAdd: TButton
         Tag = 2
-        Left = 239
+        Left = 164
         Top = 287
-        Width = 75
+        Width = 100
         Height = 23
         Caption = '&Add'
         Enabled = False
@@ -1213,9 +1207,9 @@ object frmProjectOptions: TfrmProjectOptions
       end
       object btnMakDelete: TButton
         Tag = 3
-        Left = 321
+        Left = 274
         Top = 287
-        Width = 75
+        Width = 100
         Height = 23
         Caption = '&Delete'
         Enabled = False
@@ -1224,9 +1218,9 @@ object frmProjectOptions: TfrmProjectOptions
       end
       object btnMakDelInval: TButton
         Tag = 4
-        Left = 403
+        Left = 384
         Top = 287
-        Width = 81
+        Width = 100
         Height = 23
         Caption = 'Delete Invalid'
         Enabled = False
@@ -1235,9 +1229,9 @@ object frmProjectOptions: TfrmProjectOptions
       end
       object btnMakReplace: TButton
         Tag = 1
-        Left = 158
+        Left = 54
         Top = 287
-        Width = 75
+        Width = 100
         Height = 23
         Caption = '&Replace'
         Enabled = False
@@ -1263,17 +1257,17 @@ object frmProjectOptions: TfrmProjectOptions
         Text = 'edCustomMakefile'
       end
       object edMakeInclude: TEdit
-        Left = 14
-        Top = 256
-        Width = 475
+        Left = 4
+        Top = 257
+        Width = 485
         Height = 23
         TabOrder = 6
         OnChange = edMakeIncludeChange
       end
       object MakeIncludes: TListBox
-        Left = 14
-        Top = 136
-        Width = 475
+        Left = 4
+        Top = 140
+        Width = 485
         Height = 113
         ItemHeight = 15
         TabOrder = 7
@@ -1397,7 +1391,7 @@ object frmProjectOptions: TfrmProjectOptions
           Width = 209
           Height = 23
           Style = csDropDownList
-          ItemHeight = 0
+          ItemHeight = 15
           TabOrder = 4
         end
         object chkAutoIncBuild: TCheckBox
