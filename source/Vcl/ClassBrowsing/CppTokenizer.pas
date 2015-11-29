@@ -66,7 +66,7 @@ type
     procedure SkipSingleQuote;
     procedure SkipPair(cStart, cEnd: Char; FailChars: TSysCharSet = []);
     procedure SkipAssignment;
-    procedure SkipTemplate;
+    procedure SkipTemplateArgs;
     function GetNumber: AnsiString;
     function GetWord(bSkipParenthesis: boolean = False; bSkipArray: boolean = False; bSkipBlock: boolean = False):
       AnsiString;
@@ -290,21 +290,26 @@ end;
 procedure TCppTokenizer.SkipAssignment;
 begin
   repeat
-    Inc(pCurrent);
     case pCurrent^ of
       '(': SkipPair('(', ')');
       '"': SkipDoubleQuotes;
       '''': SkipSingleQuote;
       '{': SkipPair('{', '}'); // support struct initializers
-      '/': if (pCurrent + 1)^ = '/' then
-          SkipToEOL
-        else if (pCurrent + 1)^ = '*' then
-          SkipCStyleComment;
+      '/': begin
+          if (pCurrent + 1)^ = '/' then
+            SkipToEOL
+          else if (pCurrent + 1)^ = '*' then
+            SkipCStyleComment
+          else
+            Inc(pCurrent);
+        end;
+    else
+      Inc(pCurrent);
     end;
   until pCurrent^ in [',', ';', ')', '}', #0];
 end;
 
-procedure TCppTokenizer.SkipTemplate;
+procedure TCppTokenizer.SkipTemplateArgs;
 {var
  tmp : integer;}
 var
@@ -409,9 +414,13 @@ var
   Offset: PAnsiChar;
   S: AnsiString;
   tmp: integer;
-  bFoundTemplate: boolean;
+//  bFoundTemplate: boolean;
+  function CurrentWordEquals(const Text : AnsiString) : Boolean;
+  begin
+    Result := (pCurrent - Offset = Length(Text)) and (StrLComp(PAnsiChar(Text), Offset, pCurrent - Offset) = 0);
+  end;
 begin
-  bFoundTemplate := false;
+//  bFoundTemplate := false;
 
   // Skip spaces
   SkipToNextToken;
@@ -424,7 +433,7 @@ begin
     Inc(pCurrent);
 
   // Append the operator characters and argument list to the operator word
-  if (pCurrent - Offset = Length('operator')) and (StrLComp('operator', Offset, pCurrent - Offset) = 0) then begin
+  if CurrentWordEquals('operator') then begin
 
     // Spaces between 'operator' and the operator itself are allowed
     while pCurrent^ in SpaceChars do
@@ -433,9 +442,8 @@ begin
     // Find end of operator
     while pCurrent^ in OperatorChars do
       Inc(pCurrent);
-  end else if (pCurrent - Offset = Length('template')) and (StrLComp('template', Offset, pCurrent - Offset) = 0) then
-    begin
-    bFoundTemplate := true;
+//  end else if CurrentWordEquals('template') then begin
+//    bFoundTemplate := true;
   end;
 
   // We found a word...
@@ -448,9 +456,9 @@ begin
     // Skip template contents, but keep template variable types
     if pCurrent^ = '<' then begin
       Offset := pCurrent;
-      SkipTemplate;
-      if not bFoundTemplate then
-        CatString(Result, Offset, pCurrent - Offset);
+      SkipTemplateArgs;
+//      if not bFoundTemplate then
+//        CatString(Result, Offset, pCurrent - Offset);
 
       // Append array stuff
     end else if bSkipArray and (pCurrent^ = '[') then begin
@@ -740,6 +748,9 @@ var
   S: AnsiString;
   Command: AnsiString;
   bSkipBlocks: boolean;
+  {  I: integer;
+    DebugFile: TFileStream;
+    Buffer: AnsiString;}
 begin
   if StartAt = nil then
     Exit;
@@ -761,6 +772,18 @@ begin
     if S <> '' then
       AddToken(S, fCurrLine);
   until S = '';
+
+  // Save to debug
+  {DebugFile := TFileStream.Create('C:\' + fFileName + 'Tokens.txt', fmCreate);
+  try
+    for I := 0 to fTokenList.Count - 1 do begin
+      Buffer := IntToStr(PToken(fTokenList[i]).Line) + #9 + PToken(fTokenList[i]).Text + #13#10;
+
+      DebugFile.Write(Buffer[1], Length(Buffer));
+    end;
+  finally
+    DebugFile.Free;
+  end;}
 end;
 
 procedure TCppTokenizer.TokenizeStream(const FileName: AnsiString; Stream: TStream);

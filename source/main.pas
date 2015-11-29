@@ -30,8 +30,8 @@ uses
   Project, editor, DateUtils, compiler, ActnList, ToolFrm, AppEvnts,
   debugger, ClassBrowser, CodeCompletion, CppParser, CppTokenizer,
   StrUtils, SynEditTypes, devFileMonitor, devMonitorTypes, DdeMan, EditorList,
-  devShortcuts, debugreader, ExceptionFrm, CommCtrl, devcfg,
-  CppPreprocessor;
+  devShortcuts, debugreader, ExceptionFrm, CommCtrl, devcfg, SynEditTextBuffer,
+  CppPreprocessor, CBUtils, StatementList, FormatterOptionsFrm;
 {$ENDIF}
 {$IFDEF LINUX}
 SysUtils, Classes, QGraphics, QControls, QForms, QDialogs,
@@ -309,12 +309,11 @@ type
     mnuBrowserNewClass: TMenuItem;
     mnuBrowserNewMember: TMenuItem;
     mnuBrowserNewVariable: TMenuItem;
-    mnuBrowserSep3: TMenuItem;
     mnuBrowserViewMode: TMenuItem;
     mnuBrowserViewAll: TMenuItem;
     mnuBrowserViewCurrent: TMenuItem;
-    actBrowserGotoDecl: TAction;
-    actBrowserGotoImpl: TAction;
+    actBrowserGotoDeclaration: TAction;
+    actBrowserGotoDefinition: TAction;
     actBrowserNewClass: TAction;
     actBrowserNewMember: TAction;
     actBrowserNewVar: TAction;
@@ -328,10 +327,7 @@ type
     N31: TMenuItem;
     actBrowserAddFolder: TAction;
     actBrowserRemoveFolder: TAction;
-    mnuBrowserAddFolder: TMenuItem;
-    mnuBrowserRemoveFolder: TMenuItem;
     actBrowserRenameFolder: TAction;
-    mnuBrowserRenameFolder: TMenuItem;
     actCloseAllButThis: TAction;
     CloseAll1: TMenuItem;
     Closeallexceptthis1: TMenuItem;
@@ -538,6 +534,14 @@ type
     actOpenFolder1: TMenuItem;
     actGotoBreakPoint: TAction;
     Abortcompilation2: TMenuItem;
+    actToggleCommentInline: TAction;
+    actCommentInlineSel1: TMenuItem;
+    FormatMenu: TMenuItem;
+    actFormatCurrentFile: TAction;
+    FormatCurrentFile1: TMenuItem;
+    actFormatOptions: TAction;
+    actFormatOptions1: TMenuItem;
+    N46: TMenuItem;
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure FormDestroy(Sender: TObject);
     procedure ToggleBookmarkClick(Sender: TObject);
@@ -652,10 +656,10 @@ type
     procedure EditorPageControlDragOver(Sender, Source: TObject; X, Y: Integer; State: TDragState; var Accept:
       Boolean);
     procedure actGotoFunctionExecute(Sender: TObject);
-    procedure actBrowserGotoDeclUpdate(Sender: TObject);
-    procedure actBrowserGotoImplUpdate(Sender: TObject);
-    procedure actBrowserGotoDeclExecute(Sender: TObject);
-    procedure actBrowserGotoImplExecute(Sender: TObject);
+    procedure actBrowserGotoDeclarationUpdate(Sender: TObject);
+    procedure actBrowserGotoDefinitionUpdate(Sender: TObject);
+    procedure actBrowserGotoDeclarationExecute(Sender: TObject);
+    procedure actBrowserGotoDefinitionExecute(Sender: TObject);
     procedure actBrowserNewClassUpdate(Sender: TObject);
     procedure actBrowserNewMemberUpdate(Sender: TObject);
     procedure actBrowserNewVarUpdate(Sender: TObject);
@@ -666,10 +670,6 @@ type
     procedure actBrowserViewAllExecute(Sender: TObject);
     procedure actBrowserViewCurrentExecute(Sender: TObject);
     procedure actProfileExecute(Sender: TObject);
-    procedure actBrowserAddFolderExecute(Sender: TObject);
-    procedure actBrowserRemoveFolderExecute(Sender: TObject);
-    procedure actBrowserAddFolderUpdate(Sender: TObject);
-    procedure actBrowserRenameFolderExecute(Sender: TObject);
     procedure actCloseAllButThisExecute(Sender: TObject);
     procedure actStepLineExecute(Sender: TObject);
     procedure lvBacktraceCustomDrawItem(Sender: TCustomListView; Item: TListItem; State: TCustomDrawState; var
@@ -694,7 +694,7 @@ type
     procedure DevCppDDEServerExecuteMacro(Sender: TObject; Msg: TStrings);
     procedure actShowTipsExecute(Sender: TObject);
     procedure CppParserStartParsing(Sender: TObject);
-    procedure CppParserEndParsing(Sender: TObject);
+    procedure CppParserEndParsing(Sender: TObject; Total: Integer);
     procedure actBrowserViewProjectExecute(Sender: TObject);
     procedure actAbortCompilationUpdate(Sender: TObject);
     procedure actAbortCompilationExecute(Sender: TObject);
@@ -792,6 +792,10 @@ type
     procedure PageControlPanelResize(Sender: TObject);
     procedure actOpenFolderExecute(Sender: TObject);
     procedure actGotoBreakPointExecute(Sender: TObject);
+    procedure actToggleCommentInlineExecute(Sender: TObject);
+    procedure actToggleCommentInlineUpdate(Sender: TObject);
+    procedure actFormatCurrentFileExecute(Sender: TObject);
+    procedure actFormatOptionsExecute(Sender: TObject);
   private
     fPreviousHeight: integer; // stores MessageControl height to be able to restore to previous height
     fTools: TToolController; // tool list controller
@@ -831,7 +835,6 @@ type
     function PrepareForCompile(ForcedCompileTarget: TTarget = ctInvalid): Boolean;
     function PrepareForClean(ForcedCompileTarget: TTarget = ctInvalid): Boolean;
     procedure LoadTheme;
-    procedure ScanActiveProject;
     procedure CheckForDLLProfiling;
     procedure ProjectWindowClose(Sender: TObject; var Action: TCloseAction);
     procedure BuildOpenWith;
@@ -839,10 +842,11 @@ type
     procedure PrepareDebugger;
     procedure ClearCompileMessages;
     procedure ClearMessageControl;
+    procedure UpdateClassBrowsing;
   public
-    function GetCompileTarget: TTarget;
+    procedure ScanActiveProject;
     procedure UpdateCompilerList;
-    procedure UpdateClassBrowser;
+    function GetCompileTarget: TTarget;
     procedure UpdateAppTitle;
     procedure OpenCloseMessageSheet(Open: boolean);
     procedure OpenFile(const FileName: AnsiString);
@@ -1066,6 +1070,7 @@ begin
         FileList.Add(FileNameBuffer);
       end;
       OpenFileList(FileList);
+      Application.BringToFront;
     finally
       FileList.Free;
     end;
@@ -1160,6 +1165,7 @@ begin
   actComment.Caption := Lang[ID_ITEM_COMMENTSELECTION];
   actUncomment.Caption := Lang[ID_ITEM_UNCOMMENTSELECTION];
   actToggleComment.Caption := Lang[ID_ITEM_TOGGLECOMMENT];
+  actToggleCommentInline.Caption := Lang[ID_ITEM_TOGGLECOMMENTINLINE];
   actIndent.Caption := Lang[ID_ITEM_INDENTSELECTION];
   actUnindent.Caption := Lang[ID_ITEM_UNINDENTSELECTION];
   actCollapse.Caption := Lang[ID_ITEM_COLLAPSEALL];
@@ -1220,6 +1226,7 @@ begin
   actClean.Caption := Lang[ID_ITEM_CLEAN];
   actProfile.Caption := Lang[ID_ITEM_PROFILE];
   actDebug.Caption := Lang[ID_ITEM_DEBUG];
+  actGotoBreakPoint.Caption := Lang[ID_ITEM_GOTOBREAKPOINT];
   actBreakPoint.Caption := Lang[ID_ITEM_TOGGLEBREAK];
   actDeleteProfile.Caption := Lang[ID_ITEM_DELPROFINFORMATION];
   actAbortCompilation.Caption := Lang[ID_ITEM_ABORTCOMP];
@@ -1232,6 +1239,10 @@ begin
   actConfigdevShortcuts.Caption := Lang[ID_ITEM_SHORTCUTSCONFIG];
   actPackageCheck.Caption := Lang[ID_ITEM_UPDATECHECK];
   actPackageManager.Caption := Lang[ID_ITEM_PACKMAN];
+
+  // Formatter menu
+  actFormatCurrentFile.Caption := Lang[ID_FORMATTER_FORMATCURFILE];
+  actFormatOptions.Caption := Lang[ID_FORMATTER_MENU];
 
   // Window menu
   if devData.FullScreen then
@@ -1276,10 +1287,13 @@ begin
   // Editor popup
   actGotoDeclEditor.Caption := Lang[ID_POP_GOTODECL];
   actGotoImplEditor.Caption := Lang[ID_POP_GOTOIMPL];
+  actCloseAllButThis.Caption := Lang[ID_POP_CLOSEALLBUTTHIS];
+  actOpenFolder.Caption := Lang[ID_POP_OPENCONTAINING];
+  actAddToDo.Caption := Lang[ID_POP_ADDTODOITEM];
 
   // Class Browser Popup
-  actBrowserGotoDecl.Caption := Lang[ID_POP_GOTODECL];
-  actBrowserGotoImpl.Caption := Lang[ID_POP_GOTOIMPL];
+  actBrowserGotoDeclaration.Caption := Lang[ID_POP_GOTODECL];
+  actBrowserGotoDefinition.Caption := Lang[ID_POP_GOTOIMPL];
   actBrowserNewClass.Caption := Lang[ID_POP_NEWCLASS];
   actBrowserNewMember.Caption := Lang[ID_POP_NEWMEMBER];
   actBrowserNewVar.Caption := Lang[ID_POP_NEWVAR];
@@ -1349,11 +1363,12 @@ var
 begin
   e := fEditorList.GetEditor;
   if Assigned(e) then begin
-    Statusbar.Panels[0].Text := format(Lang[ID_STATUSBARPLUS], [e.Text.LineToUncollapsedLine(e.Text.DisplayY),
+    Statusbar.Panels[0].Text := Format(Lang[ID_STATUSBARPLUS],
+      [e.Text.CaretY,
       e.Text.DisplayX,
         e.Text.SelLength,
-        e.Text.UnCollapsedLines.Count,
-        e.Text.UnCollapsedLinesLength]);
+        e.Text.Lines.Count,
+        e.Text.Lines.GetTextLength]);
   end else begin
     StatusBar.Panels.BeginUpdate;
     try
@@ -1531,7 +1546,7 @@ begin
 
   // Parse it after is has been shown so the user will not see random unpainted stuff for a while.
   if not Assigned(fProject) then
-    CppParser.ReParseFile(e.FileName, e.InProject, True);
+    CppParser.ParseFile(e.FileName, e.InProject, True);
 end;
 
 procedure TMainForm.OpenFileList(List: TStringList);
@@ -2378,7 +2393,7 @@ end;
 procedure TMainForm.actEditorOptionsExecute(Sender: TObject);
 var
   I: integer;
-  e, e2: TEditor;
+  e1, e2: TEditor;
 begin
   with TEditorOptForm.Create(Self) do try
     if ShowModal = mrOk then begin
@@ -2386,29 +2401,24 @@ begin
       // Apply editor options
       dmMain.UpdateHighlighter;
       for I := 0 to EditorList.PageCount - 1 do begin
-        e := EditorList.Editors[i];
-        if Assigned(e) then begin
-          devEditor.AssignEditor(e.Text, e.FileName);
-          e.InitCompletion;
+        e1 := EditorList.Editors[i];
+        if Assigned(e1) then begin
+          devEditor.AssignEditor(e1.Text, e1.FileName);
+          e1.InitCompletion;
         end;
       end;
 
       // Repaint current editor to show new colors
-      fEditorList.GetVisibleEditors(e, e2);
-      if Assigned(e) then
-        e.Text.Repaint;
+      fEditorList.GetVisibleEditors(e1, e2);
+      if Assigned(e1) then
+        e1.Text.Repaint;
       if Assigned(e2) then
         e2.Text.Repaint;
 
       // Only do a lengthy reparse if completion options have changed
       if taCompletion in AccessedTabs then begin
-        UpdateClassBrowser;
+        UpdateClassBrowsing;
         ScanActiveProject;
-
-        // if there is no active editor, clear the class-browser
-        e := fEditorList.GetEditor;
-        if not Assigned(e) and (ClassBrowser.ShowFilter = sfCurrent) then
-          ClassBrowser.Clear;
       end;
     end;
   finally
@@ -2635,9 +2645,10 @@ end;
 procedure TMainForm.actProjectOptionsExecute(Sender: TObject);
 begin
   if Assigned(fProject) then begin
-    fProject.ShowOptions;
-    UpdateAppTitle;
-    UpdateCompilerList;
+    if fProject.ShowOptions = mrOk then begin
+      UpdateAppTitle;
+      UpdateCompilerList;
+    end;
   end;
 end;
 
@@ -2775,6 +2786,7 @@ begin
   // Determine what to run
   fCompiler.Project := nil;
   fCompiler.SourceFile := '';
+  fCompiler.CompilerSet := devCompilerSets.CompilationSet;
   if ForcedCompileTarget <> ctInvalid then
     fCompiler.Target := ForcedCompileTarget
   else
@@ -2811,11 +2823,11 @@ begin
   end;
 
   // Set PATH variable (not overriden by SetCurrentDir)
-  if Assigned(devCompilerSets.CurrentSet) then begin // should NOT be false
-    if devCompilerSets.CurrentSet.BinDir.Count > 0 then
-      SetPath(devCompilerSets.CurrentSet.BinDir[0])
+  if Assigned(devCompilerSets.CompilationSet) then begin // should NOT be false
+    if devCompilerSets.CompilationSet.BinDir.Count > 0 then
+      SetPath(devCompilerSets.CompilationSet.BinDir[0])
     else begin
-      LogEntryProc(Format(Lang[ID_LOG_NOBINDIRABORT], [devCompilerSets.CurrentSet.Name]));
+      LogEntryProc(Format(Lang[ID_LOG_NOBINDIRABORT], [devCompilerSets.CompilationSet.Name]));
       Exit; // returns false
     end;
   end;
@@ -2823,6 +2835,7 @@ begin
   // Determine what to compile
   fCompiler.Project := nil;
   fCompiler.SourceFile := '';
+  fCompiler.CompilerSet := devCompilerSets.CompilationSet;
   if ForcedCompileTarget <> ctInvalid then
     fCompiler.Target := ForcedCompileTarget
   else
@@ -2883,11 +2896,11 @@ begin
   end;
 
   // Set PATH variable (not overriden by SetCurrentDir)
-  if Assigned(devCompilerSets.CurrentSet) then begin // should NOT be false
-    if devCompilerSets.CurrentSet.BinDir.Count > 0 then
-      SetPath(devCompilerSets.CurrentSet.BinDir[0])
+  if Assigned(devCompilerSets.CompilationSet) then begin // should NOT be false
+    if devCompilerSets.CompilationSet.BinDir.Count > 0 then
+      SetPath(devCompilerSets.CompilationSet.BinDir[0])
     else begin
-      LogEntryProc(Format(Lang[ID_LOG_NOBINDIRABORT], [devCompilerSets.CurrentSet.Name]));
+      LogEntryProc(Format(Lang[ID_LOG_NOBINDIRABORT], [devCompilerSets.CompilationSet.Name]));
       Exit; // returns false
     end;
   end;
@@ -2895,6 +2908,7 @@ begin
   // Determine what to compile
   fCompiler.Project := nil;
   fCompiler.SourceFile := '';
+  fCompiler.CompilerSet := devCompilerSets.CompilationSet;
   if ForcedCompileTarget <> ctInvalid then
     fCompiler.Target := ForcedCompileTarget
   else
@@ -3061,7 +3075,7 @@ begin
       end;
     ctFile: begin
         // Check if we enabled proper options
-        with devCompilerSets.CurrentSet do begin
+        with devCompilerSets.CompilationSet do begin
           DebugEnabled := GetOption('-g3') <> '0';
           StripEnabled := GetOption('-s') <> '0';
         end;
@@ -3071,13 +3085,13 @@ begin
           mbNo], 0) = mrYes) then begin
 
           // Enable debugging, disable stripping
-          with devCompilerSets.CurrentSet do begin
+          with devCompilerSets.CompilationSet do begin
             SetOption('-g3', '1');
             SetOption('-s', '0');
           end;
 
           // Save changes to compiler set
-          devCompilerSets.SaveSet(devCompilerSets.CurrentIndex);
+          devCompilerSets.SaveSet(devCompilerSets.CompilationSetIndex);
 
           fCompSuccessAction := csaDebug;
           actRebuildExecute(nil);
@@ -3113,7 +3127,7 @@ begin
   end;
 
   // Add library folders
-  with devCompilerSets.CurrentSet do begin
+  with devCompilerSets.CompilationSet do begin
     for I := 0 to LibDir.Count - 1 do
       fDebugger.SendCommand('dir', '"' + StringReplace(LibDir[i], '\', '/', [rfReplaceAll]) + '"');
 
@@ -3196,7 +3210,7 @@ end;
 procedure TMainForm.actCompileUpdate(Sender: TObject);
 begin
   TCustomAction(Sender).Enabled := (not fCompiler.Compiling) and (GetCompileTarget <> ctNone) and
-    Assigned(devCompilerSets.CurrentSet);
+    Assigned(devCompilerSets.CompilationSet);
 end;
 
 procedure TMainForm.actUpdateProject(Sender: TObject);
@@ -3243,10 +3257,10 @@ procedure TMainForm.actCompileRunUpdate(Sender: TObject);
 begin
   if Assigned(fProject) then
     TCustomAction(Sender).Enabled := (fProject.Options.typ <> dptStat) and (not fCompiler.Compiling) and
-      (GetCompileTarget <> ctNone) and Assigned(devCompilerSets.CurrentSet)
+      (GetCompileTarget <> ctNone) and Assigned(devCompilerSets.CompilationSet)
   else
     TCustomAction(Sender).Enabled := (not fCompiler.Compiling) and (GetCompileTarget <> ctNone) and
-      Assigned(devCompilerSets.CurrentSet)
+      Assigned(devCompilerSets.CompilationSet)
 end;
 
 procedure TMainForm.ToolbarDockClick(Sender: TObject);
@@ -3563,14 +3577,11 @@ begin
 
       // Position the caret
       // uncollapse folds if needed
-      e.SetCaretPos(Line, Col);
+      e.SetCaretPosAndActivate(Line, Col);
 
       // Then select the word we searched for
       e.Text.SetSelWord;
       e.Text.CaretXY := e.Text.BlockBegin;
-
-      // And show to the user
-      e.Activate;
     end;
   end;
 end;
@@ -3789,12 +3800,12 @@ begin
       cmbCompilers.Items.Add(devCompilerSets[i].Name);
 
     // Select current compiler
-    case GetCompileTarget of
-      ctNone, ctFile:
-        cmbCompilers.ItemIndex := devCompilerSets.CurrentIndex;
-      ctProject:
-        cmbCompilers.ItemIndex := fProject.Options.CompilerSet;
-    end;
+    cmbCompilers.ItemIndex := devCompilerSets.CompilationSetIndex;
+
+    // Mention change to compiler sets
+    //devCompilerSets.OnCompilerSetChanged(
+    //  devCompilerSets[fOldCompilerToolbarIndex],
+    //  devCompilerSets[cmbCompilers.ItemIndex]);
 
     // Remember current index
     fOldCompilerToolbarIndex := cmbCompilers.ItemIndex;
@@ -3803,11 +3814,12 @@ begin
   end;
 end;
 
-procedure TMainForm.UpdateClassBrowser;
+procedure TMainForm.UpdateClassBrowsing;
 var
   I: integer;
 begin
-  CppParser.Reset(False);
+  // Configure parser
+  CppParser.Reset;
   CppParser.Tokenizer := CppTokenizer;
   CppParser.Preprocessor := CppPreprocessor;
   CppParser.Enabled := devCodeCompletion.Enabled;
@@ -3817,16 +3829,16 @@ begin
   CppParser.OnEndParsing := CppParserEndParsing;
   CppParser.OnTotalProgress := CppParserTotalProgress;
 
-  // Add the include dirs to the parser
-  if Assigned(devCompilerSets.CurrentSet) then
-    with devCompilerSets.CurrentSet do begin
+  // Set options depending on the current compiler set
+  // TODO: do this every time OnCompilerSetChanged
+  if Assigned(devCompilerSets.DefaultSet) then
+    with devCompilerSets.DefaultSet do begin
+      CppParser.ClearIncludePaths;
       for I := 0 to CDir.Count - 1 do
         CppParser.AddIncludePath(CDir[I]);
       for I := 0 to CppDir.Count - 1 do
         CppParser.AddIncludePath(CppDir[I]);
-
-      // Add default include dirs last, just like gcc does
-      for I := 0 to DefInclude.Count - 1 do
+      for I := 0 to DefInclude.Count - 1 do // Add default include dirs last, just like gcc does
         CppParser.AddIncludePath(DefInclude[I]); // TODO: retrieve those directories in devcfg
 
       // Set defines
@@ -3835,22 +3847,7 @@ begin
         CppParser.AddHardDefineByLine(Defines[i]); // predefined constants from -dM -E
     end;
 
-  // This takes up about 99% of our time
-  if devCodeCompletion.UseCacheFiles then begin
-    try
-      Application.ProcessMessages;
-      CppParser.Load(devDirs.Config + DEV_COMPLETION_CACHE, devDirs.Exec);
-    except
-      if MessageDlg(
-        Format(Lang[ID_ENV_CACHEFAIL], [devDirs.Config, ExcludeTrailingBackslash(devDirs.Config) + 'Backup' + pd]),
-        mtConfirmation, [mbYes, mbNo], 0) = mrYes then
-
-        // Remove and backup the current configuration directory.
-        RemoveOptionsDir(devDirs.Config);
-      TerminateProcess(GetCurrentProcess(), 1);
-    end;
-  end;
-
+  // Configure code completion
   CodeCompletion.Color := devCodeCompletion.BackColor;
   CodeCompletion.Width := devCodeCompletion.Width;
   CodeCompletion.Height := devCodeCompletion.Height;
@@ -3860,12 +3857,12 @@ begin
   try
     ClassBrowser.ShowFilter := TShowFilter(devClassBrowsing.ShowFilter);
     ClassBrowser.ShowInheritedMembers := devClassBrowsing.ShowInheritedMembers;
-    ClassBrowser.ClassFoldersFile := DEV_CLASSFOLDERS_FILE;
     ClassBrowser.TabVisible := LeftPageControl.ActivePageIndex = 1;
   finally
     ClassBrowser.EndUpdate;
   end;
 
+  // Configure class browser actions
   actBrowserViewAll.Checked := ClassBrowser.ShowFilter = sfAll;
   actBrowserViewProject.Checked := ClassBrowser.ShowFilter = sfProject;
   actBrowserViewCurrent.Checked := ClassBrowser.ShowFilter = sfCurrent;
@@ -3879,7 +3876,7 @@ var
   e: TEditor;
 begin
   with CppParser do begin
-    Reset(true);
+    Reset;
     if Assigned(fProject) then begin
       ProjectDir := fProject.Directory;
       for I := 0 to fProject.Units.Count - 1 do
@@ -3905,16 +3902,8 @@ var
 begin
   e := fEditorList.GetEditorFromFilename(FileName);
   if Assigned(e) then begin
-    e.SetCaretPos(Line, 1);
-    e.Activate;
+    e.SetCaretPosAndActivate(Line, 1);
   end;
-end;
-
-procedure TMainForm.CppParserTotalProgress(Sender: TObject; const FileName: string; Total, Current: Integer);
-begin
-  if FileName <> '' then
-    SetStatusBarMessage(Format(Lang[ID_PARSINGFILE], [Filename]));
-  Application.ProcessMessages;
 end;
 
 procedure TMainForm.CodeCompletionResize(Sender: TObject);
@@ -3946,25 +3935,31 @@ begin
   end;
 
   // Fetch the file we want to go to
-  ToEditor := fEditorList.GetEditorFromFileName(ToFile);
-  if Assigned(ToEditor) then begin
+  ToEditor := fEditorList.FileIsOpen(ToFile);
+  if Assigned(ToEditor) then
+    ToEditor.Activate
+  else begin
+    // We need to open a new editor
+    ToEditor := fEditorList.GetEditorFromFileName(ToFile);
+    if Assigned(ToEditor) then begin
 
-    // Move the editors next to each other if possible
-    // Do not try to do so if they are visible in separate editors
-    if FromEditor.PageControl = ToEditor.PageControl then begin
+      // Move the editors next to each other if possible
+      // Do not try to do so if they are visible in separate editors
+      if FromEditor.PageControl = ToEditor.PageControl then begin
 
-      // Move source file to the left of the header file
-      if iscfile then begin
-        ToEditor.TabSheet.PageIndex := min(FromEditor.PageControl.PageCount - 1, FromEditor.TabSheet.PageIndex + 1);
-      end else begin
-        ToEditor.TabSheet.PageIndex := max(0, FromEditor.TabSheet.PageIndex - 1);
+        // Move source file to the left of the header file
+        if iscfile then begin
+          ToEditor.TabSheet.PageIndex := min(FromEditor.PageControl.PageCount - 1, FromEditor.TabSheet.PageIndex + 1);
+        end else begin
+          ToEditor.TabSheet.PageIndex := max(0, FromEditor.TabSheet.PageIndex);
+        end;
       end;
+      ToEditor.Activate;
+    end else if iscfile then begin
+      SetStatusBarMessage(Lang[ID_MSG_CORRESPONDINGHEADER]);
+    end else if ishfile then begin
+      SetStatusBarMessage(Lang[ID_MSG_CORRESPONDINGSOURCE]);
     end;
-    ToEditor.Activate;
-  end else if iscfile then begin
-    SetStatusBarMessage(Lang[ID_MSG_CORRESPONDINGHEADER]);
-  end else if ishfile then begin
-    SetStatusBarMessage(Lang[ID_MSG_CORRESPONDINGSOURCE]);
   end;
 end;
 
@@ -4023,13 +4018,13 @@ begin
           end;
         1: begin // append UNIX timestamp (backup copy, don't update class browser)
             NewFileName := ChangeFileExt(e.FileName, '.' + IntToStr(DateTimeToUnix(Now)) + ExtractFileExt(e.FileName));
-            e.Text.UnCollapsedLines.SaveToFile(NewFileName);
+            e.Text.Lines.SaveToFile(NewFileName);
             SetStatusbarMessage(Format(Lang[ID_AUTOSAVEDFILEAS], [e.FileName, NewFileName]));
           end;
         2: begin // append formatted timestamp (backup copy, don't update class browser)
             NewFileName := ChangeFileExt(e.FileName, '.' + FormatDateTime('yyyy mm dd hh mm ss', Now) +
               ExtractFileExt(e.FileName));
-            e.Text.UnCollapsedLines.SaveToFile(NewFileName);
+            e.Text.Lines.SaveToFile(NewFileName);
             SetStatusbarMessage(Format(Lang[ID_AUTOSAVEDFILEAS], [e.FileName, NewFileName]));
           end;
       end;
@@ -4082,8 +4077,6 @@ end;
 
 procedure TMainForm.actConfigdevShortcutsExecute(Sender: TObject);
 begin
-  //if(devShortcuts.FileName[2] <> ':') then // if relative
-  //  devShortcuts.FileName := devdirs.Exec + devShortcuts.FileName;
   Shortcuts.Edit(
     Lang[ID_SC_CAPTION],
     Lang[ID_SC_HDRENTRY],
@@ -4234,11 +4227,10 @@ begin
     if ShowModal = mrOK then begin
       st := PStatement(lvEntries.Selected.Data);
       if Assigned(st) then begin
-        if st^._IsDeclaration then
-          e.SetCaretPos(st^._DeclImplLine, 1)
+        if st^._HasDefinition then
+          e.SetCaretPosAndActivate(st^._DefinitionLine, 1)
         else
-          e.SetCaretPos(st^._Line, 1);
-        e.Activate;
+          e.SetCaretPosAndActivate(st^._Line, 1);
       end;
     end;
   finally
@@ -4246,23 +4238,14 @@ begin
   end;
 end;
 
-procedure TMainForm.actBrowserGotoDeclUpdate(Sender: TObject);
+procedure TMainForm.actBrowserGotoDeclarationUpdate(Sender: TObject);
 begin
   TAction(Sender).Enabled := Assigned(ClassBrowser.Selected);
 end;
 
-procedure TMainForm.actBrowserGotoImplUpdate(Sender: TObject);
+procedure TMainForm.actBrowserGotoDefinitionUpdate(Sender: TObject);
 begin
-  if Assigned(ClassBrowser) and Assigned(ClassBrowser.Selected) and Assigned(ClassBrowser.Selected.Data) then
-
-    //check if node.data still in statements
-    if CppParser.Statements.IndexOf(ClassBrowser.Selected.Data) >= 0 then
-      TCustomAction(Sender).Enabled := (PStatement(ClassBrowser.Selected.Data)^._Kind <> skClass)
-    else begin
-      ClassBrowser.Selected.Data := nil;
-      TCustomAction(Sender).Enabled := False;
-    end else
-    TCustomAction(Sender).Enabled := False;
+  TAction(Sender).Enabled := Assigned(ClassBrowser.Selected);
 end;
 
 procedure TMainForm.actBrowserNewClassUpdate(Sender: TObject);
@@ -4272,38 +4255,18 @@ end;
 
 procedure TMainForm.actBrowserNewMemberUpdate(Sender: TObject);
 begin
-  if Assigned(ClassBrowser.Selected) and Assigned(ClassBrowser.Selected.Data) then begin
-
-    //check if node.data still in statements
-    if CppParser.Statements.IndexOf(ClassBrowser.Selected.Data) >= 0 then begin
-      TCustomAction(Sender).Enabled := (PStatement(ClassBrowser.Selected.Data)^._Kind = skClass);
-    end else begin
-      ClassBrowser.Selected.Data := nil;
-      TCustomAction(Sender).Enabled := False;
-    end;
-  end else begin
+  if Assigned(ClassBrowser.Selected) and Assigned(ClassBrowser.Selected.Data) then
+    TCustomAction(Sender).Enabled := (PStatement(ClassBrowser.Selected.Data)^._Kind = skClass)
+  else
     TCustomAction(Sender).Enabled := False;
-  end;
 end;
 
 procedure TMainForm.actBrowserNewVarUpdate(Sender: TObject);
 begin
-  if Assigned(ClassBrowser.Selected) and Assigned(ClassBrowser.Selected.Data) then begin
-    //check if node.data still in statements
-    if CppParser.Statements.IndexOf(ClassBrowser.Selected.Data) >= 0 then
-      TCustomAction(Sender).Enabled := (PStatement(ClassBrowser.Selected.Data)^._Kind = skClass)
-    else begin
-      ClassBrowser.Selected.Data := nil;
-      TCustomAction(Sender).Enabled := False;
-    end;
-  end else begin
+  if Assigned(ClassBrowser.Selected) and Assigned(ClassBrowser.Selected.Data) then
+    TCustomAction(Sender).Enabled := (PStatement(ClassBrowser.Selected.Data)^._Kind = skClass)
+  else
     TCustomAction(Sender).Enabled := False;
-  end;
-end;
-
-procedure TMainForm.actBrowserAddFolderUpdate(Sender: TObject);
-begin
-  TCustomAction(Sender).Enabled := Assigned(fProject);
 end;
 
 procedure TMainForm.actBrowserViewAllUpdate(Sender: TObject);
@@ -4311,37 +4274,39 @@ begin
   TCustomAction(Sender).Enabled := True;
 end;
 
-procedure TMainForm.actBrowserGotoDeclExecute(Sender: TObject);
+procedure TMainForm.actBrowserGotoDeclarationExecute(Sender: TObject);
 var
-  e: TEditor;
+  Editor: TEditor;
   Node: TTreeNode;
-  fname: AnsiString;
-  line: integer;
+  FileName: AnsiString;
+  Line: integer;
+  Statement: PStatement;
 begin
   Node := ClassBrowser.Selected;
-  fName := CppParser.GetDeclarationFileName(Node.Data);
-  line := CppParser.GetDeclarationLine(Node.Data);
-  e := fEditorList.GetEditorFromFileName(fname);
-  if Assigned(e) then begin
-    e.SetCaretPos(line, 1);
-    e.Activate;
+  Statement := PStatement(Node.Data);
+  FileName := Statement^._FileName;
+  Line := Statement^._Line;
+  Editor := fEditorList.GetEditorFromFileName(FileName);
+  if Assigned(Editor) then begin
+    Editor.SetCaretPosAndActivate(Line, 1);
   end;
 end;
 
-procedure TMainForm.actBrowserGotoImplExecute(Sender: TObject);
+procedure TMainForm.actBrowserGotoDefinitionExecute(Sender: TObject);
 var
-  e: TEditor;
+  Editor: TEditor;
   Node: TTreeNode;
-  fname: AnsiString;
-  line: integer;
+  FileName: AnsiString;
+  Line: integer;
+  Statement: PStatement;
 begin
   Node := ClassBrowser.Selected;
-  fName := CppParser.GetImplementationFileName(Node.Data);
-  line := CppParser.GetImplementationLine(Node.Data);
-  e := fEditorList.GetEditorFromFileName(fname);
-  if Assigned(e) then begin
-    e.SetCaretPos(line, 1);
-    e.Activate;
+  Statement := PStatement(Node.Data);
+  FileName := Statement^._DefinitionFileName;
+  Line := Statement^._DefinitionLine;
+  Editor := fEditorList.GetEditorFromFileName(FileName);
+  if Assigned(Editor) then begin
+    Editor.SetCaretPosAndActivate(Line, 1);
   end;
 end;
 
@@ -4467,7 +4432,7 @@ begin
       end;
     ctFile: begin
         // Check if we enabled proper options
-        with devCompilerSets.CurrentSet do begin
+        with devCompilerSets.CompilationSet do begin
           ProfilingEnabled := GetOption('-pg') <> '0';
           StripEnabled := GetOption('-s') <> '0';
         end;
@@ -4477,13 +4442,13 @@ begin
           0) = mrYes) then begin
 
           // Enable profiling, disable stripping
-          with devCompilerSets.CurrentSet do begin
+          with devCompilerSets.CompilationSet do begin
             SetOption('-pg', '1');
             SetOption('-s', '0');
           end;
 
           // Save changes to compiler set
-          devCompilerSets.SaveSet(devCompilerSets.CurrentIndex);
+          devCompilerSets.SaveSet(devCompilerSets.CompilationSetIndex);
 
           fCompSuccessAction := csaProfile;
           actRebuildExecute(nil);
@@ -4513,40 +4478,6 @@ begin
     actRunExecute(nil);
   end else begin // If the data is there, open up the form
     RunEndProc;
-  end;
-end;
-
-procedure TMainForm.actBrowserAddFolderExecute(Sender: TObject);
-var
-  S: AnsiString;
-  Node: TTreeNode;
-begin
-  if ClassBrowser.FolderCount >= MAX_CUSTOM_FOLDERS then begin
-    MessageDlg(Format(Lang[ID_POP_MAXFOLDERS], [MAX_CUSTOM_FOLDERS]), mtError, [mbOk], 0);
-    Exit;
-  end;
-
-  Node := ClassBrowser.Selected;
-  S := 'New folder';
-  if InputQuery(Lang[ID_POP_ADDFOLDER], Lang[ID_MSG_ADDBROWSERFOLDER], S) and (S <> '') then
-    ClassBrowser.AddFolder(S, Node);
-end;
-
-procedure TMainForm.actBrowserRemoveFolderExecute(Sender: TObject);
-begin
-  if Assigned(ClassBrowser.Selected) and (ClassBrowser.Selected.ImageIndex = ClassBrowser.ItemImages.Globals) then
-    if MessageDlg(Lang[ID_MSG_REMOVEBROWSERFOLDER], mtConfirmation, [mbYes, mbNo], 0) = mrYes then
-      ClassBrowser.RemoveFolder(ClassBrowser.Selected.Text);
-end;
-
-procedure TMainForm.actBrowserRenameFolderExecute(Sender: TObject);
-var
-  S: AnsiString;
-begin
-  if Assigned(ClassBrowser.Selected) and (ClassBrowser.Selected.ImageIndex = ClassBrowser.ItemImages.Globals) then begin
-    S := ClassBrowser.Selected.Text;
-    if InputQuery(Lang[ID_POP_RENAMEFOLDER], Lang[ID_MSG_RENAMEBROWSERFOLDER], S) and (S <> '') then
-      ClassBrowser.RenameFolder(ClassBrowser.Selected.Text, S);
   end;
 end;
 
@@ -4910,9 +4841,27 @@ begin
   fParseStartTime := GetTickCount;
 end;
 
-procedure TMainForm.CppParserEndParsing(Sender: TObject);
+procedure TMainForm.CppParserTotalProgress(Sender: TObject; const FileName: string; Total, Current: Integer);
 var
-  ParseTime: Cardinal;
+  ShowStep: Integer;
+begin
+  // Mention every 5% progress
+  ShowStep := Total div 20;
+
+  // For Total = 1, avoid division by zero
+  if ShowStep = 0 then
+    ShowStep := 1;
+
+  // Only show if needed (it's a very slow operation)
+  if (Current mod ShowStep = 0) or (Current = 1) then begin
+    SetStatusBarMessage(Format(Lang[ID_PARSINGFILECOUNT], [Current, Total, Filename]));
+    Application.ProcessMessages;
+  end;
+end;
+
+procedure TMainForm.CppParserEndParsing(Sender: TObject; Total: Integer);
+var
+  ParseTimeFloat, ParsingFrequency: Extended;
 begin
   Screen.Cursor := crDefault;
 
@@ -4923,11 +4872,15 @@ begin
   ClassBrowser.EndUpdate;
 
   // do this work only if this was the last file scanned
-  ParseTime := GetTickCount - fParseStartTime;
-  if ParseTime > 5000 then // 5 sec
-    SetStatusbarMessage(Format(Lang[ID_DONEPARSINGIN], [ParseTime / 1000]) + ', ' + Lang[ID_DONEPARSINGHINT])
-  else
-    SetStatusbarMessage(Format(Lang[ID_DONEPARSINGIN], [ParseTime / 1000])); // divide later to preserve comma stuff
+  ParseTimeFloat := (GetTickCount - fParseStartTime) / 1000;
+  if Total > 1 then begin
+    if ParseTimeFloat <> 0 then
+      ParsingFrequency := Total / ParseTimeFloat
+    else
+      ParsingFrequency := 999;
+    SetStatusbarMessage(Format(Lang[ID_DONEPARSINGINCOUNT], [Total, ParseTimeFloat, ParsingFrequency]))
+  end else
+    SetStatusbarMessage(Format(Lang[ID_DONEPARSINGIN], [ParseTimeFloat]));
 end;
 
 procedure TMainForm.UpdateAppTitle;
@@ -5321,6 +5274,7 @@ begin
     end;
   end else
     idx := item.Tag;
+
   e := fEditorList.FileIsOpen(fProject.Units[idx2].FileName, TRUE);
   if Assigned(e) then
     fEditorList.CloseEditor(e);
@@ -5342,97 +5296,95 @@ end;
 
 procedure TMainForm.RebuildClassesToolbar;
 var
-  I: integer;
-  st: PStatement;
+  Node: PStatementNode;
+  Statement: PStatement;
   OldSelection: AnsiString;
 begin
   OldSelection := cmbClasses.Text;
 
   cmbClasses.Items.BeginUpdate;
-  cmbClasses.Clear;
-  cmbClasses.Items.Add('(globals)');
+  try
+    cmbClasses.Clear;
 
-  for I := 0 to CppParser.Statements.Count - 1 do begin
-    st := PStatement(CppParser.Statements[I]);
-    if st^._InProject and (st^._Kind = skClass) then // skClass equals struct + typedef + class
-      cmbClasses.Items.AddObject(st^._ScopelessCmd, Pointer(st^._ID));
+    // Add globals list
+    cmbClasses.Items.AddObject('(globals)', nil);
+
+    // Add all classes inside the current project
+    Node := CppParser.Statements.FirstNode;
+    while Assigned(Node) do begin
+      Statement := Node^.Data;
+      if Statement^._InProject and (Statement^._Kind = skClass) then // skClass equals struct + typedef struct + class
+        cmbClasses.Items.AddObject(Statement^._Command, Pointer(Statement));
+      Node := Node^.NextNode;
+    end;
+
+    // if we can't find the old selection anymore (-> -1), default to 0 (globals)
+    cmbClasses.ItemIndex := max(0, cmbClasses.Items.IndexOf(OldSelection));
+    cmbClassesChange(cmbClasses);
+  finally
+    cmbClasses.Items.EndUpdate;
   end;
-
-  cmbClasses.Items.EndUpdate;
-
-  // if we can't find the old selection anymore (-> -1), default to 0 (globals)
-  cmbClasses.ItemIndex := max(0, cmbClasses.Items.IndexOf(OldSelection));
-  cmbClassesChange(cmbClasses);
 end;
 
 procedure TMainForm.cmbClassesChange(Sender: TObject);
 var
-  I, ParentID: integer;
-  st: PStatement;
+  Node: PStatementNode;
+  Statement, ParentStatement: PStatement;
+  procedure AddStatementKind(AddKind: TStatementKind);
+  begin
+    Node := CppParser.Statements.FirstNode;
+    while Assigned(Node) do begin
+      Statement := Node^.Data;
+      if (Statement^._Parent = ParentStatement) and Statement^._InProject and (Statement^._Kind = AddKind) then
+        cmbMembers.Items.AddObject(CppParser.StatementKindStr(AddKind) + ' ' + Statement^._Command + Statement^._Args +
+          ' : ' + Statement^._Type,
+          Pointer(Statement));
+      Node := Node^.NextNode;
+    end;
+  end;
 begin
   cmbMembers.Items.BeginUpdate;
-  cmbMembers.Clear;
+  try
+    cmbMembers.Clear;
 
-  // Support '(globals)'
-  if cmbClasses.ItemIndex > 0 then
-    ParentID := Integer(cmbClasses.Items.Objects[cmbClasses.ItemIndex])
-  else if cmbClasses.ItemIndex = 0 then // '(globals)'
-    ParentID := -1
-  else begin // -1?
+    // Select what parent we need to display info for
+    if cmbClasses.ItemIndex > 0 then
+      ParentStatement := PStatement(cmbClasses.Items.Objects[cmbClasses.ItemIndex]) // any class
+    else if cmbClasses.ItemIndex = 0 then
+      ParentStatement := nil // '(globals)'
+    else
+      Exit; // -1?
+
+    // Show functions that belong to this scope or class/struct
+    AddStatementKind(skConstructor);
+    AddStatementKind(skDestructor);
+    AddStatementKind(skFunction);
+  finally
     cmbMembers.Items.EndUpdate;
-    Exit;
   end;
-
-  // If we selected a class
-  if (ParentID <> -1) and (PStatement(CppParser.Statements[CppParser.IndexOfStatement(ParentID)])^._Type = 'class') then
-    begin
-
-    // Don't allow variables of classes
-    for I := 0 to CppParser.Statements.Count - 1 do begin
-      st := PStatement(CppParser.Statements[I]);
-      if (st^._ParentID = ParentID) and st^._InProject and (st^._Kind in [skConstructor, skDestructor, skFunction]) then
-        cmbMembers.Items.AddObject(st^._ScopelessCmd + st^._Args + ' : ' + st^._Type, Pointer(I));
-    end;
-  end else begin
-
-    // Allow variables of (globals) and structs
-    for I := 0 to CppParser.Statements.Count - 1 do begin
-      st := PStatement(CppParser.Statements[I]);
-      if (st^._ParentID = ParentID) and st^._InProject and (st^._Type <> '') then // Skip defines too
-        cmbMembers.Items.AddObject(st^._ScopelessCmd + st^._Args + ' : ' + st^._Type, Pointer(I));
-    end;
-  end;
-
-  cmbMembers.Items.EndUpdate;
 end;
 
 procedure TMainForm.cmbMembersChange(Sender: TObject);
 var
-  I: integer;
-  st: PStatement;
+  Statement: PStatement;
+  Line: Integer;
   e: TEditor;
-  fname: AnsiString;
+  FileName: AnsiString;
 begin
   if cmbMembers.ItemIndex = -1 then // sometimes happens too?
     Exit;
 
-  I := Integer(cmbMembers.Items.Objects[cmbMembers.ItemIndex]);
-  st := PStatement(CppParser.Statements[I]);
-  if not Assigned(st) then
+  Statement := PStatement(cmbMembers.Items.Objects[cmbMembers.ItemIndex]);
+  if not Assigned(Statement) then
     Exit;
 
-  if st^._IsDeclaration then begin
-    I := st^._DeclImplLine;
-    fname := st^._DeclImplFileName;
-  end else begin
-    I := st^._Line;
-    fname := st^._FileName;
-  end;
+  // Go to definition if applicable
+  Line := Statement^._DefinitionLine;
+  FileName := Statement^._DefinitionFileName;
 
-  e := fEditorList.GetEditorFromFilename(fname);
+  e := fEditorList.GetEditorFromFilename(FileName);
   if Assigned(e) then begin
-    e.SetCaretPos(I, 1);
-    e.Activate;
+    e.SetCaretPosAndActivate(Line, 1);
   end;
 end;
 
@@ -5646,7 +5598,7 @@ begin
     // When searching using ctrl+click, the cursor is set properly too, so do NOT use WordAtMouse
     M := TMemoryStream.Create;
     try
-      e.Text.UnCollapsedLines.SaveToStream(M);
+      e.Text.Lines.SaveToStream(M);
       statement := CppParser.FindStatementOf(
         e.FileName,
         phrase, e.Text.CaretY, M);
@@ -5661,13 +5613,13 @@ begin
       if Sender = e then begin // Ctrl+Click from current editor
 
         // Switching between declaration and definition
-        if (e.Text.CaretY = statement^._DeclImplLine) and SameStr(e.FileName, statement^._DeclImplFileName) then
-          begin // clicked on implementation
+        if (e.Text.CaretY = statement^._DefinitionLine) and SameFileName(e.FileName, statement^._DefinitionFileName) then
+          begin // clicked on declaration, move to definition
           filename := statement^._FileName;
           line := statement^._Line;
-        end else begin // clicked anywhere, go to implementation
-          filename := statement^._DeclImplFileName;
-          line := statement^._DeclImplLine;
+        end else begin // clicked anywhere, go to declaration
+          filename := statement^._DefinitionFileName;
+          line := statement^._DefinitionLine;
         end;
 
         // Menu item or mouse cursor
@@ -5678,16 +5630,15 @@ begin
           filename := statement^._FileName;
           line := statement^._Line;
         end else begin
-          filename := statement^._DeclImplFileName;
-          line := statement^._DeclImplLine;
+          filename := statement^._DefinitionFileName;
+          line := statement^._DefinitionLine;
         end;
       end;
 
       // Go to the location
       e := fEditorList.GetEditorFromFileName(filename);
       if Assigned(e) then begin
-        e.SetCaretPos(line, 1);
-        e.Activate;
+        e.SetCaretPosAndActivate(line, 1);
       end;
 
       SetStatusbarMessage('');
@@ -6024,10 +5975,9 @@ begin
   // Load bookmarks, captions and hints
   LoadText;
 
+  // Load the current compiler set
   UpdateSplash(Lang[ID_LOAD_COMPILERSET]);
-
-  // Load the current compiler set (needs translations)
-  devCompilerSets.LoadSets;
+  devCompilerSets.LoadSets; // SLOWWWW
 
   // Update toolbar
   UpdateCompilerList;
@@ -6044,10 +5994,11 @@ begin
     end;
   end;
 
+  // Configure parser, code completion, class browser
   UpdateSplash(Lang[ID_LOAD_INITCLASSBROWSER]);
+  UpdateClassBrowsing;
 
-  UpdateClassBrowser;
-
+  // Show the window to the user
   UpdateSplash(Lang[ID_LOAD_RESTOREWINDOW]);
 
   // Showing for the first time? Maximize
@@ -6128,50 +6079,46 @@ end;
 procedure TMainForm.FormShow(Sender: TObject);
 var
   I: integer;
+  FileList: TStringList;
 begin
-  if fFirstShow then begin
-    fFirstShow := false;
+  if not fFirstShow then
+    Exit;
 
-    // Below a possible fix for the disappearing of controls in MessageControl is given:
-    // Toggle visibility of bottom page control here.
-    // If we do this in OnShow, it messes with alignment options
-    OpenCloseMessageSheet(False);
+  fFirstShow := false;
 
-    // Open files passed to us (HAS to be done at FormShow)
-    ClassBrowser.BeginUpdate;
-    try
-      i := 1;
-      fShowTips := true;
-      while I <= ParamCount do begin
+  // Below a possible fix for the disappearing of controls in MessageControl is given:
+  // Toggle visibility of bottom page control here.
+  // If we do this in OnCreate, it messes with alignment options
+  OpenCloseMessageSheet(False);
 
-        // Skip the configuration redirect stuff
-        if ParamStr(i) = '-c' then
-          i := i + 2;
+  // Open files passed to us (HAS to be done at FormShow)
+  FileList := TStringList.Create;
+  try
+    I := 1;
+    fShowTips := true;
+    while I <= ParamCount do begin
 
-        // Open the files passed to Dev-C++
-        if FileExists(ParamStr(i)) then begin
-          if GetFileTyp(ParamStr(i)) = utPrj then begin
-            fShowTips := false; // don't show tips when opening files
-            OpenProject(ParamStr(i));
-            break; // only open 1 project
-          end else begin
-            fShowTips := false; // don't show tips when opening files
-            OpenFile(ParamStr(i));
-          end;
-        end;
-        inc(i);
+      // Skip the configuration redirect stuff
+      if ParamStr(i) = '-c' then begin
+        I := I + 2;
+        Continue;
       end;
-    finally
-      ClassBrowser.EndUpdate;
+
+      FileList.Add(ParamStr(i));
+      Inc(I);
     end;
 
-    // Update after opening files
-    UpdateAppTitle;
+    // Open them according to OpenFileList rules
+    OpenFileList(FileList);
+    if FileList.Count = 0 then
+      UpdateAppTitle;
 
     // do not show tips if Dev-C++ is launched with a file and only slow
     // when the form shows for the first time, not when going fullscreen too
-    if devData.ShowTipsOnStart and fShowTips then
+    if devData.ShowTipsOnStart and (FileList.Count = 0) then
       actShowTips.Execute;
+  finally
+    FileList.Free;
   end;
 end;
 
@@ -6433,6 +6380,7 @@ var
       Exit;
     end;
 
+    // Notify project
     // Discard changes made to the old set...
     fProject.Options.CompilerSet := index;
     fProject.Options.CompilerOptions := devCompilerSets[index].OptionString;
@@ -6441,7 +6389,8 @@ var
 
   procedure ChangeNonProjectCompilerSet;
   begin
-    devCompilerSets.CurrentIndex := index;
+    // Notify compiler list
+    devCompilerSets.DefaultSetIndex := index;
     devCompilerSets.SaveSetList;
   end;
 begin
@@ -6466,6 +6415,11 @@ begin
   end else begin
     ChangeNonProjectCompilerSet;
   end;
+
+  // Mention change to compiler sets
+  //devCompilerSets.OnCompilerSetChanged(
+  //  devCompilerSets[fOldCompilerToolbarIndex],
+  //  devCompilerSets[index]);
 
   fOldCompilerToolbarIndex := index;
 end;
@@ -6625,6 +6579,56 @@ begin
       e.GotoActiveBreakpoint;
       e.Activate;
     end;
+  end;
+end;
+
+procedure TMainForm.actToggleCommentInlineExecute(Sender: TObject);
+var
+  e: TEditor;
+begin
+  e := fEditorList.GetEditor;
+  if Assigned(e) then
+    e.Text.CommandProcessor(ecCommentInline, #0, nil);
+end;
+
+procedure TMainForm.actToggleCommentInlineUpdate(Sender: TObject);
+var
+  e: TEditor;
+begin
+  e := fEditorList.GetEditor;
+  TCustomAction(Sender).Enabled := Assigned(e) and e.Text.SelAvail;
+end;
+
+procedure TMainForm.actFormatCurrentFileExecute(Sender: TObject);
+var
+  e: TEditor;
+  OldCaretXY: TBufferCoord;
+  OldTopLine: integer;
+begin
+  if devFormatter.Validate then begin
+    e := fEditorList.GetEditor;
+    if Assigned(e) then begin
+      // Save for undo list creation
+      OldTopLine := e.Text.TopLine;
+      OldCaretXY := e.Text.CaretXY;
+
+      devFormatter.FormatMemory(e, devFormatter.FullCommand);
+
+      // Attempt to not scroll view
+      e.Text.TopLine := OldTopLine;
+      e.Text.CaretXY := OldCaretXY;
+    end;
+  end else
+    MessageDlg(Lang[ID_FORMATTER_NOTVALID], mtWarning, [mbOK], 0);
+end;
+
+procedure TMainForm.actFormatOptionsExecute(Sender: TObject);
+begin
+  with TFormatterOptionsForm.Create(Self) do try
+    if ShowModal = mrOk then begin
+    end;
+  finally
+    Free;
   end;
 end;
 

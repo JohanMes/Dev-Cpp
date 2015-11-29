@@ -3,7 +3,7 @@
 
 !define COMPILERNAME "TDM-GCC 4.8.1"
 !define COMPILERFOLDER "MinGW64"
-!define DEVCPP_VERSION "5.8.3"
+!define DEVCPP_VERSION "5.9.0"
 !define FINALNAME "Dev-Cpp ${DEVCPP_VERSION} ${COMPILERNAME} Setup.exe"
 !define DISPLAY_NAME "Dev-C++ ${DEVCPP_VERSION}"
 
@@ -102,6 +102,7 @@ Section "Dev-C++ program files (required)" SectionMain
   
   ; Write required files
   File "devcpp.exe"
+  File "devcppPortable.exe"
   File "devcpp.map"
   File "packman.exe"
   File "Packman.map"

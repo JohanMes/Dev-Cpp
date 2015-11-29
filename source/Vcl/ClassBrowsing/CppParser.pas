@@ -23,99 +23,35 @@ interface
 
 uses
 {$IFDEF WIN32}
-  Dialogs, Windows, Classes, SysUtils, StrUtils, ComCtrls, IntList, CppTokenizer, CppPreprocessor, cbutils;
+  Dialogs, Windows, Classes, SysUtils, StrUtils, ComCtrls, StatementList, IntList, CppTokenizer, CppPreprocessor,
+  cbutils;
 {$ENDIF}
 {$IFDEF LINUX}
 QDialogs, Classes, SysUtils, StrUtils, QComCtrls, U_IntList, CppTokenizer;
 {$ENDIF}
 
 type
-  TStatementKind = (
-    skClass,
-    skFunction,
-    skConstructor,
-    skDestructor,
-    skVariable,
-    skTypedef,
-    skEnum,
-    skPreprocessor,
-    skUnknown
-    );
-  TStatementKindSet = set of TStatementKind;
-
-  TStatementScope = (
-    ssGlobal,
-    ssLocal,
-    ssClassLocal
-    );
-
-  TStatementClassScope = (
-    scsPublic,
-    scsPrivate,
-    scsProtected,
-    scsNone
-    );
-
-  PStatement = ^TStatement;
-  TStatement = record
-    _ID: integer;
-    _ParentID: integer;
-    _FullText: AnsiString;
-    _Type: AnsiString;
-    _Args: AnsiString;
-    _ScopelessCmd: AnsiString;
-    _ScopeCmd: AnsiString;
-    _Kind: TStatementKind;
-    _InheritsFromIDs: AnsiString; // list of inheriting IDs, in comma-separated AnsiString form
-    _InheritsFromClasses: AnsiString; // list of inheriting class names, in comma-separated AnsiString form
-    _Scope: TStatementScope;
-    _ClassScope: TStatementClassScope;
-    _IsDeclaration: boolean;
-    _DeclImplLine: integer;
-    _Line: integer;
-    _DeclImplFileName: AnsiString;
-    _FileName: AnsiString;
-    _Visible: boolean;
-    _Temporary: boolean;
-    _Loaded: boolean;
-    _InProject: boolean;
-    _InSystemHeader: boolean;
-  end;
-
-  POutstandingTypedef = ^TOutstandingTypedef;
-  TOutstandingTypedef = record
-    _WaitForTypedef: AnsiString;
-    _ExistingID: integer;
-  end;
-
   TCppParser = class(TComponent)
   private
     fEnabled: boolean;
-    fNextID: integer;
-    fScannedBaseIndex: integer; // keep count of cache files
-    fBaseIndex: integer;
-    fLevel: integer;
     fIndex: integer;
     fIsHeader: boolean;
     fIsSystemHeader: boolean;
     fCurrentFile: AnsiString;
-    fLastID: integer;
-    fCurrentClass: TIntList;
+    fCurrentClass: TList; // list of lists
     fSkipList: TIntList;
-    fCurrentClassLevel: TIntList;
     fClassScope: TStatementClassScope;
-    fStatementList: TList;
-    fOutstandingTypedefs: TList;
+    fStatementList: TStatementList;
     fIncludesList: TList;
     fTokenizer: TCppTokenizer;
     fPreprocessor: TCppPreprocessor;
     fIncludePaths: TStringList;
     fProjectIncludePaths: TStringList;
     fProjectFiles: TStringList;
-    fFilesToScan: TStringList;
+    fFilesToScan: TStringList; // list of base files to scan
+    fFilesScannedCount: Integer; // count of files that have been scanned
+    fFilesToScanCount: Integer; // count of files and files included in files that have to be scanned
     fScannedFiles: TStringList;
-    fFileIncludes: TStringList;
-    fCacheContents: TStringList;
     fParseLocalHeaders: boolean;
     fParseGlobalHeaders: boolean;
     fProjectDir: AnsiString;
@@ -124,56 +60,72 @@ type
     fOnTotalProgress: TProgressEvent;
     fLaterScanning: boolean;
     fOnStartParsing: TNotifyEvent;
-    fOnEndParsing: TNotifyEvent;
+    fOnEndParsing: TProgressEndEvent;
     fIsProjectFile: boolean;
-    fInvalidatedIDs: TIntList;
-    function AddStatement(
-      ID: integer;
-      ParentID: integer;
+    fInvalidatedStatements: TList;
+    fPendingDeclarations: TList;
+    function AddChildStatements(// support for multiple parents
+      Parents: TList;
       const FileName: AnsiString;
-      const FullText: AnsiString;
-      const _Type: AnsiString; // "Type" is already in use
-      const ScopeCmd: AnsiString;
+      const HintText: AnsiString;
+      const aType: AnsiString; // "Type" is already in use
+      const Command: AnsiString;
       const Args: AnsiString;
       Line: integer;
       Kind: TStatementKind;
       Scope: TStatementScope;
       ClassScope: TStatementClassScope;
       Visible: boolean;
-      AllowDuplicate: boolean;
-      IsDeclaration: boolean): integer;
+      FindDeclaration: boolean;
+      IsDefinition: boolean): PStatement; // TODO: InheritanceList not supported
+    function AddStatement(
+      Parent: PStatement;
+      const FileName: AnsiString;
+      const HintText: AnsiString;
+      const aType: AnsiString; // "Type" is already in use
+      const Command: AnsiString;
+      const Args: AnsiString;
+      Line: integer;
+      Kind: TStatementKind;
+      Scope: TStatementScope;
+      ClassScope: TStatementClassScope;
+      Visible: boolean;
+      FindDeclaration: boolean;
+      IsDefinition: boolean;
+      InheritanceList: TList): PStatement;
     function IsSystemHeaderFile(const FileName: AnsiString): boolean;
-    function GetCurrentClass: integer;
-    procedure SetInheritance(Index: integer);
-    procedure SetCurrentClass(ID: integer);
-    procedure RemoveCurrentClass;
+    procedure SetInheritance(Index: integer; ClassStatement: PStatement);
+    function GetLastCurrentClass: PStatement; // gets last item from lastt level
+    function GetCurrentClassLevel: TList;
+    function IsInCurrentClassLevel(const Command: AnsiString): PStatement;
+    procedure AddSoloClassLevel(Statement: PStatement); // adds new solo level
+    procedure AddMultiClassLevel(StatementList: TList); // adds new multi level
+    procedure RemoveClassLevel; // removes level
     procedure CheckForSkipStatement;
     function SkipBraces(StartAt: integer): integer;
     function CheckForPreprocessor: boolean;
     function CheckForKeyword: boolean;
-    function CheckForMember: boolean;
+
     function CheckForTypedef: boolean;
     function CheckForTypedefEnum: boolean;
     function CheckForTypedefStruct: boolean;
     function CheckForStructs: boolean;
-    function CheckForMethod(var sType, sName, sArgs: AnsiString): boolean;
+    function CheckForMethod(var sType, sName, sArgs: AnsiString): boolean; // caching of results
     function CheckForScope: boolean;
     function CheckForVar: boolean;
     function CheckForEnum: boolean;
     function GetScope: TStatementScope;
     procedure HandlePreprocessor;
-    procedure HandleMember;
     procedure HandleOtherTypedefs;
     procedure HandleStructs(IsTypedef: boolean = False);
     procedure HandleMethod(const sType, sName, sArgs: AnsiString);
-    procedure ScanMethodArgs(const ArgStr: AnsiString; const Filename: AnsiString; Line, ClassID: integer);
+    procedure ScanMethodArgs(const ArgStr: AnsiString; const Filename: AnsiString; Line: Integer);
     procedure HandleScope;
     procedure HandleKeyword;
     procedure HandleVar;
     procedure HandleEnum;
     function HandleStatement: boolean;
-    procedure Parse(const FileName: AnsiString; ManualUpdate: boolean = False; processInh: boolean = True; Stream:
-      TMemoryStream = nil);
+    procedure Parse(const FileName: AnsiString; ManualUpdate: boolean = False; Stream: TMemoryStream = nil);
     procedure DeleteTemporaries;
     function FindFileIncludes(const Filename: AnsiString; DeleteIt: boolean = False): PFileIncludes;
   public
@@ -185,67 +137,57 @@ type
     function IsCfile(const Filename: AnsiString): boolean;
     function IsHfile(const Filename: AnsiString): boolean;
     procedure GetSourcePair(const FName: AnsiString; var CFile, HFile: AnsiString);
-    function GetImplementationLine(Statement: PStatement): integer;
-    function GetImplementationFileName(Statement: PStatement): AnsiString;
-    function GetDeclarationLine(Statement: PStatement): integer;
-    function GetDeclarationFileName(Statement: PStatement): AnsiString;
-    procedure GetClassesList(var List: TStrings);
-    function SuggestMemberInsertionLine(ParentID: integer; Scope: TStatementClassScope; var AddScopeStr: boolean):
+    procedure GetClassesList(var List: TStringList);
+    function SuggestMemberInsertionLine(ParentStatement: PStatement; Scope: TStatementClassScope; var AddScopeStr:
+      boolean):
       integer;
     function GetSystemHeaderFileName(const FileName: AnsiString): AnsiString; // <file.h>
     function GetLocalHeaderFileName(const RelativeTo, FileName: AnsiString): AnsiString; // "file.h"
     function GetHeaderFileName(const RelativeTo, Line: AnsiString): AnsiString; // both
     function IsIncludeLine(const Line: AnsiString): boolean;
-    procedure Load(const FileName: AnsiString; const relativeto: AnsiString);
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
     procedure ParseList;
-    procedure ReParseFile(const FileName: AnsiString; InProject: boolean; OnlyIfNotParsed: boolean = False; UpdateView:
+    procedure ParseFile(const FileName: AnsiString; InProject: boolean; OnlyIfNotParsed: boolean = False; UpdateView:
       boolean = True; Stream: TMemoryStream = nil);
     function StatementKindStr(Value: TStatementKind): AnsiString;
     function StatementClassScopeStr(Value: TStatementClassScope): AnsiString;
-    function CheckIfCommandExists(const ScopelessCmd: AnsiString; Kind: TStatementKind; ParentID: integer): integer;
-    procedure Reset(KeepLoaded: boolean = True);
+    function GetIncompleteClass(const Command: AnsiString): PStatement;
+    function FetchPendingDeclaration(const Command, Args: AnsiString; Kind: TStatementKind; Parent: PStatement):
+      PStatement;
+    procedure Reset;
     procedure ClearIncludePaths;
     procedure ClearProjectIncludePaths;
     procedure AddIncludePath(const Value: AnsiString);
     procedure AddProjectIncludePath(const Value: AnsiString);
     procedure AddFileToScan(Value: AnsiString; InProject: boolean = False);
-    procedure Save(const FileName: AnsiString; const relativeto: AnsiString);
-    procedure PostProcessInheritance;
     procedure ReProcessInheritance;
-    function IndexOfStatement(ID: integer): integer;
-    function Locate(const Full: AnsiString; WithScope: boolean): PStatement;
-    function PrettyPrintStatement(st: PStatement): AnsiString;
+    function PrettyPrintStatement(Statement: PStatement): AnsiString;
     procedure FillListOfFunctions(const Full: AnsiString; List: TStringList);
     function FindAndScanBlockAt(const Filename: AnsiString; Row: integer; Stream: TMemoryStream): PStatement;
     function FindStatementOf(FileName, Phrase: AnsiString; Row: integer; Stream: TMemoryStream): PStatement; overload;
     function FindStatementOf(Phrase: AnsiString; CurrentClass: PStatement): PStatement; overload;
     function FindVariableOf(const Phrase: AnsiString; CurrentClass: PStatement): PStatement;
-    function FindTypeStatementOf(const aType: AnsiString; CurrentClass: PStatement; MaxSearchIndex: integer = -1):
-      PStatement;
+    function FindTypeDefinitionOf(const aType: AnsiString; CurrentClass: PStatement): PStatement;
     function GetClass(const Phrase: AnsiString): AnsiString;
     function GetMember(const Phrase: AnsiString): AnsiString;
     function GetOperator(const Phrase: AnsiString): AnsiString;
     function FindLastOperator(const Phrase: AnsiString): integer;
-    procedure GetInheritanceIDs(st: PStatement; List: TIntList); overload;
-    procedure GetInheritanceIDs(index: Integer; List: TIntList); overload;
+    procedure GetMultipleInheritanceStatements(Statement: PStatement; List: TList);
   published
-    property BaseIndex: integer read fBaseIndex write fBaseIndex;
     property Enabled: boolean read fEnabled write fEnabled;
     property OnUpdate: TNotifyEvent read fOnUpdate write fOnUpdate;
     property OnBusy: TNotifyEvent read fOnBusy write fOnBusy;
     property OnTotalProgress: TProgressEvent read fOnTotalProgress write fOnTotalProgress;
     property Tokenizer: TCppTokenizer read fTokenizer write fTokenizer;
     property Preprocessor: TCppPreprocessor read fPreprocessor write fPreprocessor;
-    property Statements: TList read fStatementList write fStatementList;
+    property Statements: TStatementList read fStatementList write fStatementList;
     property ParseLocalHeaders: boolean read fParseLocalHeaders write fParseLocalHeaders;
     property ParseGlobalHeaders: boolean read fParseGlobalHeaders write fParseGlobalHeaders;
     property ScannedFiles: TStringList read fScannedFiles;
-    property CacheContents: TStringList read fCacheContents;
     property ProjectDir: AnsiString read fProjectDir write fProjectDir;
     property OnStartParsing: TNotifyEvent read fOnStartParsing write fOnStartParsing;
-    property OnEndParsing: TNotifyEvent read fOnEndParsing write fOnEndParsing;
+    property OnEndParsing: TProgressEndEvent read fOnEndParsing write fOnEndParsing;
     property FilesToScan: TStringList read fFilesToScan;
   end;
 
@@ -254,7 +196,7 @@ procedure Register;
 implementation
 
 uses
-  DateUtils;
+  DateUtils, IniFiles;
 
 procedure Register;
 begin
@@ -264,19 +206,16 @@ end;
 constructor TCppParser.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  fStatementList := TList.Create;
-  fOutstandingTypedefs := TList.Create;
+  fStatementList := TStatementList.Create; // owns the objects
   fIncludesList := TList.Create;
   fFilesToScan := TStringList.Create;
   fScannedFiles := TStringList.Create;
   fIncludePaths := TStringList.Create;
   fProjectIncludePaths := TStringList.Create;
-  fFileIncludes := TStringList.Create;
-  fCacheContents := TStringList.Create;
   fProjectFiles := TStringList.Create;
-  fInvalidatedIDs := TIntList.Create;
-  fCurrentClass := TIntList.Create; // create once, then reuse
-  fCurrentClassLevel := TIntList.Create;
+  fInvalidatedStatements := TList.Create;
+  fPendingDeclarations := TList.Create;
+  fCurrentClass := TList.Create;
   fSkipList := TIntList.Create;
   fParseLocalHeaders := False;
   fParseGlobalHeaders := False;
@@ -286,9 +225,9 @@ destructor TCppParser.Destroy;
 var
   i: Integer;
 begin
-  FreeAndNil(fInvalidatedIDs);
+  FreeAndNil(fPendingDeclarations);
+  FreeAndNil(fInvalidatedStatements);
   FreeAndNil(fCurrentClass);
-  FreeAndNil(fCurrentClassLevel);
   FreeAndNil(fSkipList);
   FreeAndNil(fProjectFiles);
 
@@ -296,20 +235,11 @@ begin
     Dispose(PFileIncludes(fIncludesList.Items[i]));
   FreeAndNil(fIncludesList);
 
-  for i := 0 to fOutstandingTypedefs.Count - 1 do
-    Dispose(POutstandingTypedef(fOutstandingTypedefs.Items[i]));
-  FreeAndNil(fOutstandingTypedefs);
-
-  for i := 0 to fStatementList.Count - 1 do
-    Dispose(PStatement(fStatementList.Items[i]));
   FreeAndNil(fStatementList);
-
   FreeAndNil(fFilesToScan);
-  FreeAndNil(fCacheContents);
   FreeAndNil(fScannedFiles);
   FreeAndNil(fIncludePaths);
   FreeAndNil(fProjectIncludePaths);
-  FreeAndNil(fFileIncludes);
 
   inherited Destroy;
 end;
@@ -361,124 +291,167 @@ begin
   Result := StartAt;
 end;
 
-// This function takes up about 96% of our parsing time. That should change
+// When finding declaration/definition pairs only search the separate incomplete pair list
 
-function TCppParser.CheckIfCommandExists(const ScopelessCmd: AnsiString; Kind: TStatementKind; ParentID: integer):
-  integer;
+function TCppParser.FetchPendingDeclaration(const Command, Args: AnsiString; Kind: TStatementKind; Parent: PStatement):
+  PStatement;
 var
+  Statement: PStatement;
   I: integer;
-  SearchKinds: set of TStatementKind;
-  HeaderFileName, SourceFileName: AnsiString;
 begin
-  Result := -1;
-
-  // When searching for functions, check constructors and destructors too
-  if Kind in [skFunction, skConstructor, skDestructor] then
-    SearchKinds := [skFunction, skConstructor, skDestructor]
-  else
-    SearchKinds := [Kind];
-
-  // It must be present in these files
-  GetSourcePair(fCurrentFile, SourceFileName, HeaderFileName);
-
   // we do a backward search, because most possible is to be found near the end ;) - if it exists :(
-  for I := fStatementList.Count - 1 downto 0 do begin
+  for I := fPendingDeclarations.Count - 1 downto 0 do begin
+    Statement := fPendingDeclarations[i];
 
-    // Only do an expensive string compare with the right kinds and parentIDs
-    if PStatement(fStatementList[I])^._Kind in SearchKinds then begin
-      if PStatement(fStatementList[I])^._ParentID = ParentID then begin
-        if PStatement(fStatementList[I])^._ScopelessCmd = ScopelessCmd then begin
-          if ((CompareText(PStatement(fStatementList[I])^._FileName, SourceFileName) = 0) or
-            // only if it belongs to the same file-pair
-            (CompareText(PStatement(fStatementList[I])^._FileName, HeaderFileName) = 0)) then begin
-            Result := I;
-            Break;
+    // Only do an expensive string compare with the right kinds and parents
+    if Statement^._Parent = Parent then begin
+      if Statement^._Kind = Kind then begin
+        if Statement^._Command = Command then begin
+          if Statement^._Args = Args then begin
+            fPendingDeclarations.Delete(i); // remove it when we have found it
+            Result := Statement;
+            Exit;
           end;
         end;
       end;
     end;
   end;
+
+  Result := nil;
 end;
 
-function TCppParser.AddStatement(
-  ID: integer;
-  ParentID: integer;
+// When finding a parent class for a function definition, only search classes of incomplete decl/def pairs
+
+function TCppParser.GetIncompleteClass(const Command: AnsiString): PStatement;
+var
+  Statement, ParentStatement: PStatement;
+  I: integer;
+begin
+  // we do a backward search, because most possible is to be found near the end ;) - if it exists :(
+  for I := fPendingDeclarations.Count - 1 downto 0 do begin
+    Statement := fPendingDeclarations[i];
+    ParentStatement := Statement^._Parent;
+    if Assigned(ParentStatement) then begin
+      if ParentStatement^._Command = Command then begin
+        Result := ParentStatement;
+        Exit;
+      end;
+    end;
+  end;
+
+  Result := nil;
+end;
+
+function TCppParser.AddChildStatements(
+  Parents: TList;
   const FileName: AnsiString;
-  const FullText: AnsiString;
-  const _Type: AnsiString; // "Type" is already in use
-  const ScopeCmd: AnsiString;
+  const HintText: AnsiString;
+  const aType: AnsiString; // "Type" is already in use
+  const Command: AnsiString;
   const Args: AnsiString;
   Line: integer;
   Kind: TStatementKind;
   Scope: TStatementScope;
   ClassScope: TStatementClassScope;
   Visible: boolean;
-  AllowDuplicate: boolean;
-  IsDeclaration: boolean): integer;
+  FindDeclaration: boolean;
+  IsDefinition: boolean): PStatement;
 var
-  Statement, ExistingStatement: PStatement;
-  ExistingIndex, OperatorPos: integer;
+  I: integer;
+begin
+  Result := nil;
+  if Assigned(Parents) then begin
+    for I := 0 to Parents.Count - 1 do
+      Result := AddStatement(
+        Parents[i],
+        FileName,
+        HintText,
+        aType,
+        Command,
+        Args,
+        Line,
+        Kind,
+        Scope,
+        ClassScope,
+        Visible,
+        FindDeclaration,
+        IsDefinition,
+        nil);
+  end else begin
+    Result := AddStatement(
+      nil,
+      FileName,
+      HintText,
+      aType,
+      Command,
+      Args,
+      Line,
+      Kind,
+      Scope,
+      ClassScope,
+      Visible,
+      FindDeclaration,
+      IsDefinition,
+      nil);
+  end;
+end;
+
+function TCppParser.AddStatement(
+  Parent: PStatement;
+  const FileName: AnsiString;
+  const HintText: AnsiString;
+  const aType: AnsiString; // "Type" is already in use
+  const Command: AnsiString;
+  const Args: AnsiString;
+  Line: integer;
+  Kind: TStatementKind;
+  Scope: TStatementScope;
+  ClassScope: TStatementClassScope;
+  Visible: boolean;
+  FindDeclaration: boolean;
+  IsDefinition: boolean;
+  InheritanceList: TList): PStatement;
+var
+  Declaration: PStatement;
+  OperatorPos: integer;
   NewKind: TStatementKind;
-  NewType, NewScopeCmd, NewScopelessCmd: AnsiString;
+  NewType, NewCommand: AnsiString;
 
-  function AddToList: integer;
+  function AddToList: PStatement;
   begin
-    Statement := New(PStatement);
-    with Statement^ do begin
-
-      if ID = -1 then
-        _ID := fNextID
-      else
-        _ID := ID;
-      Result := _ID;
-
-      _ParentID := ParentID;
-      _FileName := FileName;
-      _FullText := FullText;
-      _ScopelessCmd := NewScopelessCmd;
-      _ScopeCmd := NewScopeCmd;
+    Result := New(PStatement);
+    with Result^ do begin
+      _Parent := Parent;
+      _HintText := HintText;
       _Type := NewType;
+      _Command := NewCommand;
       _Args := Args;
-      _Line := Line;
       _Kind := Kind;
+      _InheritanceList := InheritanceList;
       _Scope := Scope;
       _ClassScope := ClassScope;
-      _IsDeclaration := IsDeclaration;
-      _DeclImplLine := Line;
-      _DeclImplFileName := FileName;
+      _HasDefinition := IsDefinition;
+      _Line := Line;
+      _DefinitionLine := Line;
+      _FileName := FileName;
+      _DefinitionFileName := FileName;
       _Visible := Visible; // sets visibility in class browser
-      _Loaded := False; // true if it's a cache file
       _Temporary := fLaterScanning; // true if it's added by a function body scan
       _InProject := fIsProjectFile;
       _InSystemHeader := fIsSystemHeader;
     end;
-    fStatementList.Add(Statement);
-    Inc(fNextID);
+    fStatementList.Add(Result);
   end;
 begin
   // Move '*', '&' to type rather than cmd (it's in the way for code-completion)
-  NewType := _Type;
-  NewScopeCmd := ScopeCmd;
-  while (Length(NewScopeCmd) > 0) and (NewScopeCmd[1] in ['*', '&']) do begin
-    NewType := NewType + NewScopeCmd[1];
-    Delete(NewScopeCmd, 1, 1); // remove first
+  NewType := aType;
+  NewCommand := Command;
+  while (Length(NewCommand) > 0) and (NewCommand[1] in ['*', '&']) do begin
+    NewType := NewType + NewCommand[1];
+    Delete(NewCommand, 1, 1); // remove first
   end;
 
   NewKind := Kind;
-
-  // Strip class prefix (e.g. MyClass::SomeFunc() = SomeFunc() )
-  if Kind = skFunction then begin
-    OperatorPos := Pos('::', NewScopeCmd);
-    if OperatorPos > 0 then begin
-      NewScopelessCmd := Copy(NewScopeCmd, OperatorPos + 2, MaxInt);
-      if SameStr(Copy(NewScopeCmd, 1, OperatorPos - 1), NewScopelessCmd) then
-        NewKind := skConstructor
-      else if SameStr('~' + Copy(NewScopeCmd, 1, OperatorPos - 1), NewScopelessCmd) then
-        NewKind := skDestructor;
-    end else
-      NewScopelessCmd := NewScopeCmd;
-  end else
-    NewScopelessCmd := NewScopeCmd;
 
   // Remove namespace stuff from type (until we support namespaces)
   if NewKind in [skFunction, skVariable] then begin
@@ -487,100 +460,148 @@ begin
       Delete(NewType, 1, OperatorPos + 1);
   end;
 
-  // Only search for certain kinds of statements
-  ExistingStatement := nil;
-  if not AllowDuplicate then begin
-    ExistingIndex := CheckIfCommandExists(NewScopelessCmd, Kind, ParentID);
-    if ExistingIndex <> -1 then
-      ExistingStatement := PStatement(fStatementList[ExistingIndex]);
-  end;
+  // Find a declaration/definition pair
+  if FindDeclaration and IsDefinition then
+    Declaration := FetchPendingDeclaration(NewCommand, Args, Kind, Parent)
+  else
+    Declaration := nil;
 
   // We already have a statement with the same identifier...
-  if Assigned(ExistingStatement) then begin
+  if Assigned(Declaration) then begin
 
-    // Functions receive special treatment...
-    if (NewKind in [skFunction, skConstructor, skDestructor]) then begin
-
-      // This could be a function definition/declaration pair
-      if (IsDeclaration <> ExistingStatement^._IsDeclaration) and (ExistingStatement^._Args = Args) then begin
-        ExistingStatement^._DeclImplLine := Line;
-        ExistingStatement^._DeclImplFileName := FileName;
-        if (NewKind in [skConstructor, skDestructor]) and (ExistingStatement^._Kind = skFunction) then
-          ExistingStatement^._Kind := NewKind
-        else if (NewKind = skFunction) and (Pos('::', ScopeCmd) > 0) then
-          ExistingStatement^._ScopeCmd := ScopeCmd;
-        Result := ExistingStatement^._ID;
-
-        // Otherwise, assume overloading. Allow that.
-      end else
-        Result := AddToList;
-
-      // Other duplicate statements are to be ignored completely
-    end else begin
-      Result := ExistingStatement^._ID;
-    end;
+    Declaration^._DefinitionLine := Line;
+    Declaration^._DefinitionFileName := FileName;
+    Declaration^._HasDefinition := True;
+    Result := Declaration;
 
     // No duplicates found. Proceed as usual
-  end else
+  end else begin
     Result := AddToList;
+    if not IsDefinition then // add declarations to separate list to speed up searches for them
+      fPendingDeclarations.Add(Result);
+  end;
 end;
 
-function TCppParser.GetCurrentClass: integer;
-begin
-  if fCurrentClass.Count > 0 then
-    Result := fCurrentClass[fCurrentClass.Count - 1]
-  else
-    Result := -1;
-end;
-
-procedure TCppParser.SetCurrentClass(ID: integer);
+function TCppParser.GetLastCurrentClass: PStatement;
 var
-  ClassIndex: integer;
+  CurrentClassLevel: TList;
 begin
-  // Don't add duplicate scopes. Does this ever happen though?
-  if (fCurrentClass.Count > 0) and (fCurrentClass[fCurrentClass.Count - 1] = ID) then
+  if fCurrentClass.Count = 0 then begin
+    Result := nil;
     Exit;
+  end;
 
-  // Add class to list. If ID is -1, this is an extern {} 'class' or namespace
-  fCurrentClass.Add(ID);
-  fCurrentClassLevel.Add(fLevel);
+  // Get current classes at same level
+  CurrentClassLevel := fCurrentClass[fCurrentClass.Count - 1];
 
-  // Check bounds before inserting...
-  ClassIndex := IndexOfStatement(ID);
-
-  // extern {}, namespace or class that doesn't exist
-  if (ClassIndex = -1) then begin
-    fClassScope := scsNone
-  end else if PStatement(fStatementList[ClassIndex])^._Type = 'class' then
-    fClassScope := scsPrivate // classes are private by default
+  // Pick last one
+  if CurrentClassLevel.Count > 0 then
+    Result := CurrentClassLevel[CurrentClassLevel.Count - 1]
   else
-    fClassScope := scsPublic;
+    Result := nil;
 end;
 
-procedure TCppParser.RemoveCurrentClass;
-var
-  UseIndex: integer;
+function TCppParser.GetCurrentClassLevel: TList;
 begin
-  if fCurrentClassLevel.Count > 0 then
-    if fCurrentClassLevel[fCurrentClassLevel.Count - 1] = fLevel then begin
-      fCurrentClass.Delete(fCurrentClass.Count - 1);
-      fCurrentClassLevel.Delete(fCurrentClassLevel.Count - 1);
-      if fCurrentClassLevel.Count = 0 then
-        fClassScope := scsNone // no classes or structs remaining
-      else begin
+  if fCurrentClass.Count = 0 then begin
+    Result := nil;
+    Exit;
+  end;
+  Result := fCurrentClass[fCurrentClass.Count - 1];
+end;
 
-        // Check top level class
-        UseIndex := IndexOfStatement(fCurrentClass[fCurrentClass.Count - 1]);
-        if (UseIndex <> -1) and (PStatement(fStatementList[UseIndex])^._Type = 'class') then
-          fClassScope := scsPrivate // classes are private by default
-        else
-          fClassScope := scsPublic;
+function TCppParser.IsInCurrentClassLevel(const Command: AnsiString): PStatement;
+var
+  CurrentClassLevel: TList;
+  I: integer;
+  Statement: PStatement;
+begin
+  Result := nil;
+  CurrentClassLevel := GetCurrentClassLevel;
+  if Assigned(CurrentClassLevel) then begin
+    for I := 0 to CurrentClassLevel.Count - 1 do begin
+      Statement := CurrentClassLevel[i];
+      if Assigned(Statement) and SameStr(Command, Statement^._Command) then begin
+        Result := Statement;
+        Break;
       end;
     end;
+  end;
 end;
 
-procedure TCppParser.SetInheritance(Index: integer);
-  function CheckForScopeDecl(Index: integer): boolean;
+procedure TCppParser.AddSoloClassLevel(Statement: PStatement);
+var
+  NewLevel: TList;
+begin
+  // Add class list
+  NewLevel := TList.Create;
+  NewLevel.Add(Statement);
+  fCurrentClass.Add(NewLevel);
+
+  // Set new scope
+  if Statement = nil then begin
+    fClassScope := scsNone // {}, namespace or class that doesn't exist
+  end else if Statement^._Type = 'class' then
+    fClassScope := scsPrivate // classes are private by default
+  else
+    fClassScope := scsPublic; // structs are public by default
+end;
+
+procedure TCppParser.AddMultiClassLevel(StatementList: TList);
+var
+  Statement: PStatement;
+  ListCopy: TList;
+begin
+  // Add list to list
+  ListCopy := TList.Create;
+  ListCopy.Assign(StatementList);
+  fCurrentClass.Add(ListCopy);
+
+  // Check scope of first one
+  if StatementList.Count > 0 then
+    Statement := StatementList[0]
+  else
+    Statement := nil;
+
+  // Set new scope
+  if Statement = nil then begin
+    fClassScope := scsNone // {}, namespace or class that doesn't exist
+  end else if Statement^._Type = 'class' then
+    fClassScope := scsPrivate // classes are private by default
+  else
+    fClassScope := scsPublic; // structs are public by default
+end;
+
+procedure TCppParser.RemoveClassLevel;
+var
+  CurrentLevel: TList;
+  CurrentClass: PStatement;
+begin
+  // Remove class list
+  if fCurrentClass.Count = 0 then
+    Exit; // TODO: should be an exception
+  TList(fCurrentClass[fCurrentClass.Count - 1]).Free;
+  fCurrentClass.Delete(fCurrentClass.Count - 1);
+
+  // Set new scope
+  CurrentLevel := GetCurrentClassLevel;
+  if not Assigned(CurrentLevel) then begin
+    fClassScope := scsNone // no classes or structs remaining
+  end else begin
+    CurrentClass := GetLastCurrentClass;
+    if Assigned(CurrentClass) and (CurrentClass^._Type = 'class') then
+      fClassScope := scsPrivate // classes are private by default
+    else
+      fClassScope := scsPublic;
+  end;
+end;
+
+procedure TCppParser.SetInheritance(Index: integer; ClassStatement: PStatement);
+var
+  I: Integer;
+  Node: PStatementNode;
+  Statement: PStatement;
+  function CheckForScopeKeyword(Index: integer): boolean;
   begin
     Result := (Index < fTokenizer.Tokens.Count - 1) and
       (SameStr(fTokenizer[Index]^.Text, 'public') or
@@ -588,43 +609,59 @@ procedure TCppParser.SetInheritance(Index: integer);
       SameStr(fTokenizer[Index]^.Text, 'private'));
   end;
 var
-  sl: TStrings;
+  sl: TStringList;
 begin
   sl := TStringList.Create;
   try
-    // at this point we are at ':' point in class declaration
-    // we have to find the class referenced and return its ID...
+    // Assemble a list of statements in text form we inherit from
     repeat
-      if not CheckForScopeDecl(Index) then
+      if not CheckForScopeKeyword(Index) then
         if not (fTokenizer[Index]^.Text[1] in [',', ':', '(']) then
           sl.Add(fTokenizer[Index]^.Text);
       Inc(Index);
     until (Index >= fTokenizer.Tokens.Count) or (fTokenizer[Index]^.Text[1] in ['{', ';']);
+
+    // Clear it. Assume it is assigned
+    ClassStatement._InheritanceList.Clear;
+
+    // Get their PStatement]
+    for I := 0 to sl.Count - 1 do begin
+
+      // Find the corresponding PStatements
+      Node := fStatementList.LastNode;
+      while Assigned(Node) do begin
+        Statement := Node^.Data;
+        if (Statement^._Kind = skClass) and SameStr(sl[I], Statement^._Command) then begin
+          ClassStatement._InheritanceList.Add(Statement); // next I please
+          break;
+        end;
+        Node := Node^.PrevNode;
+      end;
+    end;
   finally
-    PStatement(fStatementList[fStatementList.Count - 1])^._InheritsFromClasses := sl.CommaText;
     sl.Free;
   end;
 end;
 
 function TCppParser.GetScope: TStatementScope;
 var
-  CurrClass: integer;
+  CurrentClass: PStatement;
 begin
-  // Function bodies...
+  // We are scanning function bodies
   if fLaterScanning then begin
     Result := ssLocal;
     Exit;
   end;
 
   // Don't blindly trust levels. Namespaces and externs can have levels too
-  CurrClass := GetCurrentClass;
+  CurrentClass := GetLastCurrentClass;
 
   // Invalid class or namespace/extern
-  if (CurrClass = -1) or (fLevel = 0) then
+  if CurrentClass = nil then
     Result := ssGlobal
 
     // We are inside a class body
-  else if CurrClass <> -1 then
+  else if Assigned(CurrentClass) then
     Result := ssClassLocal
 
     // Everything else
@@ -650,9 +687,6 @@ function TCppParser.CheckForPreprocessor: boolean;
 begin
   result := StartsStr('#', fTokenizer[fIndex]^.Text);
 end;
-
-// a few percent speed can be gained by storing the prefered action here and directly executing that in HandleKeyword
-// however, CheckIfCommandExists is responsible for 95% of our slowness. fix that first.
 
 function TCppParser.CheckForKeyword: boolean;
 begin
@@ -743,11 +777,6 @@ begin
   SameStr(fTokenizer[fIndex]^.Text, 'xor_eq'); // skip
 end;
 
-function TCppParser.CheckForMember: boolean;
-begin
-  Result := SameStr(fTokenizer[fIndex]^.Text[Length(fTokenizer[fIndex]^.Text)], '.');
-end;
-
 function TCppParser.CheckForTypedef: boolean;
 begin
   Result := SameStr(fTokenizer[fIndex]^.Text, 'typedef');
@@ -804,7 +833,8 @@ end;
 
 function TCppParser.CheckForMethod(var sType, sName, sArgs: AnsiString): boolean;
 var
-  fIndexBackup, CurrClassIndex, CurClassID, DelimPos: integer;
+  CurrentClassLevel: TList;
+  fIndexBackup, DelimPos: integer;
   bTypeOK, bNameOK, bArgsOK: boolean;
 begin
 
@@ -859,15 +889,12 @@ begin
 
       // Are we inside a class body?
       if not bTypeOK then begin
-        CurClassID := GetCurrentClass;
-        if CurClassID <> -1 then begin
-          CurrClassIndex := IndexOfStatement(CurClassID);
-          if CurrClassIndex <> -1 then begin
-            sType := fTokenizer[fIndex]^.Text;
-            if sType[1] = '~' then
-              Delete(sType, 1, 1);
-            bTypeOK := (sType = PStatement(fStatementList[CurrClassIndex])^._ScopelessCmd);
-          end;
+        CurrentClassLevel := GetCurrentClassLevel;
+        if Assigned(CurrentClassLevel) then begin
+          sType := fTokenizer[fIndex]^.Text;
+          if sType[1] = '~' then
+            Delete(sType, 1, 1);
+          bTypeOK := Assigned(IsInCurrentClassLevel(sType)); // constructor/destructor
         end;
       end;
       break;
@@ -889,13 +916,8 @@ begin
     sType := TrimRight(sType); // should contain type "int"
     sName := TrimRight(sName); // should contain function name "foo::function"
     sArgs := TrimRight(sArgs); // should contain argument list "(int a)"
-
-    // TODO: check if this is function usage and skip if so?
-  end else begin
+  end else
     Result := false;
-    //while (fIndex < fTokenizer.Tokens.Count) and not (fTokenizer[fIndex]^.Text[1] in ['{','}',',',';']) do
-    //	Inc(fIndex);
-  end;
 end;
 
 function TCppParser.CheckForScope: boolean;
@@ -971,14 +993,6 @@ begin
   fIndex := fIndexBackup;
 end;
 
-procedure TCppParser.HandleMember;
-begin
-  repeat
-    Inc(fIndex);
-  until (fIndex >= fTokenizer.Tokens.Count) or (fTokenizer[fIndex]^.Text[1] in [';', '}']);
-  Inc(fIndex);
-end;
-
 procedure TCppParser.HandleOtherTypedefs;
 var
   NewType, OldType: AnsiString;
@@ -1005,11 +1019,10 @@ begin
         NewType := NewType + fTokenizer[fIndex]^.Text + ' '
       end else begin
         NewType := TrimRight(NewType);
-        fLastID := AddStatement(
-          -1, //UseID, // use same ID as synonym
-          GetCurrentClass,
+        AddStatement(
+          GetLastCurrentClass,
           fCurrentFile,
-          'typedef ' + OldType + ' ' + NewType,
+          'typedef ' + OldType + ' ' + NewType, // override hint
           OldType,
           NewType,
           '',
@@ -1017,9 +1030,10 @@ begin
           skTypedef,
           GetScope,
           fClassScope,
-          False, // not visible in browser...
-          True, // allow duplicates!
-          False); // not a declaration
+          False,
+          False,
+          True,
+          nil);
         NewType := '';
         if fTokenizer[fIndex]^.Text[1] = ';' then
           break;
@@ -1034,11 +1048,11 @@ end;
 
 procedure TCppParser.HandlePreprocessor;
 var
-  DelimPos: integer;
-  S, Name, Args, Value: AnsiString;
+  DelimPos, Line: Integer;
+  S, Name, Args, Value, HintText: AnsiString;
 begin
   if StartsStr('#include ', fTokenizer[fIndex]^.Text) then begin // start of new file
-    // format: #(spaces)include fullfilename:line
+    // format: #include fullfilename:line
     // Strip keyword
     S := Copy(fTokenizer[fIndex]^.Text, Length('#include ') + 1, MaxInt);
     DelimPos := LastPos(':', S);
@@ -1048,9 +1062,14 @@ begin
       fIsProjectFile := fProjectFiles.IndexOf(fCurrentFile) <> -1;
       fIsHeader := IsHfile(fCurrentFile);
 
-      // Mention progress to user
-      if Assigned(fOnTotalProgress) and not fLaterScanning then
-        fOnTotalProgress(Self, fCurrentFile, -1, -1);
+      // Mention progress to user if we enter a NEW file
+      Line := StrToIntDef(Copy(S, DelimPos + 1, MaxInt), -1);
+      if Line = 1 then begin
+        Inc(fFilesScannedCount);
+        Inc(fFilesToScanCount);
+        if Assigned(fOnTotalProgress) and not fLaterScanning then
+          fOnTotalProgress(Self, fCurrentFile, fFilesToScanCount, fFilesScannedCount);
+      end;
     end;
   end else if StartsStr('#define ', fTokenizer[fIndex]^.Text) then begin
 
@@ -1061,11 +1080,19 @@ begin
     if Assigned(fPreprocessor) then
       fPreprocessor.GetDefineParts(S, Name, Args, Value);
 
+    // Generate custom hint
+    HintText := '#define';
+    if Name <> '' then
+      HintText := HintText + ' ' + Name;
+    if Args <> '' then
+      HintText := HintText + ' ' + Args;
+    if Value <> '' then
+      HintText := HintText + ' ' + Value;
+
     AddStatement(
-      -1,
-      -1, // defines don't belong to any scope
+      nil, // defines don't belong to any scope
       fCurrentFile,
-      '#define ' + Name + Args + ' ' + Value,
+      HintText, // override hint
       '', // define has no type
       Name,
       Args,
@@ -1074,25 +1101,28 @@ begin
       ssGlobal,
       scsNone,
       False, // not visible
+      False,
       True,
-      False);
+      nil);
   end;
   Inc(fIndex);
 end;
 
 procedure TCppParser.HandleStructs(IsTypedef: boolean = False);
 var
-  S, S1, S2, Prefix, OldType, NewType: AnsiString;
+  Command, Prefix, OldType, NewType: AnsiString;
   I: integer;
   IsStruct: boolean;
-  UseID: integer;
+  FirstSynonym, LastStatement: PStatement;
+  SharedInheritance, NewClassLevel: TList;
 begin
-  S := fTokenizer[fIndex]^.Text;
-  IsStruct := SameStr(S, 'struct') or SameStr(S, 'union');
-  Prefix := S;
-  Inc(fIndex); //skip 'struct'
+  // Check if were dealing with a struct or union
+  Prefix := fTokenizer[fIndex]^.Text;
+  IsStruct := SameStr(Prefix, 'struct') or SameStr(Prefix, 'union');
+  Inc(fIndex); //skip struct/class/union
+
+  // Do not modifiy index initially
   I := fIndex;
-  UseID := -1;
 
   // Skip until the struct body starts
   while (I < fTokenizer.Tokens.Count) and not (fTokenizer[I]^.Text[1] in [';', '{']) do
@@ -1100,18 +1130,17 @@ begin
 
   // Forward class/struct decl *or* typedef, e.g. typedef struct some_struct synonym1, synonym2;
   if (I < fTokenizer.Tokens.Count) and (fTokenizer[I]^.Text[1] = ';') then begin
+    // typdef struct Foo Bar
     if IsTypedef then begin
       OldType := fTokenizer[fIndex]^.Text;
       repeat
         // Add definition statement for the synonym
         if (fIndex + 1 < fTokenizer.Tokens.Count) and (fTokenizer[fIndex + 1]^.Text[1] in [',', ';']) then begin
           NewType := fTokenizer[fIndex]^.Text;
-          S := S + NewType + ' ';
-          fLastID := AddStatement(
-            -1,
-            GetCurrentClass,
+          AddStatement(
+            GetLastCurrentClass,
             fCurrentFile,
-            'typedef ' + Prefix + ' ' + OldType + ' ' + NewType,
+            'typedef ' + Prefix + ' ' + OldType + ' ' + NewType, // override hint
             OldType,
             NewType,
             '',
@@ -1120,150 +1149,168 @@ begin
             GetScope,
             fClassScope,
             False,
+            False,
             True,
-            False);
+            nil);
         end;
         Inc(fIndex);
       until (fIndex >= fTokenizer.Tokens.Count) or (fTokenizer[fIndex]^.Text[1] = ';');
+
+      // Forward declaration, struct Foo. Don't mention in class browser
+    end else begin
+      Inc(I); // step over ;
+      fIndex := I;
     end;
 
     // normal class/struct decl
   end else begin
+    FirstSynonym := nil;
+
+    // Add class/struct name BEFORE opening brace
     if fTokenizer[fIndex]^.Text[1] <> '{' then begin
-      S1 := '';
-      S2 := '';
       repeat
-        S := S + fTokenizer[fIndex]^.Text + ' ';
-        if not (fTokenizer[fIndex]^.Text[1] in [',', ';', '{', ':']) then
-          S1 := S1 + fTokenizer[fIndex]^.Text + ' ';
-        if (fIndex + 1 < fTokenizer.Tokens.Count) and (fTokenizer[fIndex + 1]^.Text[1] = '(') then
-          S2 := fTokenizer[fIndex]^.Text;
         if (fIndex + 1 < fTokenizer.Tokens.Count) and (fTokenizer[fIndex + 1]^.Text[1] in [',', ';', '{', ':']) then
           begin
-          if S2 = '' then
-            S2 := fTokenizer[fIndex]^.Text;
-          S1 := TrimRight(S1);
-
-          // TODO: fix this the nice way
-          if (S1 = 'basic_string') and (S2 = 'basic_string') then begin
-            S1 := 'string';
-            S2 := 'string';
-          end;
-
-          if S1 <> '' then begin
-            fLastID := AddStatement(
-              -1,
-              GetCurrentClass,
+          Command := fTokenizer[fIndex]^.Text;
+          if Command <> '' then begin
+            FirstSynonym := AddStatement(
+              GetLastCurrentClass,
               fCurrentFile,
-              Prefix + ' ' + S1,
-              Prefix,
-              S2,
-              '',
+              '', // do not override hint
+              Prefix, // type
+              Command, // command
+              '', // args
               fTokenizer[fIndex]^.Line,
               skClass,
               GetScope,
               fClassScope,
               True,
+              False,
               True,
-              False);
+              TList.Create);
+            Command := '';
           end;
-          S1 := '';
         end;
         Inc(fIndex);
       until (fIndex >= fTokenizer.Tokens.Count) or (fTokenizer[fIndex]^.Text[1] in [':', '{', ';']);
-      UseID := fLastID;
     end;
 
-    // Walk to opening brace
+    // Walk to opening brace if we encountered inheritance statements
     if (fIndex < fTokenizer.Tokens.Count) and (fTokenizer[fIndex]^.Text[1] = ':') then begin
-      SetInheritance(fIndex); // set the _InheritsFromClasses value
+      if Assigned(FirstSynonym) then
+        SetInheritance(fIndex, FirstSynonym); // set the _InheritanceList value
       while (fIndex < fTokenizer.Tokens.Count) and (fTokenizer[fIndex]^.Text[1] <> '{') do // skip decl after ':'
         Inc(fIndex);
     end;
 
-    // Check for struct names after '}'
+    // Check for struct synonyms after close brace
     if IsStruct then begin
 
       // Walk to closing brace
-      I := SkipBraces(fIndex);
+      I := SkipBraces(fIndex); // step onto closing brace
 
-      // Skip something?
-      S1 := '';
+      // When encountering names again after struct body scanning, skip it
       if (I + 1 < fTokenizer.Tokens.Count) and not (fTokenizer[I + 1]^.Text[1] in [';', '}']) then
-        fSkipList.Add(I + 1);
+        fSkipList.Add(I + 1); // add first name to skip statement so that we can skip it until the next ;
 
-      // Add synonyms after }
-      if (I + 1 < fTokenizer.Tokens.Count) then begin
-        repeat
-          Inc(I);
+      // Add class/struct synonyms after close brace
+      if (I + 1 < fTokenizer.Tokens.Count) and not (fTokenizer[I + 1]^.Text[1] in [';', '}']) then begin
+        Command := '';
+        NewClassLevel := TList.Create;
+        try
+          // Add synonym before opening brace
+          if Assigned(FirstSynonym) then
+            NewClassLevel.Add(FirstSynonym);
+          repeat
+            Inc(I);
 
-          if not (fTokenizer[I]^.Text[1] in ['{', ',', ';']) then begin
-            if (fTokenizer[I]^.Text[1] = '_') and (fTokenizer[I]^.Text[Length(fTokenizer[I]^.Text)] = '_') then begin
-              // skip possible gcc attributes
-              // start and end with 2 underscores (i.e. __attribute__)
-              // so, to avoid slow checks of strings, we just check the first and last letter of the token
-              // if both are underscores, we split
-              Break;
+            if not (fTokenizer[I]^.Text[1] in ['{', ',', ';']) then begin
+              if (fTokenizer[I]^.Text[1] = '_') and (fTokenizer[I]^.Text[Length(fTokenizer[I]^.Text)] = '_') then begin
+                // skip possible gcc attributes
+                // start and end with 2 underscores (i.e. __attribute__)
+                // so, to avoid slow checks of strings, we just check the first and last letter of the token
+                // if both are underscores, we split
+                Break;
+              end else begin
+                if fTokenizer[I]^.Text[Length(fTokenizer[I]^.Text)] = ']' then // cut-off array brackets
+                  Command := Command + Copy(fTokenizer[I]^.Text, 1, Pos('[', fTokenizer[I]^.Text) - 1) + ' '
+                else if fTokenizer[I]^.Text[1] in ['*', '&'] then // do not add spaces after pointer operator
+                  Command := Command + fTokenizer[I]^.Text
+                else
+                  Command := Command + fTokenizer[I]^.Text + ' ';
+              end;
             end else begin
-              if fTokenizer[I]^.Text[Length(fTokenizer[I]^.Text)] = ']' then // cut-off array brackets
-                S1 := S1 + Copy(fTokenizer[I]^.Text, 1, Pos('[', fTokenizer[I]^.Text) - 1) + ' '
-              else if fTokenizer[I]^.Text[1] in ['*', '&'] then // do not add spaces after pointer operator
-                S1 := S1 + fTokenizer[I]^.Text
-              else
-                S1 := S1 + fTokenizer[I]^.Text + ' ';
+              Command := TrimRight(Command);
+              if Command <> '' then begin
+                if Assigned(FirstSynonym) then begin
+                  SharedInheritance := TList.Create;
+                  SharedInheritance.Assign(FirstSynonym^._InheritanceList);
+                end else
+                  SharedInheritance := nil;
+                LastStatement := AddStatement(
+                  GetLastCurrentClass,
+                  fCurrentFile,
+                  '', // do not override hint
+                  Prefix,
+                  Command,
+                  '',
+                  fTokenizer[I]^.Line,
+                  skClass,
+                  GetScope,
+                  fClassScope,
+                  True,
+                  False,
+                  True,
+                  SharedInheritance); // all synonyms inherit from the same statements
+                NewClassLevel.Add(LastStatement);
+                Command := '';
+              end;
             end;
-          end else begin
-            S1 := TrimRight(S1);
-            if S1 <> '' then begin
-              fLastID := AddStatement(
-                UseID,
-                GetCurrentClass,
-                fCurrentFile,
-                Prefix + ' ' + S1,
-                Prefix,
-                S1,
-                '',
-                fTokenizer[I]^.Line,
-                skClass,
-                GetScope,
-                fClassScope,
-                True,
-                False,
-                False);
-            end;
-            UseID := fLastID; // TODO: should not be needed
-            S1 := '';
-          end;
+          until (I >= fTokenizer.Tokens.Count - 1) or (fTokenizer[I]^.Text[1] in ['{', ';']);
 
-          // Logging stuff
-          if not (fTokenizer[I]^.Text[1] in [';', ',']) then
-            S := S + ' ' + fTokenizer[I]^.Text;
-        until (I >= fTokenizer.Tokens.Count - 1) or (fTokenizer[I]^.Text[1] in ['{', ';']);
-      end;
-    end;
-    SetCurrentClass(fLastID);
+          // Set current class level
+          AddMultiClassLevel(NewClassLevel);
+        finally
+          NewClassLevel.Free;
+        end;
+
+        // Nothing worth mentioning after closing brace
+        // Proceed to set first synonym as current class
+      end else if Assigned(FirstSynonym) then
+        AddSoloClassLevel(FirstSynonym);
+
+      // Classes do not have synonyms after the brace
+      // Proceed to set first synonym as current class
+    end else
+      AddSoloClassLevel(FirstSynonym);
+
+    // Step over {
+    if (fIndex < fTokenizer.Tokens.Count) and (fTokenizer[fIndex]^.Text[1] = '{') then
+      Inc(fIndex);
   end;
 end;
 
 procedure TCppParser.HandleMethod(const sType, sName, sArgs: AnsiString);
 var
-  IsValid: boolean;
-  I, DelimPos, CurrClassID, CurrClassIndex: integer;
-  IsDeclaration: boolean;
+  IsValid, IsDeclaration: boolean;
+  I, DelimPos: integer;
+  FunctionKind: TStatementKind;
+  ParentClassName, ScopelessName: AnsiString;
+  FunctionClass: PStatement;
 begin
   IsValid := True;
-  IsDeclaration := False;
+  IsDeclaration := False; // assume it's not a prototype
   I := fIndex;
 
   // Skip over argument list
-  while (fIndex + 2 < fTokenizer.Tokens.Count) and not (fTokenizer[fIndex]^.Text[1] in [';', ':', '{', '}']) do
+  while (fIndex < fTokenizer.Tokens.Count) and not (fTokenizer[fIndex]^.Text[1] in [';', ':', '{', '}']) do
     Inc(fIndex);
 
   // Check if this is a prototype
-  CurrClassID := GetCurrentClass;
-  if fTokenizer[fIndex]^.Text[1] in [';', '}'] then begin // prototype
+  FunctionClass := GetLastCurrentClass;
+  if (fIndex < fTokenizer.Tokens.Count) and (fTokenizer[fIndex]^.Text[1] in [';', '}']) then begin // prototype
     IsDeclaration := True;
-    if not fIsHeader and (CurrClassID = -1) then // in a CPP file
+    if not fIsHeader and not Assigned(FunctionClass) then // in a CPP file
       IsValid := False; // not valid
   end else begin
 
@@ -1275,7 +1322,7 @@ begin
     // Still a prototype
     if (fIndex < fTokenizer.Tokens.Count) and (fTokenizer[fIndex]^.Text[1] in [';', '}']) then begin
       IsDeclaration := True;
-      if not fIsHeader and (CurrClassID = -1) then
+      if not fIsHeader and not Assigned(FunctionClass) then
         IsValid := False;
     end;
   end;
@@ -1285,34 +1332,64 @@ begin
     // Use the class the function belongs to as the parent ID if the function is declared outside of the class body
     DelimPos := Pos('::', sName);
     if DelimPos > 0 then begin
-      CurrClassIndex := CheckIfCommandExists(Copy(sName, 1, DelimPos - 1), skClass, CurrClassID);
-      if CurrClassIndex <> -1 then
-        CurrClassID := PStatement(fStatementList[CurrClassIndex])^._ID;
-    end;
 
-    // If this is a class function, check for duplicates to form declaration/definition pairs
-    // If this is a global function, don't perform duplicate checks (allow overloading), even if we do not check arg lists
-    fLastID := AddStatement(
-      -1,
-      CurrClassID,
-      fCurrentFile,
-      sType + ' ' + sName + ' ' + sArgs,
-      sType,
-      sName,
-      sArgs,
-      fTokenizer[fIndex - 1]^.Line,
-      skFunction,
-      GetScope,
-      fClassScope,
-      True,
-      CurrClassID = -1, // allow dupes for globals
-      IsDeclaration);
+      // Provide Bar instead of Foo::Bar
+      ScopelessName := Copy(sName, DelimPos + 2, MaxInt);
+
+      // Check what class this function belongs to
+      ParentClassName := Copy(sName, 1, DelimPos - 1);
+      FunctionClass := GetIncompleteClass(ParentClassName);
+    end else
+      ScopelessName := sName;
+
+    // Determine function type
+    if SameStr(ScopelessName, sType) then
+      FunctionKind := skConstructor
+    else if SameStr(ScopelessName, '~' + sType) then
+      FunctionKind := skDestructor
+    else
+      FunctionKind := skFunction;
+
+    // For function definitions, the parent class is given. Only use that as a parent
+    if not IsDeclaration then
+      AddStatement(
+        FunctionClass,
+        fCurrentFile,
+        '', // do not override hint
+        sType,
+        ScopelessName,
+        sArgs,
+        fTokenizer[fIndex - 1]^.Line,
+        FunctionKind,
+        GetScope,
+        fClassScope,
+        True,
+        not IsDeclaration, // check for declarations when we find an definition of a function
+        not IsDeclaration,
+        nil)
+
+      // For function declarations, any given statement can belong to multiple typedef names
+    else
+      AddChildStatements(
+        GetCurrentClassLevel,
+        fCurrentFile,
+        '', // do not override hint
+        sType,
+        ScopelessName,
+        sArgs,
+        fTokenizer[fIndex - 1]^.Line,
+        FunctionKind,
+        GetScope,
+        fClassScope,
+        True,
+        not IsDeclaration, // check for declarations when we find an definition of a function
+        not IsDeclaration);
   end;
 
   // Don't parse the function's block now... It will be parsed when user presses ctrl+space inside it ;)
-  if (fTokenizer[fIndex]^.Text[1] = '{') then
+  if (fIndex < fTokenizer.Tokens.Count) and (fTokenizer[fIndex]^.Text[1] = '{') then
     fIndex := SkipBraces(fIndex) + 1 // add 1 so that '}' is not visible to parser
-  else if (fTokenizer[fIndex]^.Text[1] = ';') then
+  else if (fIndex < fTokenizer.Tokens.Count) and (fTokenizer[fIndex]^.Text[1] = ';') then
     Inc(fIndex);
   if I = fIndex then // if not moved ahead, something is wrong but don't get stuck ;)
     if fIndex < fTokenizer.Tokens.Count then
@@ -1508,11 +1585,12 @@ begin
           Cmd := fTokenizer[fIndex]^.Text;
           Args := '';
         end;
-        fLastID := AddStatement(
-          -1,
-          GetCurrentClass,
+
+        // Add a statement for every struct we are in
+        AddChildStatements(
+          GetCurrentClassLevel,
           fCurrentFile,
-          LastType + ' ' + Cmd,
+          '', // do not override hint
           LastType,
           Cmd,
           Args,
@@ -1521,8 +1599,8 @@ begin
           GetScope,
           fClassScope,
           True,
-          True,
-          False);
+          False,
+          True); // TODO: not supported to pass list
       end;
 
       // Step over the variable name
@@ -1572,10 +1650,9 @@ begin
 
   // Add statement for enum name too
   AddStatement(
-    -1,
-    GetCurrentClass,
+    GetLastCurrentClass,
     fCurrentFile,
-    'enum ' + EnumName,
+    '', // do not override hint
     'enum',
     EnumName,
     Args,
@@ -1584,8 +1661,9 @@ begin
     GetScope,
     fClassScope,
     False,
+    False,
     True,
-    False);
+    nil);
 
   // Call every member "enum NAME ITEMNAME"
   LastType := 'enum ' + Trim(EnumName);
@@ -1599,11 +1677,10 @@ begin
         Cmd := fTokenizer[fIndex]^.Text;
         Args := '';
       end;
-      fLastID := AddStatement(
-        -1, // enum members are treated as globals for now
-        GetCurrentClass,
+      AddStatement(
+        GetLastCurrentClass,
         fCurrentFile,
-        LastType + ' ' + fTokenizer[fIndex]^.Text,
+        LastType + ' ' + fTokenizer[fIndex]^.Text, // override hint
         LastType,
         Cmd,
         Args,
@@ -1612,8 +1689,9 @@ begin
         GetScope,
         fClassScope,
         False,
+        False,
         True,
-        False);
+        nil);
     end;
     Inc(fIndex);
   until (fIndex >= fTokenizer.Tokens.Count) or (fTokenizer[fIndex]^.Text[1] in [';', '{', '}']);
@@ -1628,31 +1706,28 @@ var
   S1, S2, S3: AnsiString;
 begin
   if fTokenizer[fIndex]^.Text[1] = '{' then begin
-    Inc(fLevel);
+    AddSoloClassLevel(nil);
     Inc(fIndex);
   end else if fTokenizer[fIndex]^.Text[1] = '}' then begin
-    Dec(fLevel);
+    RemoveClassLevel;
     Inc(fIndex);
-    RemoveCurrentClass;
   end else if CheckForPreprocessor then begin
     HandlePreprocessor;
   end else if CheckForKeyword then begin // includes template now
     HandleKeyword;
-  end else if CheckForMember then begin
-    HandleMember;
   end else if CheckForScope then begin
     HandleScope;
   end else if CheckForEnum then begin
     HandleEnum;
   end else if CheckForTypedef then begin
-    if CheckForTypedefStruct then begin
+    if CheckForTypedefStruct then begin // typedef struct something
       Inc(fIndex); // skip 'typedef'
       HandleStructs(True)
-    end else if CheckForTypedefEnum then begin
+    end else if CheckForTypedefEnum then begin // typedef enum something
       Inc(fIndex); // skip 'typedef'
       HandleEnum;
     end else
-      HandleOtherTypedefs;
+      HandleOtherTypedefs; // typedef Foo Bar
   end else if CheckForStructs then begin
     HandleStructs(False);
   end else if CheckForMethod(S1, S2, S3) then begin
@@ -1667,8 +1742,7 @@ begin
   Result := fIndex < fTokenizer.Tokens.Count;
 end;
 
-procedure TCppParser.Parse(const FileName: AnsiString; ManualUpdate: boolean = False; processInh: boolean = True;
-  Stream: TMemoryStream = nil);
+procedure TCppParser.Parse(const FileName: AnsiString; ManualUpdate: boolean = False; Stream: TMemoryStream = nil);
 begin
   // Perform some validation before we start
   if not fEnabled then
@@ -1696,7 +1770,7 @@ begin
       fPreprocessor.PreprocessFile(FileName); // load contents from disk
   except
     if (not ManualUpdate) and Assigned(fOnEndParsing) then
-      fOnEndParsing(Self);
+      fOnEndParsing(Self, -1);
     fPreprocessor.Reset; // remove buffers from memory
     Exit;
   end;
@@ -1711,7 +1785,7 @@ begin
     end;
   except
     if (not ManualUpdate) and Assigned(fOnEndParsing) then
-      fOnEndParsing(Self);
+      fOnEndParsing(Self, -1);
     fPreprocessor.Reset;
     fTokenizer.Reset;
     Exit;
@@ -1719,80 +1793,45 @@ begin
 
   // Tokenize the token list
   fIndex := 0;
-  fLevel := 0;
-  fLastID := -1;
   fClassScope := scsNone;
   try
     repeat
     until not HandleStatement;
-    if processInh then
-      PostProcessInheritance;
   finally
     fSkipList.Clear; // remove data from memory, but reuse structures
-    fCurrentClassLevel.Clear;
-    FCurrentClass.Clear;
+    fCurrentClass.Clear;
     fPreprocessor.Reset;
     fTokenizer.Reset;
     if (not ManualUpdate) and Assigned(fOnEndParsing) then
-      fOnEndParsing(Self);
+      fOnEndParsing(Self, 1);
   end;
   if not ManualUpdate then
     if Assigned(fOnUpdate) then
       fOnUpdate(Self);
 end;
 
-procedure TCppParser.Reset(KeepLoaded: boolean = True);
+procedure TCppParser.Reset;
 var
   I: integer;
 begin
   if Assigned(fOnBusy) then
     fOnBusy(Self);
 
+  fPendingDeclarations.Clear; // should be empty anyways
   fFilesToScan.Clear;
   if Assigned(fTokenizer) then
     fTokenizer.Reset;
 
-  // Delete everything that isn't cached
-  if KeepLoaded then begin
+  // Remove all statements
+  fStatementList.Clear;
 
-    // Remove statements not in cache
-    for I := fStatementList.Count - 1 downto fBaseIndex do begin
-      Dispose(PStatement(fStatementList[I]));
-      fStatementList.Delete(I);
-    end;
+  // We haven't scanned anything anymore
+  fScannedFiles.Clear;
 
-    // Scanned files not in cache need to be deleted
-    for I := fScannedFiles.Count - 1 downto fScannedBaseIndex do
-      fScannedFiles.Delete(I);
-
-    // Remove files included by cache
-    for I := fIncludesList.Count - 1 downto fScannedBaseIndex do begin
-      Dispose(PFileIncludes(fIncludesList[I]));
-      fIncludesList.Delete(I);
-    end;
-
-    // Delete everything
-  end else begin
-
-    // Remove all statements
-    for I := 0 to fStatementList.Count - 1 do
-      Dispose(PStatement(fStatementList[I]));
-    fStatementList.Clear;
-
-    // We haven't scanned anything anymore
-    fScannedFiles.Clear;
-
-    // We don't include anything anymore
-    for I := fIncludesList.Count - 1 downto 0 do
-      Dispose(PFileIncludes(fIncludesList[I]));
-    fIncludesList.Clear;
-
-    // Clear the cache too
-    fCacheContents.Clear;
-
-    fNextID := 0;
-    fBaseIndex := 0;
-  end;
+  // We don't include anything anymore
+  for I := fIncludesList.Count - 1 downto 0 do
+    Dispose(PFileIncludes(fIncludesList[I]));
+  fIncludesList.Clear;
 
   fProjectFiles.Clear;
 
@@ -1813,20 +1852,22 @@ begin
   try
     // Support stopping of parsing when files closes unexpectedly
     I := 0;
+    fFilesScannedCount := 0;
+    fFilesToScanCount := fFilesToScan.Count;
     while I < fFilesToScan.Count do begin
+      Inc(fFilesScannedCount); // progress is mentioned before scanning begins
       if Assigned(fOnTotalProgress) then
-        fOnTotalProgress(Self, fFilesToScan[i], fFilesToScan.Count, i);
+        fOnTotalProgress(Self, fFilesToScan[i], fFilesToScanCount, fFilesScannedCount);
       if fScannedFiles.IndexOf(fFilesToScan[i]) = -1 then begin
-        Parse(fFilesToScan[i], True, False);
+        Parse(fFilesToScan[i], True);
       end;
       Inc(I);
     end;
+    fPendingDeclarations.Clear; // should be empty anyways
     fFilesToScan.Clear;
-    PostProcessInheritance;
-    fStatementList.Pack;
   finally
     if Assigned(fOnEndParsing) then
-      fOnEndParsing(Self);
+      fOnEndParsing(Self, fFilesScannedCount);
   end;
   if Assigned(fOnUpdate) then
     fOnUpdate(Self);
@@ -1922,7 +1963,7 @@ begin
   Result := cbutils.IsSystemHeaderFile(FileName, fIncludePaths);
 end;
 
-procedure TCppParser.ReParseFile(const FileName: AnsiString; InProject: boolean; OnlyIfNotParsed: boolean = False;
+procedure TCppParser.ParseFile(const FileName: AnsiString; InProject: boolean; OnlyIfNotParsed: boolean = False;
   UpdateView: boolean = True; Stream: TMemoryStream = nil);
 var
   FName: AnsiString;
@@ -1940,12 +1981,9 @@ begin
   // Always invalidate file pairs. If we don't, reparsing the header
   // screws up the information inside the source file
   GetSourcePair(FName, CFile, HFile);
-  fInvalidatedIDs.Clear;
-  if not Assigned(Stream) then begin
-    InvalidateFile(CFile);
-    InvalidateFile(HFile);
-  end else
-    InvalidateFile(FileName);
+  fInvalidatedStatements.Clear;
+  InvalidateFile(CFile);
+  InvalidateFile(HFile);
 
   if InProject then begin
     if (CFile <> '') and (fProjectFiles.IndexOf(CFile) = -1) then
@@ -1965,18 +2003,21 @@ begin
   if Assigned(fOnStartParsing) then
     fOnStartParsing(Self);
   try
+    fFilesToScanCount := 0;
+    fFilesScannedCount := 0;
     if not Assigned(Stream) then begin
       if CFile = '' then
-        Parse(HFile, True, True) // headers should be parsed via include
+        Parse(HFile, True) // headers should be parsed via include
       else
-        Parse(CFile, True, True); // headers should be parsed via include
+        Parse(CFile, True); // headers should be parsed via include
     end else
-      Parse(FileName, True, True, Stream); // or from stream
+      Parse(FileName, True, Stream); // or from stream
     fFilesToScan.Clear;
-    ReProcessInheritance;
+    fPendingDeclarations.Clear; // should be empty anyways
+    ReProcessInheritance; // account for inherited statements that have dissappeared
   finally
     if Assigned(fOnEndParsing) then
-      fOnEndParsing(Self);
+      fOnEndParsing(Self, 1);
   end;
   if UpdateView then
     if Assigned(fOnUpdate) then
@@ -1986,37 +2027,33 @@ end;
 procedure TCppParser.InvalidateFile(const FileName: AnsiString);
 var
   I: integer;
-  I1: integer;
   P: PFileIncludes;
+  Node, NextNode: PStatementNode;
+  Statement: PStatement;
 begin
   if Filename = '' then
     Exit;
 
-  // POSSIBLE PROBLEM:
-  // here we delete all the statements that belong to the specified file.
-  // what happens with the statements that have _ParentID on one of these???
-  // what happens with the statements that inherit from one of these???
-  // POSSIBLE WORKAROUND 1: invalidate the other file too (don't like it much...)
-
   // delete statements of file
-  I := 0;
-  while I < fStatementList.Count do
-    if SameText(PStatement(fStatementList[I])^._FileName, FileName) or
-      SameText(PStatement(fStatementList[I])^._DeclImplFileName, FileName) then begin
-      if PStatement(fStatementList[I])^._Kind = skClass then // only classes have inheritance
-        fInvalidatedIDs.Add(PStatement(fStatementList[I])^._ID);
+  Node := fStatementList.FirstNode;
+  while Assigned(Node) do begin
+    Statement := Node^.Data;
+    NextNode := Node^.NextNode; // parent classname is encountered first
 
-      Dispose(PStatement(fStatementList[I]));
-      fStatementList.Delete(I);
-    end else
-      Inc(I);
+    // Is this statement part of this file? Remove
+    if SameText(Statement^._FileName, FileName) or SameText(Statement^._DefinitionFileName, FileName) then begin
+      if Statement^._Kind = skClass then // only classes have inheritance
+        fInvalidatedStatements.Add(Statement);
 
-  fStatementList.Pack;
+      fStatementList.Delete(Node);
+    end;
+    Node := NextNode;
+  end;
 
   // delete it from scannedfiles
-  I1 := fScannedFiles.IndexOf(FileName);
-  if I1 <> -1 then
-    fScannedFiles.Delete(I1);
+  I := fScannedFiles.IndexOf(FileName);
+  if I <> -1 then
+    fScannedFiles.Delete(I);
 
   // remove its include files list
   P := FindFileIncludes(FileName, True);
@@ -2024,363 +2061,84 @@ begin
     Dispose(PFileIncludes(P));
 end;
 
-procedure TCppParser.Save(const FileName: AnsiString; const relativeto: AnsiString);
+procedure TCppParser.GetMultipleInheritanceStatements(Statement: PStatement; List: TList);
 var
-  I, I2, HowMany: integer;
-  MAGIC: array[0..7] of Char;
-  relative: AnsiString;
-begin
-  MAGIC := 'CPPP 0.2'; // Version 5.6.0 (and newer) use CPPP 0.2
-  fCacheContents.Assign(fScannedFiles);
-  fScannedBaseIndex := fCacheContents.Count;
+  I: integer;
 
-  if FileExists(FileName) then
-    DeleteFile(FileName);
-
-  if fStatementList.Count = 0 then
-    Exit; // don't bother
-
-  // Try writing the whole file in one go
-  with TMemoryStream.Create do try
-
-    // At least reserve for all statements
-    SetSize(fStatementList.Count * 500); // 500 bytes per statement
-
-    // Use the memory buffer from here on
-    Write(MAGIC, sizeof(MAGIC));
-
-    // write statements
-    HowMany := fStatementList.Count - 1;
-    Write(HowMany, SizeOf(Integer));
-    for I := 0 to HowMany do begin
-      with PStatement(fStatementList[I])^ do begin
-
-        // Write integer data...
-        Write(_ID, SizeOf(integer));
-        Write(_ParentID, SizeOf(integer));
-        Write(_Kind, SizeOf(byte));
-        Write(_Scope, SizeOf(integer));
-        Write(_ClassScope, SizeOf(integer));
-        Write(_IsDeclaration, SizeOf(boolean));
-        Write(_DeclImplLine, SizeOf(integer));
-        Write(_Line, SizeOf(integer));
-        Write(_Visible, SizeOf(boolean));
-        Write(_InSystemHeader, SizeOf(boolean));
-
-        // Write data, including length
-        I2 := Length(_FullText);
-        Write(I2, SizeOf(Integer));
-        Write(_FullText[1], I2); // can't write length and data in one call, not allowed to read [0] :(
-
-        I2 := Length(_Type);
-        Write(I2, SizeOf(Integer));
-        Write(_Type[1], I2);
-
-        I2 := Length(_ScopeCmd);
-        Write(I2, SizeOf(Integer));
-        Write(_ScopeCmd[1], I2);
-
-        I2 := Length(_Args);
-        Write(I2, SizeOf(Integer));
-        Write(_Args[1], I2);
-
-        I2 := Length(_ScopelessCmd);
-        Write(I2, SizeOf(Integer));
-        Write(_ScopelessCmd[1], I2);
-
-        // Save RELATIVE filenames
-        relative := ReplaceFirstText(_DeclImplFileName, relativeto, '%path%\');
-        I2 := Length(relative);
-        Write(I2, SizeOf(Integer));
-        Write(relative[1], I2);
-
-        // Save RELATIVE filenames
-        relative := ReplaceFirstText(_FileName, relativeto, '%path%\');
-        I2 := Length(relative);
-        Write(I2, SizeOf(Integer));
-        Write(relative[1], I2);
-
-        I2 := Length(_InheritsFromIDs);
-        Write(I2, SizeOf(Integer));
-        Write(_InheritsFromIDs[1], I2);
-
-        I2 := Length(_InheritsFromClasses);
-        Write(I2, SizeOf(Integer));
-        Write(_InheritsFromClasses[1], I2);
-      end;
-    end;
-
-    // write scanned files (cache contents)
-    HowMany := fScannedFiles.Count - 1;
-    Write(HowMany, SizeOf(Integer));
-    for I := 0 to HowMany do begin
-
-      // Save RELATIVE filenames
-      relative := ReplaceFirstText(fScannedFiles[I], relativeto, '%path%\');
-      I2 := Length(relative);
-      Write(I2, SizeOf(Integer));
-      Write(relative[1], I2);
-    end;
-
-    // write file includes list for each file scanned
-    HowMany := fIncludesList.Count - 1;
-    Write(HowMany, SizeOf(Integer));
-    for I := 0 to HowMany do begin
-
-      // Save RELATIVE filenames
-      relative := ReplaceFirstText(PFileIncludes(fIncludesList[I])^.BaseFile, relativeto, '%path%\');
-      I2 := Length(relative);
-      Write(I2, SizeOf(Integer));
-      Write(relative[1], I2);
-
-      // Save RELATIVE filenames
-      relative := ReplaceFirstText(PFileIncludes(fIncludesList[I])^.IncludeFiles, relativeto, '%path%\');
-      I2 := Length(relative);
-      Write(I2, SizeOf(Integer));
-      Write(relative[1], I2);
-    end;
-
-    // Shrink to fit
-    SetSize(Position);
-
-    SaveToFile(FileName);
-  finally
-    Free;
-    fBaseIndex := fNextID;
+  procedure AddFromStatement(Statement: PStatement);
+  var
+    I: integer;
+  begin
+    if Assigned(Statement^._InheritanceList) then
+      for I := 0 to Statement^._InheritanceList.Count - 1 do
+        List.Add(Statement^._InheritanceList[i]);
   end;
-
-  // Debug: save a readable table too
-  {with TStringList.Create do try
-   for I := 0 to fStatementList.Count - 1 do begin
-    with PStatement(fStatementList[I])^ do begin
-     Add(IntToStr(I) + #9 + IntToStr(_Line) + #9 + _FullText);
-    end;
-   end;
-   SaveToFile('C:\cache.txt');
-  finally
-   Free;
-  end;}
-end;
-
-procedure TCppParser.Load(const FileName: AnsiString; const relativeto: AnsiString);
-var
-  HowMany: integer;
-  I, ItemLength: integer;
-  MAGIC: array[0..7] of Char;
-  Statement: PStatement;
-  P: PFileIncludes;
-  relative: AnsiString;
 begin
+  List.Clear;
+  if not Assigned(Statement) then
+    Exit;
 
-  // Try reading the whole file in one go
-  with TMemoryStream.Create do try
+  // Add first level inheritance
+  AddFromStatement(Statement);
 
-    if not FileExists(FileName) then
-      Exit;
-
-    LoadFromFile(FileName);
-
-    if Size = 0 then
-      Exit;
-
-    // Use the memory buffer from here on
-    Read(MAGIC, sizeof(MAGIC));
-
-    // Version 5.6.0 uses CPPP 0.2
-    if (MAGIC <> 'CPPP 0.1') and (MAGIC <> 'CPPP 0.2') then
-      Exit;
-
-    Read(HowMany, sizeof(Integer));
-    for I := 0 to HowMany do begin
-      Statement := New(PStatement);
-      with Statement^ do begin
-
-        // Read the actual statement
-        Read(_ID, SizeOf(integer));
-        Read(_ParentID, SizeOf(integer));
-        Read(_Kind, SizeOf(byte));
-        Read(_Scope, SizeOf(integer));
-        Read(_ClassScope, SizeOf(integer));
-        Read(_IsDeclaration, SizeOf(boolean));
-        Read(_DeclImplLine, SizeOf(integer));
-        Read(_Line, SizeOf(integer));
-
-        if Magic = 'CPPP 0.2' then begin
-          Read(_Visible, SizeOf(boolean));
-          Read(_InSystemHeader, SizeOf(boolean));
-        end else begin
-          _Visible := False;
-          _InSystemHeader := True;
-        end;
-
-        Read(ItemLength, SizeOf(Integer));
-        SetLength(_FullText, ItemLength);
-        Read(_FullText[1], ItemLength);
-
-        Read(ItemLength, SizeOf(Integer));
-        SetLength(_Type, ItemLength);
-        Read(_Type[1], ItemLength);
-
-        Read(ItemLength, SizeOf(Integer));
-        SetLength(_ScopeCmd, ItemLength);
-        Read(_ScopeCmd[1], ItemLength);
-
-        Read(ItemLength, SizeOf(Integer));
-        SetLength(_Args, ItemLength);
-        Read(_Args[1], ItemLength);
-
-        Read(ItemLength, SizeOf(Integer));
-        SetLength(_ScopelessCmd, ItemLength);
-        Read(_ScopelessCmd[1], ItemLength);
-
-        // Load RELATIVE filenames
-        Read(ItemLength, SizeOf(Integer));
-        SetLength(_DeclImplFileName, ItemLength);
-        Read(_DeclImplFileName[1], ItemLength);
-        _DeclImplFileName := ReplaceFirstStr(_DeclImplFileName, '%path%\', relativeto);
-
-        // Load RELATIVE filenames
-        Read(ItemLength, SizeOf(Integer));
-        SetLength(_FileName, ItemLength);
-        Read(_FileName[1], ItemLength);
-        _FileName := ReplaceFirstStr(_FileName, '%path%\', relativeto);
-
-        Read(ItemLength, SizeOf(Integer));
-        SetLength(_InheritsFromIDs, ItemLength);
-        Read(_InheritsFromIDs[1], ItemLength);
-
-        Read(ItemLength, SizeOf(Integer));
-        SetLength(_InheritsFromClasses, ItemLength);
-        Read(_InheritsFromClasses[1], ItemLength);
-
-        // don't bother to read/write those
-        _Loaded := True;
-        _Temporary := False;
-        _InProject := False;
-      end;
-      fStatementList.Add(Statement);
-    end;
-
-    // read scanned files - cache contents
-    Read(HowMany, SizeOf(Integer));
-    for I := 0 to HowMany do begin
-
-      // Load RELATIVE filenames
-      Read(ItemLength, SizeOf(Integer));
-      SetLength(relative, ItemLength);
-      Read(relative[1], ItemLength);
-      relative := ReplaceFirstStr(relative, '%path%\', relativeto);
-
-      fScannedFiles.Add(relative);
-      fCacheContents.Add(relative);
-    end;
-
-    // read includes info for each scanned file
-    Read(HowMany, SizeOf(Integer));
-    for I := 0 to HowMany do begin
-      P := New(PFileIncludes);
-
-      // Load RELATIVE filenames
-      Read(ItemLength, SizeOf(Integer));
-      SetLength(relative, ItemLength);
-      Read(relative[1], ItemLength);
-      relative := ReplaceFirstStr(relative, '%path%\', relativeto);
-      P^.BaseFile := relative;
-
-      // Load RELATIVE filenames
-      Read(ItemLength, SizeOf(Integer));
-      SetLength(relative, ItemLength);
-      Read(relative[1], ItemLength);
-      relative := ReplaceFirstStr(relative, '%path%\', relativeto);
-      P^.IncludeFiles := relative;
-
-      fIncludesList.Add(P);
-    end;
-  finally
-    Free; // cache file TMemoryStream, not 'this'
-    fNextID := fStatementList.Count;
-    fBaseIndex := fStatementList.Count;
-    fScannedBaseIndex := fCacheContents.Count;
-    PostProcessInheritance;
-  end;
-end;
-
-procedure TCppParser.PostProcessInheritance;
-var
-  C, I, I1, I2: integer;
-  sl: TStrings;
-  S: AnsiString;
-begin
-  sl := TStringList.Create;
-  try
-    // For all classes that inherit from anything...
-    for I := fBaseIndex to fStatementList.Count - 1 do begin
-      if PStatement(fStatementList[I])^._Kind = skClass then begin
-        if PStatement(fStatementList[I])^._InheritsFromClasses <> '' then begin
-
-          // Assemble a stringlist of statements (in string form) it inherits from
-          sl.CommaText := PStatement(fStatementList[I])^._InheritsFromClasses;
-          S := '';
-          C := 0;
-
-          // Find the corresponding IDs and store them in S (separated by commas)
-          for I1 := fStatementList.Count - 1 downto 0 do
-            for I2 := 0 to sl.Count - 1 do
-              if PStatement(fStatementList[I1])^._Kind = skClass then
-                if SameStr(sl[I2], PStatement(fStatementList[I1])^._ScopelessCmd) then begin
-                  S := S + IntToStr(PStatement(fStatementList[I1])^._ID) + ',';
-                  Inc(C);
-                  if C = sl.Count then // found all classes?
-                    Break;
-                end;
-
-          // If the process completed, replace string list by ID list, and cut off ending ','
-          if C = sl.Count then begin
-            PStatement(fStatementList[I])^._InheritsFromClasses := '';
-            if S <> '' then
-              S := Copy(S, 1, Length(S) - 1);
-            PStatement(fStatementList[I])^._InheritsFromIDs := S;
-          end;
-        end;
-      end;
-    end;
-  finally
-    sl.Free;
+  // then process inheritance of inherited items
+  I := 0;
+  while I < List.Count do begin
+    AddFromStatement(List[I]);
+    Inc(I); // step over
   end;
 end;
 
 procedure TCppParser.ReProcessInheritance;
 var
-  I, I1: integer;
+  Node: PStatementNode;
+  Statement, InvalidatedStatement: PStatement;
+  I: integer;
   sl: TStringList;
 begin
 
   // after reparsing a file, we have to reprocess inheritance,
   // because by invalidating the file, we might have deleted
-  // some IDs that were inherited by other, valid, statements.
+  // some Statements that were inherited by other, valid, statements.
   // we need to re-adjust the IDs now...
 
-  if fInvalidatedIDs.Count = 0 then
+  if fInvalidatedStatements.Count = 0 then
     Exit;
   sl := TStringList.Create;
   try
     sl.Sorted := True;
     sl.Duplicates := dupIgnore;
-    for I := fBaseIndex to fStatementList.Count - 1 do
-      for I1 := 0 to fInvalidatedIDs.Count - 1 do
-        if Pos(IntToStr(fInvalidatedIDs[I1]), PStatement(Statements[I])^._InheritsFromIDs) > 0 then
-          sl.Add(PStatement(Statements[I])^._FileName);
+
+    // Create a list of files that contain invalidated IDs that are inherited from
+    Node := fStatementList.FirstNode;
+    while Assigned(Node) do begin
+      Statement := Node^.Data;
+
+      // Does this statement inherit from any invalidated statement?
+      for I := 0 to fInvalidatedStatements.Count - 1 do begin
+        InvalidatedStatement := fInvalidatedStatements[i];
+        if Assigned(Statement._InheritanceList) and (Statement._InheritanceList.IndexOf(InvalidatedStatement) <> -1) then
+          begin
+          sl.Add(Statement^._FileName);
+          break; // don't bother checking other invalidated statements
+        end;
+      end;
+      Node := Node^.NextNode;
+    end;
+
+    // Reparse every file that contains invalidated IDs
     for I := 0 to sl.Count - 1 do
-      ReParseFile(sl[I], fProjectFiles.IndexOf(sl[I]) <> -1, False, False);
+      ParseFile(sl[I], fProjectFiles.IndexOf(sl[I]) <> -1, False, False);
   finally
     sl.Free;
   end;
 end;
 
-function TCppParser.SuggestMemberInsertionLine(ParentID: integer; Scope: TStatementClassScope; var AddScopeStr:
-  boolean): integer;
+function TCppParser.SuggestMemberInsertionLine(ParentStatement: PStatement; Scope: TStatementClassScope; var
+  AddScopeStr: boolean): integer;
 var
-  I: integer;
+  Node: PStatementNode;
+  Statement: PStatement;
   maxInScope: integer;
   maxInGeneral: integer;
 begin
@@ -2391,22 +2149,26 @@ begin
   // line for insertion (the last line in the class).
   maxInScope := -1;
   maxInGeneral := -1;
-  for I := 0 to fStatementList.Count - 1 do
-    if PStatement(fStatementList[I])^._ParentID = ParentID then begin
-      if PStatement(fStatementList[I])^._IsDeclaration then begin
-        if PStatement(fStatementList[I])^._Line > maxInGeneral then
-          maxInGeneral := PStatement(fStatementList[I])^._Line;
-        if PStatement(fStatementList[I])^._ClassScope = scope then
-          if PStatement(fStatementList[I])^._Line > maxInScope then
-            maxInScope := PStatement(fStatementList[I])^._Line;
+  Node := fStatementList.FirstNode;
+  while Assigned(Node) do begin
+    Statement := Node^.Data;
+    if Statement^._Parent = ParentStatement then begin
+      if Statement^._HasDefinition then begin
+        if Statement^._Line > maxInGeneral then
+          maxInGeneral := Statement^._Line;
+        if Statement^._ClassScope = scope then
+          if Statement^._Line > maxInScope then
+            maxInScope := Statement^._Line;
       end else begin
-        if PStatement(fStatementList[I])^._DeclImplLine > maxInGeneral then
-          maxInGeneral := PStatement(fStatementList[I])^._Line;
-        if PStatement(fStatementList[I])^._ClassScope = scope then
-          if PStatement(fStatementList[I])^._DeclImplLine > maxInScope then
-            maxInScope := PStatement(fStatementList[I])^._DeclImplLine;
+        if Statement^._DefinitionLine > maxInGeneral then
+          maxInGeneral := Statement^._Line;
+        if Statement^._ClassScope = scope then
+          if Statement^._DefinitionLine > maxInScope then
+            maxInScope := Statement^._DefinitionLine;
       end;
     end;
+    Node := Node^.NextNode;
+  end;
   if maxInScope = -1 then begin
     AddScopeStr := True;
     Result := maxInGeneral;
@@ -2416,83 +2178,19 @@ begin
   end;
 end;
 
-function TCppParser.GetDeclarationFileName(Statement: PStatement): AnsiString;
-begin
-  if Statement^._IsDeclaration then
-    Result := Statement^._FileName
-  else
-    Result := Statement^._DeclImplFileName;
-end;
-
-function TCppParser.GetDeclarationLine(Statement: PStatement): integer;
-begin
-  if Statement^._IsDeclaration then
-    Result := Statement^._Line
-  else
-    Result := Statement^._DeclImplLine;
-end;
-
-function TCppParser.GetImplementationFileName(Statement: PStatement): AnsiString;
-begin
-  if Statement^._IsDeclaration then
-    Result := Statement^._DeclImplFileName
-  else
-    Result := Statement^._FileName;
-end;
-
-function TCppParser.GetImplementationLine(Statement: PStatement): integer;
-begin
-  if Statement^._IsDeclaration then
-    Result := Statement^._DeclImplLine
-  else
-    Result := Statement^._Line;
-end;
-
-procedure TCppParser.GetClassesList(var List: TStrings);
+procedure TCppParser.GetClassesList(var List: TStringList);
 var
-  I: integer;
+  Node: PStatementNode;
+  Statement: PStatement;
 begin
   // fills List with a list of all the known classes
   List.Clear;
-  for I := fStatementList.Count - 1 downto 0 do
-    if PStatement(fStatementList[I])^._Kind = skClass then
-      List.AddObject(PStatement(fStatementList[I])^._ScopeCmd, Pointer(Statements[I]));
-end;
-
-function TCppParser.IndexOfStatement(ID: integer): integer;
-var
-  I: integer;
-begin
-  // Always perform a forward search. Otherwise multiple struct definitions will NOT work.
-  for I := 0 to fStatementList.Count - 1 do
-    if PStatement(fStatementList[I])^._ID = ID then begin
-      Result := I;
-      Exit;
-    end;
-  Result := -1;
-end;
-
-function TCppParser.Locate(const Full: AnsiString; WithScope: boolean): PStatement;
-var
-  I: integer;
-begin
-  Result := nil;
-
-  // Evaluate if outside of loop (ONCE, not tens of thousands of times)
-  if WithScope then begin
-    for I := 0 to fStatementList.Count - 1 do begin
-      if SameStr(Full, PStatement(fStatementList[I])^._ScopeCmd) then begin
-        Result := PStatement(fStatementList[I]);
-        Break;
-      end;
-    end;
-  end else begin
-    for I := 0 to fStatementList.Count - 1 do begin
-      if SameStr(Full, PStatement(fStatementList[I])^._ScopelessCmd) then begin
-        Result := PStatement(fStatementList[I]);
-        Break;
-      end;
-    end;
+  Node := fStatementList.LastNode;
+  while Assigned(Node) do begin
+    Statement := Node^.Data;
+    if Statement^._Kind = skClass then
+      List.AddObject(Statement^._Command, Pointer(Statement));
+    Node := Node^.PrevNode;
   end;
 end;
 
@@ -2533,61 +2231,77 @@ function TCppParser.FindAndScanBlockAt(const Filename: AnsiString; Row: integer;
     Result := Index;
   end;
 var
-  I, ClosestIndex, ClosestLine, ParentIndex, ParentID, FuncStartIndex, FuncEndIndex: integer;
-  Statement: PStatement;
+  ClosestLine, FuncStartIndex, FuncEndIndex: integer;
+  Node: PStatementNode;
+  Statement, ClosestStatement, ParentStatement: PStatement;
+  InsideBody: Boolean;
 begin
   Result := nil;
-
   if (fTokenizer = nil) or (fPreprocessor = nil) then
     Exit;
-
-  // finds the function in the specified filename that contains the line Row, and parses it...
   DeleteTemporaries;
   ClosestLine := -1;
-  ClosestIndex := -1;
+  ClosestStatement := nil;
+  InsideBody := False;
 
-  // Search for the current function/class
-  for I := 0 to fStatementList.Count - 1 do begin
-    Statement := fStatementList[I];
-
-    // For any type, accept declarations
-    if Statement^._Kind in [skClass, skFunction, skConstructor, skDestructor] then begin
-      if (Statement^._Kind = skClass) and SameText(Statement^._FileName, Filename) then begin
-        if (Statement^._Line <= Row) and (Statement^._Line > ClosestLine) then begin
-          ClosestIndex := I;
-          ClosestLine := Statement^._Line;
+  // Search for the current function/class we are pointing at
+  Node := fStatementList.FirstNode;
+  while Assigned(Node) do begin
+    Statement := Node^.Data;
+    case Statement^._Kind of
+      skClass: begin
+          if SameFileName(Statement^._FileName, FileName) then
+            if (Statement^._Line <= Row) and (Statement^._Line > ClosestLine) then begin
+              ClosestStatement := Statement;
+              ClosestLine := Statement^._Line;
+              InsideBody := Statement^._Line < Row;
+            end;
         end;
-      end;
+      skFunction, skConstructor, skDestructor: begin
+          // Check definition
+          if Statement^._HasDefinition and SameFileName(Statement^._DefinitionFileName, Filename) then begin
+            if (Statement^._DefinitionLine <= Row) and (Statement^._DefinitionLine > ClosestLine) then begin
+              ClosestStatement := Statement;
+              ClosestLine := Statement^._DefinitionLine;
+              InsideBody := Statement^._Line < Row;
+            end;
+          end;
 
-      // For classes, don't accept definitions
-      if (Statement^._Kind <> skClass) and SameText(Statement^._DeclImplFileName, Filename) then begin
-        if (Statement^._DeclImplLine <= Row) and (Statement^._DeclImplLine > ClosestLine) then begin
-          ClosestIndex := I;
-          ClosestLine := Statement^._DeclImplLine;
+          // Check declaration
+          if SameFileName(Statement^._FileName, Filename) then begin
+            if (Statement^._Line <= Row) and (Statement^._Line > ClosestLine) then begin
+              ClosestStatement := Statement;
+              ClosestLine := Statement^._Line;
+              InsideBody := True; // no body, so assume true
+            end;
+          end;
         end;
-      end;
     end;
+    Node := Node^.NextNode;
   end;
 
   // We have found the function or class body we are in
-  if ClosestIndex <> -1 then begin
+  if Assigned(ClosestStatement) then begin
 
-    // If we're not in a class, but in a member function, get the parent of the member function
-    if PStatement(fStatementList[ClosestIndex])^._Kind = skClass then begin
-      ParentID := PStatement(fStatementList[ClosestIndex])^._ID;
-      // parent contains class of function we're in or class itself we're in
-      ParentIndex := ClosestIndex;
-    end else begin
-      ParentID := PStatement(fStatementList[ClosestIndex])^._ParentID;
-      ParentIndex := IndexOfStatement(ParentID);
+    // For classes, the line with the class keyword on it belongs to the parent
+    if ClosestStatement^._Kind = skClass then begin
+      if not InsideBody then begin // Hovering above a class name
+        ParentStatement := ClosestStatement^._Parent;
+      end else begin // inside class body
+        ParentStatement := ClosestStatement; // class
+      end;
+
+      // For functions, it does not
+    end else begin // it's a function
+      ParentStatement := ClosestStatement^._Parent; // class::function
     end;
 
     // The result is the class the function belongs to or the class body we're in
-    if ParentIndex <> -1 then
-      Result := fStatementList[ParentIndex]; // return the parent statement
+    Result := ParentStatement;
 
-    // Scan the function block if we're inside a function
-    if PStatement(fStatementList[ClosestIndex])^._Kind in [skFunction, skConstructor, skDestructor] then begin
+    // Scan the function definition body if we're inside a function
+    if (ClosestStatement^._Kind in [skFunction, skConstructor, skDestructor]) and (ClosestStatement^._HasDefinition) and
+      (ClosestStatement^._DefinitionLine = ClosestLine) then begin
 
       // Preprocess the stream that contains the latest version of the current file (not on disk)
       fPreprocessor.SetIncludesList(fIncludesList);
@@ -2606,17 +2320,10 @@ begin
       // Now find the end of the function block and check that the Row is still in scope
       FuncEndIndex := GetFuncEndLine(FuncStartIndex + 1);
 
-      // if we 're past the end of function or class body, we are not in the scope...
+      // if we 're past the end or before the start of function or class body, we are not in the scope...
       if (Row > fTokenizer[FuncEndIndex - 1]^.Line) or (Row < fTokenizer[FuncStartIndex]^.Line) then begin
-
-        // Try again with the one item of the definition/declaraton pair
-        ClosestLine := PStatement(fStatementList[ClosestIndex])^._DeclImplLine;
-        FuncStartIndex := GetFuncStartLine(0, ClosestLine);
-        FuncEndIndex := GetFuncEndLine(FuncStartIndex + 1);
-
-        // Still failed? Quit
-        if Row > fTokenizer[FuncEndIndex - 1]^.Line then
-          Exit;
+        Result := nil;
+        Exit;
       end;
 
       // Set current file manually because we aren't parsing whole files
@@ -2627,18 +2334,16 @@ begin
 
       // We've found the function body. Scan it
       fIndex := FuncStartIndex;
-      fLevel := 0;
-      fLastID := -1;
       fClassScope := scsNone;
       fLaterScanning := True;
       repeat
         if fTokenizer[fIndex]^.Text[1] = '{' then begin
-          Inc(fLevel);
+          AddSoloClassLevel(nil);
           Inc(fIndex);
         end else if fTokenizer[fIndex]^.Text[1] = '}' then begin
-          Dec(fLevel);
+          RemoveClassLevel;
           Inc(fIndex);
-          if fLevel < 0 then
+          if fCurrentClass.Count = 0 then
             Break; // we've gone out of scope
         end else if CheckForPreprocessor then begin
           HandlePreprocessor;
@@ -2654,30 +2359,29 @@ begin
         CheckForSkipStatement;
       until (fIndex >= fTokenizer.Tokens.Count) or (fIndex >= FuncEndIndex);
       // add the all-important "this" pointer as a local variable
-      if ParentIndex <> -1 then begin
+      if Assigned(ParentStatement) then begin
         AddStatement(
-          -1,
-          ParentID,
+          ParentStatement,
           Filename,
-          PStatement(fStatementList[ParentIndex])^._ScopeCmd + '* this',
-          PStatement(fStatementList[ParentIndex])^._ScopeCmd + '*',
+          '',
+          ParentStatement^._Command + '*',
           'this',
           '',
-          PStatement(fStatementList[ClosestIndex])^._DeclImplLine + 1,
+          ParentStatement^._DefinitionLine + 1,
           skVariable,
           ssClassLocal,
           scsPrivate,
           False,
+          False,
           True,
-          False);
+          nil);
       end;
 
       // Try to use arglist which includes names (implementation, not declaration)
       ScanMethodArgs(
-        PStatement(fStatementList[ClosestIndex])^._Args,
-        PStatement(fStatementList[ClosestIndex])^._DeclImplFileName,
-        PStatement(fStatementList[ClosestIndex])^._DeclImplLine,
-        PStatement(fStatementList[ClosestIndex])^._ParentID);
+        ClosestStatement^._Args,
+        ClosestStatement^._DefinitionFileName,
+        ClosestStatement^._DefinitionLine);
 
       // Everything scanned before this point should be removed
       fLaterScanning := False;
@@ -2796,85 +2500,108 @@ begin
   Result := 0;
 end;
 
-procedure TCppParser.GetInheritanceIDs(st: PStatement; List: TIntList);
-var
-  sl: TStringList;
-  I, tmp, donecount: integer;
-begin
-  if not Assigned(st) then
-    Exit;
-
-  // Walk the whole inheritance tree, all branches, to the bottom
-  sl := TStringList.Create;
-  try
-    // Add first list
-    sl.CommaText := st^._InheritsFromIDs;
-    for I := 0 to sl.Count - 1 do
-      List.Add(StrToIntDef(sl[i], -1));
-    donecount := 0;
-
-    // then process inheritance of new items
-    while donecount < List.Count do begin
-      tmp := IndexOfStatement(List[donecount]); // slooow
-      if tmp <> -1 then begin
-
-        // Add inheritance of inherited
-        sl.CommaText := PStatement(fStatementList[tmp])^._InheritsFromIDs;
-        for I := 0 to sl.Count - 1 do
-          List.Add(StrToIntDef(sl[i], -1));
-      end;
-      Inc(donecount);
-    end;
-  finally
-    sl.Free;
+function TCppParser.PrettyPrintStatement(Statement: PStatement): AnsiString;
+  function GetScopePrefix: AnsiString;
+  var
+    ScopeStr: AnsiString;
+  begin
+    ScopeStr := StatementClassScopeStr(Statement^._ClassScope); // can be blank
+    if ScopeStr <> '' then
+      Result := ScopeStr + ' '
+    else
+      Result := '';
   end;
-end;
-
-procedure TCppParser.GetInheritanceIDs(index: Integer; List: TIntList);
-begin
-  if index <> -1 then
-    GetInheritanceIDs(PStatement(fStatementList[index]), List);
-end;
-
-function TCppParser.PrettyPrintStatement(st: PStatement): AnsiString;
-begin
-  if st^._ClassScope <> scsNone then begin
-    if st^._Type <> '' then begin
-      result := StatementClassScopeStr(st^._ClassScope) + ' ' + st^._Type + ' ' + st^._ScopeCmd + st^._Args;
-    end else begin
-      result := StatementClassScopeStr(st^._ClassScope) + ' ' + st^._ScopeCmd + st^._Args;
+  function GetParentPrefix: AnsiString;
+  var
+    WalkStatement: PStatement;
+  begin
+    Result := '';
+    WalkStatement := Statement;
+    while Assigned(WalkStatement^._Parent) do begin
+      Result := WalkStatement^._Parent^._Command + '::' + Result;
+      WalkStatement := WalkStatement^._Parent;
     end;
+  end;
+  function GetArgsSuffix: AnsiString;
+  begin
+    if Statement^._Args <> '' then
+      Result := ' ' + Statement^._Args
+    else
+      Result := '';
+  end;
+begin
+  Result := '';
+  if Statement^._HintText <> '' then begin
+    Result := Statement^._HintText;
   end else begin
-    result := st^._FullText;
+    case Statement^._Kind of
+      skFunction,
+        skVariable,
+        skClass: begin
+          Result := GetScopePrefix; // public
+          Result := Result + Statement^._Type + ' '; // void
+          Result := Result + GetParentPrefix; // A::B::C::
+          Result := Result + Statement^._Command; // Bar
+          Result := Result + GetArgsSuffix; // (int a)
+        end;
+      skConstructor: begin
+          Result := GetScopePrefix; // public
+          Result := Result + 'constructor' + ' '; // constructor
+          Result := Result + GetParentPrefix; // A::B::C::
+          Result := Result + Statement^._Command; // Bar
+          Result := Result + GetArgsSuffix; // (int a)
+        end;
+      skDestructor: begin
+          Result := GetScopePrefix; // public
+          Result := Result + 'destructor' + ' '; // destructor
+          Result := Result + GetParentPrefix; // A::B::C::
+          Result := Result + Statement^._Command; // Bar
+          Result := Result + GetArgsSuffix; // (int a)
+        end;
+      skTypedef: begin
+          Result := 'skTypedef hint'; // should be set by HintText
+        end;
+      skEnum: begin
+          Result := 'skEnum hint'; // should be set by HintText
+        end;
+      skPreprocessor: begin
+          Result := 'skPreprocessor hint'; // should be set by HintText
+        end;
+      skUnknown: begin
+          Result := 'skUnknown hint'; // should be set by HintText
+        end;
+    end;
   end;
 end;
 
 procedure TCppParser.FillListOfFunctions(const Full: AnsiString; List: TStringList);
 var
-  I: integer;
-  st: PStatement;
+  Node: PStatementNode;
+  Statement: PStatement;
 begin
   List.Clear;
-
   // Tweaked for specific use by CodeToolTip. Also avoids AnsiString compares whenever possible
-  for I := fStatementList.Count - 1 downto 0 do begin // Prefer user declared names
-    st := PStatement(fStatementList[I]);
-    if st^._Kind in [skFunction, skConstructor, skDestructor] then begin
+  Node := fStatementList.LastNode; // Prefer user declared names
+  while Assigned(Node) do begin
+    Statement := Node^.Data;
+    if Statement^._Kind in [skFunction, skConstructor, skDestructor] then begin
 
       // Also add Win32 Ansi/Wide variants...
-      if SameStr(Full, st^._ScopelessCmd) or
-        SameStr(Full + 'A', st^._ScopelessCmd) or
-        SameStr(Full + 'W', st^._ScopelessCmd) then begin
-        List.Add(PrettyPrintStatement(st));
+      if SameStr(Full, Statement^._Command) or
+        SameStr(Full + 'A', Statement^._Command) or
+        SameStr(Full + 'W', Statement^._Command) then begin
+        List.Add(PrettyPrintStatement(Statement));
       end;
     end;
+    Node := Node^.PrevNode;
   end;
 end;
 
-function TCppParser.FindTypeStatementOf(const aType: AnsiString; CurrentClass: PStatement; MaxSearchIndex: integer =
-  -1): PStatement;
+function TCppParser.FindTypeDefinitionOf(const aType: AnsiString; CurrentClass: PStatement): PStatement;
 var
-  I, position: integer;
+  Node: PStatementNode;
+  Statement: PStatement;
+  position: integer;
   s: AnsiString;
 begin
   // Remove pointer stuff from type
@@ -2895,36 +2622,28 @@ begin
   if position > 0 then
     Delete(s, 1, position);
 
-  // Prevent infinite loops for typedef recursion
-  if MaxSearchIndex = -1 then
-    MaxSearchIndex := fStatementList.Count - 1;
-
-  for I := MaxSearchIndex downto 0 do begin
-    if PStatement(fStatementList[I])^._ParentID = -1 then begin // TODO: type definitions can have scope too
-      if PStatement(fStatementList[I])^._Kind = skClass then begin // these have type 'class'
+  // Seach them
+  Node := fStatementList.LastNode;
+  while Assigned(Node) do begin
+    Statement := Node^.Data;
+    if Statement^._Parent = CurrentClass then begin // TODO: type definitions can have scope too
+      if Statement^._Kind = skClass then begin // these have type 'class'
         // We have found the statement of the type directly
-        if SameStr(PStatement(fStatementList[I])^._ScopelessCmd, s) then begin
-          result := fStatementList[I]; // 'class foo'
+        if SameStr(Statement^._Command, s) then begin
+          Result := Statement; // 'class foo'
           Exit;
         end;
-      end else if PStatement(fStatementList[I])^._Kind in [skVariable, skFunction] then begin
-        if SameStr(PStatement(fStatementList[I])^._Type, '') then begin
-          // We have found a variable with the same name, search for type
-          if SameStr(PStatement(fStatementList[I])^._ScopelessCmd, s) then begin
-            result := fStatementList[I];
-            Exit;
-          end;
-        end;
-      end else if PStatement(fStatementList[I])^._Kind = skTypedef then begin
+      end else if Statement^._Kind = skTypedef then begin
         // We have found a variable with the same name, search for type
-        if SameStr(PStatement(fStatementList[I])^._ScopelessCmd, s) then begin
-          result := FindTypeStatementOf(PStatement(fStatementList[I])^._Type, CurrentClass, I - 1);
-          if result = nil then // found end of typedef trail, return result
-            result := fStatementList[I];
+        if SameStr(Statement^._Command, s) then begin
+          Result := FindTypeDefinitionOf(Statement^._Type, CurrentClass);
+          if Result = nil then // found end of typedef trail, return result
+            Result := Statement;
           Exit;
         end;
       end;
     end;
+    Node := Node^.PrevNode;
   end;
 
   Result := nil;
@@ -2932,68 +2651,63 @@ end;
 
 function TCppParser.FindVariableOf(const Phrase: AnsiString; CurrentClass: PStatement): PStatement;
 var
-  I: integer;
-  inheritanceIDs: TIntList;
+  Node: PStatementNode;
+  Statement: PStatement;
 begin
-  // First, assume the parentword is a type (type names have more priority than variables)
-  result := FindTypeStatementOf(Phrase, CurrentClass);
-  if Assigned(result) then
-    Exit;
 
   // Check local variables
-  for I := fStatementList.Count - 1 downto 0 do begin
+  Node := fStatementList.LastNode;
+  while Assigned(Node) do begin
+    Statement := Node^.Data;
     // Class members
-    if (PStatement(fStatementList[I])^._Scope = ssClassLocal) and Assigned(CurrentClass) and
-      (PStatement(fStatementList[I])^._ParentID = CurrentClass^._ID) then begin
-      if SameStr(PStatement(fStatementList[I])^._ScopelessCmd, Phrase) then begin
-        result := fStatementList[I];
+    if (Statement^._Scope = ssClassLocal) and Assigned(CurrentClass) and (Statement^._Parent = CurrentClass) then begin
+      if SameStr(Statement^._Command, Phrase) then begin
+        result := Statement;
         Exit;
       end;
       // Local scope variables (includes function arguments)
-    end else if (PStatement(fStatementList[I])^._Scope = ssLocal) then begin
-      if SameStr(PStatement(fStatementList[I])^._ScopelessCmd, Phrase) then begin
-        result := fStatementList[I];
+    end else if (Statement^._Scope = ssLocal) then begin
+      if SameStr(Statement^._Command, Phrase) then begin
+        result := Statement;
         Exit;
       end;
     end;
+    Node := Node^.PrevNode;
   end;
 
   // Then, assume the variable belongs to the current scope/class, if there is one
   if Assigned(CurrentClass) then begin
-    inheritanceIDs := TIntList.Create;
-    try
-      // Accept inherited stuff from current class too
-      GetInheritanceIDs(CurrentClass, inheritanceIDs); // slow
-
-      // Start scanning backwards, because owner data is found there
-      for I := fStatementList.Count - 1 downto 0 do begin
-        if PStatement(fStatementList[I])^._ParentID = CurrentClass^._ID then begin
-          if SameStr(PStatement(fStatementList[I])^._ScopelessCmd, Phrase) then begin
-            result := fStatementList[I];
-            Exit;
-          end;
-        end else if (inheritanceIDs.IndexOf(PStatement(fStatementList[I])^._ParentID) <> -1) then
-          begin // try inheritance
-          // hide private stuff?
-          if SameStr(PStatement(fStatementList[I])^._ScopelessCmd, Phrase) then begin
-            result := fStatementList[I];
-            Exit;
-          end;
+    Node := fStatementList.LastNode; // Start scanning backwards, because owner data is found there
+    while Assigned(Node) do begin
+      Statement := Node^.Data;
+      if Statement^._Parent = CurrentClass then begin
+        if SameStr(Statement^._Command, Phrase) then begin
+          result := Statement;
+          Exit;
+        end;
+      end else if Assigned(CurrentClass^._InheritanceList) and
+        (CurrentClass^._InheritanceList.IndexOf(Statement^._Parent) <> -1) then begin // try inheritance
+        // hide private stuff?
+        if SameStr(Statement^._Command, Phrase) then begin
+          result := Statement;
+          Exit;
         end;
       end;
-    finally
-      inheritanceIDs.Free;
+      Node := Node^.PrevNode;
     end;
   end;
 
   // What remains are globals. Just do a raw scan...
-  for I := fStatementList.Count - 1 downto 0 do begin // prefer globals inside source files
-    if PStatement(fStatementList[I])^._Scope = ssGlobal then begin
-      if SameStr(PStatement(fStatementList[I])^._ScopelessCmd, Phrase) then begin
-        result := fStatementList[I];
+  Node := fStatementList.LastNode; // prefer globals inside source files
+  while Assigned(Node) do begin
+    Statement := Node^.Data;
+    if Statement^._Scope = ssGlobal then begin
+      if SameStr(Statement^._Command, Phrase) then begin
+        result := Statement;
         Exit;
       end;
     end;
+    Node := Node^.PrevNode;
   end;
 
   Result := nil;
@@ -3001,78 +2715,116 @@ end;
 
 function TCppParser.FindStatementOf(Phrase: AnsiString; CurrentClass: PStatement): PStatement;
 var
-  parenttype: PStatement;
-  i: integer;
-  parentword, memberword, OperatorToken: AnsiString;
-  inheritanceIDs: TIntList; // reuse?
+  Node: PStatementNode;
+  ParentWord, MemberWord, OperatorToken: AnsiString;
+  InheritanceStatements: TList;
+  Statement, MemberStatement, TypedefStatement, VariableStatement, CurrentClassParent: PStatement;
 begin
+  Result := nil;
+
+  // We need to reuse this
+  if Assigned(CurrentClass) then
+    CurrentClassParent := CurrentClass^._Parent
+  else
+    CurrentClassParent := nil;
 
   // Get the FIRST class and member, surrounding the FIRST operator
-  parentword := GetClass(Phrase);
-
+  ParentWord := GetClass(Phrase);
   OperatorToken := GetOperator(Phrase);
-  memberword := GetMember(Phrase);
+  MemberWord := GetMember(Phrase);
 
-  // Determine which variable we are dealing with
-  result := FindVariableOf(parentword, CurrentClass);
-  if not Assigned(result) then
-    Exit;
+  // First, assume the parentword is a type (type names have more priority than variables)
+  // For example, find "class Foo" or "typedef Foo"
+  TypedefStatement := FindTypeDefinitionOf(ParentWord, CurrentClass);
+  if Assigned(TypedefStatement) then
+    Result := TypedefStatement;
 
-  // Then determine which type it has (so we can use it as a parent ID)
-  if result^._Kind = skClass then begin // already found type
-    parenttype := result;
-  end else begin
-    parenttype := FindTypeStatementOf(result^._Type, CurrentClass);
-    if not Assigned(parenttype) then
-      Exit;
+  // If it was not a type, check if it was a variable name
+  if not Assigned(TypedefStatement) then begin
+    VariableStatement := FindVariableOf(ParentWord, CurrentClass);
+
+    // We have found a variable with name "Phrase"
+    if Assigned(VariableStatement) then begin
+      // If we do not need to find children of this variable, stop here
+      if OperatorToken = '' then begin
+        Result := VariableStatement;
+        Exit;
+
+        // We need to find children of this variable.
+        // What we need to find now is the type of the variable
+      end else begin
+        if VariableStatement^._Kind = skClass then
+          TypedefStatement := VariableStatement // a class statement is equal to its type
+        else begin
+          TypedefStatement := FindTypeDefinitionOf(VariableStatement^._Type, CurrentClassParent);
+        end;
+
+        // If we cannot find the type, stop here
+        if not Assigned(TypedefStatement) then begin
+          Result := VariableStatement;
+          Exit;
+        end;
+      end;
+    end;
   end;
 
-  inheritanceIDs := TIntList.Create;
+  InheritanceStatements := TList.Create;
   try
     // Walk the chain of operators
-    while (memberword <> '') do begin
+    while (MemberWord <> '') do begin
+      MemberStatement := nil;
 
-      inheritanceIDs.Clear;
-      GetInheritanceIDs(parenttype, inheritanceIDs);
+      // Get inheritance and inheritance of inheritance and (etc)
+      InheritanceStatements.Clear;
+      GetMultipleInheritanceStatements(TypedefStatement, InheritanceStatements);
 
       // Add members of this type
-      for I := 0 to fStatementList.Count - 1 do begin
-        if PStatement(fStatementList[I])^._ParentID = parenttype^._ID then begin
-          if SameStr(PStatement(fStatementList[I])^._ScopelessCmd, memberword) then begin
-            result := fStatementList[I];
+      Node := fStatementList.LastNode; // Start scanning backwards, because owner data is found there
+      while Assigned(Node) do begin
+        Statement := Node^.Data;
+        if Statement^._Parent = TypedefStatement then begin
+          if SameStr(Statement^._Command, MemberWord) then begin
+            MemberStatement := Statement;
             break; // there can be only one with an equal name
           end;
-        end else if (inheritanceIDs.IndexOf(PStatement(fStatementList[I])^._ParentID) <> -1) then
-          begin // try inheritance
+        end else if (InheritanceStatements.IndexOf(Statement^._Parent) <> -1) then begin // try inheritance
           // hide private stuff?
-          if SameStr(PStatement(fStatementList[I])^._ScopelessCmd, memberword) then begin
-            result := fStatementList[I];
+          if SameStr(Statement^._Command, MemberWord) then begin
+            MemberStatement := Statement;
             break;
           end;
         end;
+        Node := Node^.PrevNode;
       end;
 
+      // Child not found. Stop searching
+      if not Assigned(MemberStatement) then
+        break;
+      Result := MemberStatement; // otherwise, continue
+
       // next operator
-      Delete(phrase, 1, Length(parentword) + Length(OperatorToken));
+      Delete(Phrase, 1, Length(ParentWord) + Length(OperatorToken));
 
       // Get the NEXT member, surrounding the next operator
-      parentword := GetClass(Phrase);
-
+      ParentWord := GetClass(Phrase);
       OperatorToken := GetOperator(Phrase);
-      memberword := GetMember(Phrase);
+      MemberWord := GetMember(Phrase);
 
       // Don't bother finding types
-      if memberword = '' then
+      if MemberWord = '' then
         break;
 
       // At this point, we have a list of statements that conform to the a(operator)b demand.
       // Now make these statements "a(operator)b" the parents, so we can use them as filters again
-      parenttype := FindTypeStatementOf(result^._Type, CurrentClass);
-      if not Assigned(parenttype) then
-        Exit;
+      if MemberStatement^._Kind = skClass then
+        TypedefStatement := MemberStatement // a class statement is equal to its type
+      else
+        TypedefStatement := FindTypeDefinitionOf(MemberStatement^._Type, CurrentClass);
+      if not Assigned(TypedefStatement) then
+        break;
     end;
   finally
-    inheritanceIDs.Free;
+    InheritanceStatements.Free;
   end;
 end;
 
@@ -3083,17 +2835,21 @@ end;
 
 procedure TCppParser.DeleteTemporaries;
 var
-  I: integer;
+  Node, NextNode: PStatementNode;
+  Statement: PStatement;
 begin
-  for I := fStatementList.Count - 1 downto fBaseIndex do begin
-    if PStatement(fStatementList[I])^._Temporary then begin
-      Dispose(PStatement(fStatementList[I]));
-      fStatementList.Delete(I);
-    end;
+  // Remove every statement when Temporary = true
+  Node := fStatementList.FirstNode;
+  while Assigned(Node) do begin
+    NextNode := Node^.NextNode;
+    Statement := Node^.Data;
+    if Statement^._Temporary then
+      fStatementList.Delete(Node);
+    Node := NextNode;
   end;
 end;
 
-procedure TCppParser.ScanMethodArgs(const ArgStr: AnsiString; const Filename: AnsiString; Line, ClassID: integer);
+procedure TCppParser.ScanMethodArgs(const ArgStr: AnsiString; const Filename: AnsiString; Line: Integer);
 var
   I, ParamStart, SpacePos, BracePos: integer;
   S: AnsiString;
@@ -3112,26 +2868,26 @@ begin
       // Can be a function pointer. If so, scan after last )
       BracePos := LastPos(')', S);
       if BracePos > 0 then // it's a function pointer...
-        SpacePos := Pos(' ', Copy(S, BracePos, MaxInt)) // start search at brace
+        SpacePos := LastPos(' ', Copy(S, BracePos, MaxInt)) // start search at brace
       else
-        SpacePos := Pos(' ', S); // Cut up at last space
+        SpacePos := LastPos(' ', S); // Cut up at last space
 
       if SpacePos > 0 then begin
         AddStatement(
-          -1,
-          ClassID,
+          nil,
           Filename,
-          S, // 'int* a'
+          '', // do not override hint
           Copy(S, 1, SpacePos - 1), // 'int*'
           Copy(S, SpacePos + 1, MaxInt), // a
           '',
           Line,
           skVariable,
           ssLocal,
-          scsPrivate,
-          False, // not visible in class browser
-          True, // allow duplicates
-          False);
+          scsNone,
+          False,
+          False,
+          True,
+          nil);
       end;
 
       ParamStart := I + 1; // step over ,

@@ -24,7 +24,7 @@ interface
 uses
 {$IFDEF WIN32}
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, StdCtrls, ComCtrls, ExtCtrls, Spin;
+  Dialogs, StdCtrls, ComCtrls, ExtCtrls, Spin, CBUtils;
 {$ENDIF}
 {$IFDEF LINUX}
 SysUtils, Variants, Classes, QGraphics, QControls, QForms,
@@ -116,7 +116,7 @@ var
   Params: AnsiString;
   Dir: AnsiString;
   I, J: integer;
-  Line: AnsiString;
+  Line, Phrase: AnsiString;
   spacepos: integer;
   buffer: TStringList;
   addeditem: TListItem;
@@ -151,7 +151,7 @@ begin
 
   // Run a flat output
   buffer := TStringList.Create;
-  buffer.Text := RunAndGetOutput(devCompilerSets.CurrentSet.gprofName + Params, Dir, nil, nil, False);
+  buffer.Text := RunAndGetOutput(devCompilerSets.CompilationSet.gprofName + Params, Dir, nil, nil, False);
 
   i := 0;
 
@@ -170,9 +170,10 @@ begin
 
     // Store info of function in Data pointer
     if Pos('(', addeditem.Caption) > 0 then
-      addeditem.Data := MainForm.CppParser.Locate(Copy(addeditem.Caption, 1, Pos('(', addeditem.Caption) - 1), True)
+      Phrase := Copy(addeditem.Caption, 1, Pos('(', addeditem.Caption) - 1)
     else
-      addeditem.Data := MainForm.CppParser.Locate(addeditem.Caption, True);
+      Phrase := addeditem.Caption;
+    addeditem.Data := MainForm.CppParser.FindStatementOf(Phrase, nil);
 
     // Dive remaining part based on spaces
     Line := TrimLeft(buffer[i]);
@@ -209,7 +210,7 @@ var
   Params: AnsiString;
   Dir: AnsiString;
   I, J, startcol: integer;
-  Line: AnsiString;
+  Line, Phrase: AnsiString;
   spacepos: integer;
   buffer: TStringList;
   addeditem: TListItem;
@@ -244,7 +245,7 @@ begin
 
   // Run a graph output
   buffer := TStringList.Create;
-  buffer.Text := RunAndGetOutput(devCompilerSets.CurrentSet.gprofName + Params, Dir, nil, nil, False);
+  buffer.Text := RunAndGetOutput(devCompilerSets.CompilationSet.gprofName + Params, Dir, nil, nil, False);
 
   i := 0;
 
@@ -272,9 +273,10 @@ begin
 
       // Store info of function in Data pointer
       if Pos('(', addeditem.Caption) > 0 then
-        addeditem.Data := MainForm.CppParser.Locate(Copy(addeditem.Caption, 1, Pos('(', addeditem.Caption) - 1), True)
+        Phrase := Copy(addeditem.Caption, 1, Pos('(', addeditem.Caption) - 1)
       else
-        addeditem.Data := MainForm.CppParser.Locate(addeditem.Caption, True);
+        Phrase := addeditem.Caption;
+      addeditem.Data := MainForm.CppParser.FindStatementOf(Phrase, nil);
 
       // Divide remaining part based on spaces
       Line := TrimLeft(buffer[i]);
@@ -375,17 +377,20 @@ end;
 
 procedure TProfileAnalysisForm.lvFlatClick(Sender: TObject);
 var
-  It: TListItem;
-  P: TPoint;
+  MouseItem: TListItem;
+  MousePos: TPoint;
   e: TEditor;
+  Statement: PStatement;
+  ListView : TListView;
 begin
-  P := TListView(Sender).ScreenToClient(Mouse.CursorPos);
-  It := TListView(Sender).GetItemAt(P.X, P.Y);
-  if Assigned(It) and Assigned(It.Data) then begin
-    e := MainForm.EditorList.GetEditorFromFileName(MainForm.CppParser.GetImplementationFileName(PStatement(It.Data)));
+  ListView := TListView(Sender);
+  MousePos := ListView.ScreenToClient(Mouse.CursorPos);
+  MouseItem := ListView.GetItemAt(MousePos.X, MousePos.Y);
+  if Assigned(MouseItem) and Assigned(MouseItem.Data) then begin
+    Statement := PStatement(MouseItem.Data);
+    e := MainForm.EditorList.GetEditorFromFileName(Statement^._DefinitionFileName);
     if Assigned(e) then begin
-      e.SetCaretPos(MainForm.CppParser.GetImplementationLine(PStatement(It.Data)), 1);
-      e.Activate;
+      e.SetCaretPosAndActivate(Statement^._DefinitionLine, 1);
     end;
   end;
 end;
@@ -434,11 +439,12 @@ var
   assembly: AnsiString;
 begin
   if not chkCustom.Checked then begin
-    assembly := devCompilerSets.CurrentSet.gprofName;
+    assembly := devCompilerSets.CompilationSet.gprofName;
     if Assigned(MainForm.Project) then
       assembly := assembly + ' "' + ExtractFileName(MainForm.Project.Executable) + '"'
     else
-      assembly := assembly + ' "' + ExtractFileName(ChangeFileExt(MainForm.EditorList.GetEditor.FileName, EXE_EXT)) + '"';
+      assembly := assembly + ' "' + ExtractFileName(ChangeFileExt(MainForm.EditorList.GetEditor.FileName, EXE_EXT)) +
+        '"';
     if not chkHideNotCalled.Checked then
       assembly := assembly + ' -z';
     if chkSuppressStatic.Checked then

@@ -17,7 +17,7 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 }
 
-unit cbutils;
+unit CBUtils;
 
 interface
 
@@ -40,7 +40,56 @@ type
     IncludeFiles: AnsiString; // "file","file" etc
   end;
 
+  TStatementKind = (
+    skClass,
+    skFunction,
+    skConstructor,
+    skDestructor,
+    skVariable,
+    skTypedef,
+    skEnum,
+    skPreprocessor,
+    skUnknown
+    );
+  TStatementKindSet = set of TStatementKind;
+
+  TStatementScope = (
+    ssGlobal,
+    ssLocal,
+    ssClassLocal
+    );
+
+  TStatementClassScope = (
+    scsPublic,
+    scsPrivate,
+    scsProtected,
+    scsNone
+    );
+
+  PStatement = ^TStatement;
+  TStatement = record
+    _Parent: PStatement; // parent class/struct/namespace
+    _HintText: AnsiString; // text to force display when using PrettyPrintStatement
+    _Type: AnsiString; // type "int"
+    _Command: AnsiString; // identifier/name of statement "foo"
+    _Args: AnsiString; // args "(int a,float b)"
+    _Kind: TStatementKind; // kind of statement class/variable/function/etc
+    _InheritanceList: TList; // list of pstatements this one inherits from, can be nil
+    _Scope: TStatementScope; // global/local/classlocal
+    _ClassScope: TStatementClassScope; // protected/private/public
+    _HasDefinition: boolean; // definiton line/filename is valid
+    _Line: integer; // declaration
+    _DefinitionLine: integer; // definition
+    _FileName: AnsiString; // declaration
+    _DefinitionFileName: AnsiString; // definition
+    _Visible: boolean; // visible in class browser or not
+    _Temporary: boolean; // statements to be deleted after parsing
+    _InProject: boolean; // statement in project
+    _InSystemHeader: boolean; // statement in system header (#include <>)
+  end;
+
   TProgressEvent = procedure(Sender: TObject; const FileName: AnsiString; Total, Current: integer) of object;
+  TProgressEndEvent = procedure(Sender: TObject; Total: integer) of object;
 
   // These functions are about six times faster than the locale sensitive AnsiX() versions
 function StartsStr(const subtext, text: AnsiString): boolean;
@@ -254,10 +303,13 @@ begin
 end;
 
 function IsIncludeLine(const Line: AnsiString): boolean;
+var
+  TrimmedLine: AnsiString;
 begin
   Result := False;
-  if (Length(Line) > 0) and (Line[1] = '#') then begin // it's a preprocessor line
-    if StartsStr('include', TrimLeft(Copy(Line, 2, MaxInt))) then begin // the first word after # is 'include'
+  TrimmedLine := Trim(Line);
+  if (Length(TrimmedLine) > 0) and (TrimmedLine[1] = '#') then begin // it's a preprocessor line
+    if StartsStr('include', TrimLeft(Copy(TrimmedLine, 2, MaxInt))) then begin // the first word after # is 'include'
       Result := True;
     end;
   end;

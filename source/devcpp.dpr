@@ -85,6 +85,7 @@ uses
   ParamsFrm in 'ParamsFrm.pas' {ParamsForm},
   CompOptionsFrame in 'CompOptionsFrame.pas' {CompOptionsFrame: TFrame},
   CompOptionsFrm in 'CompOptionsFrm.pas' {CompOptionsForm},
+  FormatterOptionsFrm in 'FormatterOptionsFrm.pas' {FormatterOptionsForm},
   WebThread in 'Tools\webupdate\WebThread.pas',
   WebUpdate in 'Tools\webupdate\WebUpdate.pas' {WebUpdateForm},
   ProcessListFrm in 'ProcessListFrm.pas' {ProcessListForm},
@@ -143,7 +144,7 @@ begin
   CreateOptions;
 
   // Display it as soon as possible, and only if its worth viewing...
-  if (not devData.NoSplashScreen and devCodeCompletion.UseCacheFiles) or devData.First then
+  if (not devData.NoSplashScreen) or devData.First then
     SplashForm := TSplashForm.Create(nil);
 
   Application.CreateForm(TMainForm, MainForm);

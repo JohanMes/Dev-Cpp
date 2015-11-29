@@ -115,22 +115,22 @@ type
   protected
     function Get(Index: integer): string; override;
     function GetCapacity: integer;
-      {$IFDEF SYN_COMPILER_3_UP} override; {$ENDIF}
+{$IFDEF SYN_COMPILER_3_UP} override;
+{$ENDIF}
     function GetCount: integer; override;
     function GetObject(Index: integer): TObject; override;
     function GetTextStr: string; override;
     procedure Put(Index: integer; const S: string); override;
     procedure PutObject(Index: integer; AObject: TObject); override;
     procedure SetCapacity(NewCapacity: integer);
-      {$IFDEF SYN_COMPILER_3_UP} override; {$ENDIF}
+{$IFDEF SYN_COMPILER_3_UP} override;
+{$ENDIF}
     procedure SetTabWidth(Value: integer);
     procedure SetUpdateState(Updating: Boolean); override;
   public
     constructor Create;
     destructor Destroy; override;
-    // EDIT
-    function GetTextLength : integer;
-    // EDIT
+    function GetTextLength: integer;
     function Add(const S: string): integer; override;
     procedure AddStrings(Strings: TStrings); override;
     procedure Clear; override;
@@ -140,7 +140,7 @@ type
     procedure Insert(Index: integer; const S: string); override;
     procedure InsertLines(Index, NumLines: integer);
     procedure InsertStrings(Index: integer; NewStrings: TStrings);
-    procedure InsertText(Index: integer; NewText: String);
+    procedure InsertText(Index: integer; NewText: string);
     procedure LoadFromFile(const FileName: string); override;
     procedure SaveToFile(const FileName: string); override;
     procedure SaveToStream(Stream: TStream); override;
@@ -173,8 +173,8 @@ type
     crPasteBegin, crPasteEnd, //for pasting, since it might do a lot of operations
     crSpecial1Begin, crSpecial1End,
     crSpecial2Begin, crSpecial2End,
-    crCaret,      //just restore the Caret, allowing better Undo behavior
-    crSelection,  //restore Selection
+    crCaret, //just restore the Caret, allowing better Undo behavior
+    crSelection, //restore Selection
     crNothing,
     crGroupBreak,
     crDeleteAll
@@ -260,7 +260,7 @@ const
   SListIndexOutOfBounds = 'Invalid stringlist index %d';
   SInvalidCapacity = 'Stringlist capacity cannot be smaller than count';
 
-{ TSynEditFiler }
+  { TSynEditFiler }
 
 type
   TSynEditFiler = class(TObject)
@@ -309,102 +309,6 @@ begin
   end;
 end;
 
-{ TSynEditFileReader }
-
-(*
-type
-  TSynEditFileReader = class(TSynEditFiler)
-  protected
-    fFilePos: Cardinal;
-    fFileSize: Cardinal;
-    procedure FillBuffer;
-  public
-    constructor Create(const FileName: string);
-    function EOF: boolean;
-    function ReadLine: string;
-  end;
-
-constructor TSynEditFileReader.Create(const FileName: string);
-begin
-  inherited Create;
-  fFiler := TFileStream.Create(FileName, fmOpenRead or fmShareDenyWrite);
-  fFileSize := fFiler.Size;
-  fFiler.Seek(0, soFromBeginning);
-end;
-
-function TSynEditFileReader.EOF: boolean;
-begin
-  Result := (fBuffer[fBufPtr] = #0) and (fFilePos >= fFileSize);
-end;
-
-procedure TSynEditFileReader.FillBuffer;
-var
-  Count: Cardinal;
-begin
-  if fBufPtr >= fBufSize - 1 then
-    fBufPtr := 0;
-  Count := fFileSize - fFilePos;
-  if Count >= fBufSize - fBufPtr then
-    Count := fBufSize - fBufPtr - 1;
-  fFiler.ReadBuffer(fBuffer[fBufPtr], Count);
-  fBuffer[fBufPtr + Count] := #0;
-  fFilePos := fFilePos + Count;
-  fBufPtr := 0;
-end;
-
-function TSynEditFileReader.ReadLine: string;
-var
-  E, P, S: PChar;
-begin
-  repeat
-    S := PChar(@fBuffer[fBufPtr]);
-    if S[0] = #0 then begin
-      FillBuffer;
-      S := PChar(@fBuffer[0]);
-    end;
-    E := PChar(@fBuffer[fBufSize]);
-    P := S;
-    while P + 2 < E do begin
-      case P[0] of
-        #10, #13:
-          begin
-            SetString(Result, S, P - S);
-            if P[0] = #13 then
-            begin
-              if P[1] = #10 then
-              begin
-                fFileFormat := sffDos;
-                Inc(P);
-              end
-              else
-                fFileFOrmat := sffMac;
-            end;
-            Inc(P);
-            fBufPtr := P - fBuffer;
-            exit;
-          end;
-        #0:
-          if fFilePos >= fFileSize then begin
-            fBufPtr := P - fBuffer;
-            SetString(Result, S, P - S);
-            exit;
-          end;
-      end;
-      Inc(P);
-    end;
-    // put the partial string to the start of the buffer, and refill the buffer
-    Inc(P);
-    if S > fBuffer then
-      StrLCopy(fBuffer, S, P - S);
-    fBufPtr := P - S;
-    fBuffer[fBufPtr] := #0;
-    // if line is longer than half the buffer then grow it first
-    if 2 * Cardinal(P - S) > fBufSize then
-      SetBufferSize(fBufSize + fBufSize);
-  until FALSE;
-end;
-*)
-
 { TSynEditFileWriter }
 
 type
@@ -414,7 +318,7 @@ type
   public
     constructor Create(const FileName: string);
     procedure WriteLine(const S: string; const FileFormat: TSynEditFileFormat);
-    procedure Write(const S: String);
+    procedure Write(const S: string);
   end;
 
 constructor TSynEditFileWriter.Create(const FileName: string);
@@ -432,8 +336,9 @@ begin
   end;
 end;
 
-procedure TSynEditFileWriter.Write(const S: String);
-var L: Cardinal;
+procedure TSynEditFileWriter.Write(const S: string);
+var
+  L: Cardinal;
 begin
   L := Length(S);
   repeat
@@ -463,13 +368,11 @@ begin
         Move(S[1], fBuffer[fBufPtr], L);
         fBufPtr := fBufPtr + L;
       end;
-      if (fFileFormat <> sffUnix) then
-      begin
+      if (fFileFormat <> sffUnix) then begin
         fBuffer[fBufPtr] := #13; // CR
         Inc(fBufPtr);
       end;
-      if (fFileFormat <> sffMac) then
-      begin
+      if (fFileFormat <> sffMac) then begin
         fBuffer[fBufPtr] := #10; // LF
         Inc(fBufPtr);
       end;
@@ -509,18 +412,19 @@ begin
 end;
 
 // This one's about three times faster than Length(TStringList.Text)...
-function TSynEditStringList.GetTextLength : integer;
+
+function TSynEditStringList.GetTextLength: integer;
 var
-	i : integer;
+  i: integer;
 begin
-	Result := 0;
-	for i := 0 to Count - 1 do begin
-		Inc(Result,Length(Strings[i]));
-		if fFileFormat = sffDos then // CRLF
-			Inc(Result,2)
-		else // CR, LF
-			Inc(Result);
-	end;
+  Result := 0;
+  for i := 0 to Count - 1 do begin
+    Inc(Result, Length(Strings[i]));
+    if fFileFormat = sffDos then // CRLF
+      Inc(Result, 2)
+    else // CR, LF
+      Inc(Result);
+  end;
 end;
 
 function TSynEditStringList.Add(const S: string): integer;
@@ -529,7 +433,7 @@ begin
   Result := fCount;
   InsertItem(Result, S);
   if Assigned(OnInserted) then
-    OnInserted( Self, Result, 1 );
+    OnInserted(Self, Result, 1);
   EndUpdate;
 end;
 
@@ -557,7 +461,7 @@ begin
         Inc(fCount);
       end;
       if Assigned(OnInserted) then
-        OnInserted( Self, FirstAdded, Strings.Count );
+        OnInserted(Self, FirstAdded, Strings.Count);
     finally
       EndUpdate;
     end;
@@ -591,7 +495,7 @@ begin
   end;
   fIndexOfLongestLine := -1;
   if Assigned(fOnDeleted) then
-    fOnDeleted( Self, Index, 1 );
+    fOnDeleted(Self, Index, 1);
   EndUpdate;
 end;
 
@@ -618,7 +522,7 @@ begin
     end;
     Dec(fCount, NumLines);
     if Assigned(fOnDeleted) then
-      fOnDeleted( Self, Index, NumLines );
+      fOnDeleted(Self, Index, NumLines);
   end;
 end;
 
@@ -696,14 +600,12 @@ end;
 
 function TSynEditStringList.GetExpandedStringLength(Index: integer): integer;
 begin
-  if (Index >= 0) and (Index < fCount) then
-  begin
+  if (Index >= 0) and (Index < fCount) then begin
     if sfExpandedLengthUnknown in fList^[Index].fFlags then
-      Result := Length( ExpandedStrings[index] )
+      Result := Length(ExpandedStrings[index])
     else
       Result := fList^[Index].fExpandedLength;
-  end
-  else
+  end else
     Result := 0;
 end;
 
@@ -773,7 +675,7 @@ begin
   BeginUpdate;
   InsertItem(Index, S);
   if Assigned(fOnInserted) then
-    fOnInserted( Self, Index, 1 );
+    fOnInserted(Self, Index, 1);
   EndUpdate;
 end;
 
@@ -801,7 +703,7 @@ end;
 
 procedure TSynEditStringList.InsertLines(Index, NumLines: integer);
 var
-	c_Line: Integer;
+  c_Line: Integer;
 begin
   if (Index < 0) or (Index > fCount) then
     ListIndexOutOfBounds(Index);
@@ -813,18 +715,17 @@ begin
         System.Move(fList^[Index], fList^[Index + NumLines],
           (fCount - Index) * SynEditStringRecSize);
       end;
-      for c_Line := Index to Index + NumLines -1 do
-			  with fList^[c_Line] do 
-				begin
-			    Pointer(fString) := nil;
-			    fObject := nil;
-			    fRange := NullRange;
-			    fExpandedLength := -1;
-			    fFlags := [sfExpandedLengthUnknown];
-			  end;
+      for c_Line := Index to Index + NumLines - 1 do
+        with fList^[c_Line] do begin
+          Pointer(fString) := nil;
+          fObject := nil;
+          fRange := NullRange;
+          fExpandedLength := -1;
+          fFlags := [sfExpandedLengthUnknown];
+        end;
       Inc(fCount, NumLines);
       if Assigned(OnInserted) then
-        OnInserted( Self, Index, NumLines );
+        OnInserted(Self, Index, NumLines);
     finally
       EndUpdate;
     end;
@@ -837,7 +738,8 @@ var
   i, Cnt: integer;
 begin
   Cnt := NewStrings.Count;
-  if Cnt = 0 then exit;
+  if Cnt = 0 then
+    exit;
 
   BeginUpdate;
   try
@@ -850,11 +752,12 @@ begin
 end;
 
 procedure TSynEditStringList.InsertText(Index: integer;
-  NewText: String);
+  NewText: string);
 var
   TmpStringList: TStringList;
 begin
-  if NewText = '' then exit;
+  if NewText = '' then
+    exit;
 
   TmpStringList := TStringList.Create;
   try
@@ -867,7 +770,7 @@ end;
 
 procedure TSynEditStringList.LoadFromFile(const FileName: string);
 var
-//  Reader: TSynEditFileReader;
+  //  Reader: TSynEditFileReader;
   Stream: TStream;
 begin
   Stream := TFileStream.Create(FileName, fmOpenRead or fmShareDenyNone);
@@ -877,22 +780,22 @@ begin
     Stream.Free;
   end;
 
-(*//Old Code, for reference
-  Reader := TSynEditFileReader.Create(FileName);
-  try
-    BeginUpdate;
+  (*//Old Code, for reference
+    Reader := TSynEditFileReader.Create(FileName);
     try
-      Clear;
-      while not Reader.EOF do
-        Add(Reader.ReadLine);
-      fFileFormat := Reader.FileFormat;
+      BeginUpdate;
+      try
+        Clear;
+        while not Reader.EOF do
+          Add(Reader.ReadLine);
+        fFileFormat := Reader.FileFormat;
+      finally
+        EndUpdate;
+      end;
     finally
-      EndUpdate;
+      Reader.Free;
     end;
-  finally
-    Reader.Free;
-  end;
-*)
+  *)
 end;
 
 procedure TSynEditStringList.LoadFromStream(Stream: TStream);
@@ -914,34 +817,29 @@ begin
 
     Clear;
     P := Pointer(S);
-    if P <> nil then
-    begin
+    if P <> nil then begin
       iPos := 0;
-      while (iPos < Size) do // (P^ <> #0) do
-      begin
+      while (iPos < Size) do {// (P^ <> #0) do} begin
         Start := P;
-        while not (P^ in [#10, #13]) and (iPos < Size) do
-        begin
+        while not (P^ in [#10, #13]) and (iPos < Size) do begin
           Inc(P);
           Inc(iPos);
         end;
         SetString(S1, Start, P - Start);
         Add(S1);
-        if (P^ = #13) then
-        begin
+        if (P^ = #13) then begin
           fCR := True;
           Inc(P);
           Inc(iPos);
         end;
-        if (P^ = #10) then
-        begin
+        if (P^ = #10) then begin
           fLF := True;
           Inc(P);
           Inc(iPos);
         end;
       end;
       { keep the old format of the file }
-      if (not AppendNewLineAtEOF) and (S[Size] in [#10,#13]) then
+      if (not AppendNewLineAtEOF) and (S[Size] in [#10, #13]) then
         Add('');
     end;
   finally
@@ -968,26 +866,25 @@ begin
     LineEndLength := 1
   else
     LineEndLength := 2;
-  for I := 0 to Count - 1 do Inc(Size, Length(Strings[I]) + LineEndLength);
+  for I := 0 to Count - 1 do
+    Inc(Size, Length(Strings[I]) + LineEndLength);
   if not AppendNewLineAtEOF then
-    Dec( Size, LineEndLength );
+    Dec(Size, LineEndLength);
   SetString(S, nil, Size);
   P := Pointer(S);
   for I := 0 to Count - 1 do begin
     S1 := Strings[I];
     L := Length(S1);
-    if L <> 0 then
-    begin
+    if L <> 0 then begin
       System.Move(Pointer(S1)^, P^, L);
       Inc(P, L);
     end;
     //Do not add new line to last line
-    if (I < Count-1) or (AppendNewLineAtEOF) then begin
+    if (I < Count - 1) or (AppendNewLineAtEOF) then begin
       if FileFormat = sffMac then begin
         P^ := #13;
         Inc(P);
-      end else
-      if FileFormat = sffUnix then begin
+      end else if FileFormat = sffUnix then begin
         P^ := #10;
         Inc(P);
       end else begin
@@ -1017,7 +914,7 @@ begin
       fString := S;
     end;
     if Assigned(fOnPutted) then
-      fOnPutted( Self, Index, 1 );
+      fOnPutted(Self, Index, 1);
     EndUpdate;
   end;
 end;
@@ -1053,7 +950,7 @@ begin
     while i < fCount do begin
       s := Get(i);
       Inc(i);
-      if (i<fCount) or (AppendNewLineAtEOF) then
+      if (i < fCount) or (AppendNewLineAtEOF) then
         Writer.WriteLine(s, fFileFormat)
       else
         Writer.Write(s);
@@ -1066,7 +963,7 @@ end;
 procedure TSynEditStringList.SetCapacity(NewCapacity: integer);
 begin
   if NewCapacity < Count then
-    EListError.Create( SInvalidCapacity );
+    EListError.Create(SInvalidCapacity);
   ReallocMem(fList, NewCapacity * SynEditStringRecSize);
   fCapacity := NewCapacity;
 end;
@@ -1103,16 +1000,14 @@ end;
 
 procedure TSynEditUndoItem.Assign(Source: TPersistent);
 begin
-  if (Source is TSynEditUndoItem) then
-  begin
-    fChangeReason:=TSynEditUndoItem(Source).fChangeReason;
-    fChangeSelMode:=TSynEditUndoItem(Source).fChangeSelMode;
-    fChangeStartPos:=TSynEditUndoItem(Source).fChangeStartPos;
-    fChangeEndPos:=TSynEditUndoItem(Source).fChangeEndPos;
-    fChangeStr:=TSynEditUndoItem(Source).fChangeStr;
-    fChangeNumber:=TSynEditUndoItem(Source).fChangeNumber;
-  end
-  else
+  if (Source is TSynEditUndoItem) then begin
+    fChangeReason := TSynEditUndoItem(Source).fChangeReason;
+    fChangeSelMode := TSynEditUndoItem(Source).fChangeSelMode;
+    fChangeStartPos := TSynEditUndoItem(Source).fChangeStartPos;
+    fChangeEndPos := TSynEditUndoItem(Source).fChangeEndPos;
+    fChangeStr := TSynEditUndoItem(Source).fChangeStr;
+    fChangeNumber := TSynEditUndoItem(Source).fChangeNumber;
+  end else
     inherited Assign(Source);
 end;
 
@@ -1139,24 +1034,21 @@ var
   i: Integer;
   UndoItem: TSynEditUndoItem;
 begin
-  if (Source is TSynEditUndoList) then
-  begin
+  if (Source is TSynEditUndoList) then begin
     Clear;
-    for i:=0 to TSynEditUndoList(Source).fItems.Count-1 do
-    begin
-      UndoItem:=TSynEditUndoItem.Create;
+    for i := 0 to TSynEditUndoList(Source).fItems.Count - 1 do begin
+      UndoItem := TSynEditUndoItem.Create;
       UndoItem.Assign(TSynEditUndoList(Source).fItems[i]);
       fItems.Add(UndoItem);
     end;
-    fBlockChangeNumber:=TSynEditUndoList(Source).fBlockChangeNumber;
-    fBlockCount:=TSynEditUndoList(Source).fBlockCount;
-    fFullUndoImposible:=TSynEditUndoList(Source).fFullUndoImposible;
-    fLockCount:=TSynEditUndoList(Source).fLockCount;
-    fMaxUndoActions:=TSynEditUndoList(Source).fMaxUndoActions;
-    fNextChangeNumber:=TSynEditUndoList(Source).fNextChangeNumber;
-    fInsideRedo:=TSynEditUndoList(Source).fInsideRedo;
-  end
-  else
+    fBlockChangeNumber := TSynEditUndoList(Source).fBlockChangeNumber;
+    fBlockCount := TSynEditUndoList(Source).fBlockCount;
+    fFullUndoImposible := TSynEditUndoList(Source).fFullUndoImposible;
+    fLockCount := TSynEditUndoList(Source).fLockCount;
+    fMaxUndoActions := TSynEditUndoList(Source).fMaxUndoActions;
+    fNextChangeNumber := TSynEditUndoList(Source).fNextChangeNumber;
+    fInsideRedo := TSynEditUndoList(Source).fInsideRedo;
+  end else
     inherited Assign(Source);
 end;
 
@@ -1222,9 +1114,8 @@ begin
       if fNextChangeNumber = 0 then
         Inc(fNextChangeNumber);
       if (fItems.Count > 0) and (PeekItem.ChangeNumber = iBlockID) and
-        Assigned(OnAddedUndo) then
-      begin
-        OnAddedUndo( Self );
+        Assigned(OnAddedUndo) then begin
+        OnAddedUndo(Self);
       end;
     end;
   end;
@@ -1321,29 +1212,23 @@ var
 begin
   //Add the GroupBreak even if ItemCount = 0. Since items are stored in
   //reverse order in TCustomSynEdit.fRedoList, a GroupBreak could be lost.
-  if LastChangeReason <> crGroupBreak then
-  begin
+  if LastChangeReason <> crGroupBreak then begin
     AddChange(crGroupBreak, vDummy, vDummy, '', smNormal);
   end;
 end;
 
 procedure TSynEditUndoList.SetInitialState(const Value: boolean);
 begin
-  if Value then
-  begin
+  if Value then begin
     if ItemCount = 0 then
       fInitialChangeNumber := 0
     else
       fInitialChangeNumber := PeekItem.ChangeNumber;
-  end
-  else
-    if ItemCount = 0 then
-    begin
-      if fInitialChangeNumber = 0 then
-        fInitialChangeNumber := -1;
-    end
-    else if PeekItem.ChangeNumber = fInitialChangeNumber then
+  end else if ItemCount = 0 then begin
+    if fInitialChangeNumber = 0 then
       fInitialChangeNumber := -1;
+  end else if PeekItem.ChangeNumber = fInitialChangeNumber then
+    fInitialChangeNumber := -1;
 end;
 
 function TSynEditUndoList.GetInitialState: boolean;
@@ -1372,3 +1257,4 @@ begin
 end;
 
 end.
+

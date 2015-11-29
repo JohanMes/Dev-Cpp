@@ -539,7 +539,7 @@ begin
   EmailBody := EmailBody + memBugReport.Text;
 
   // And subject...
-  EmailSubject := 'Orwell Dev-C++ ' + DEVCPP_VERSION + ' bug report (' + IntToStr(DateTimeToUnix(Now)) + ')';
+  EmailSubject := 'Dev-C++ ' + DEVCPP_VERSION + ' bug report (' + IntToStr(DateTimeToUnix(Now)) + ')';
 
   // Send everything messages in fully encoded form
   for I := 0 to 255 do
@@ -645,10 +645,10 @@ end;
 procedure TExceptionFrm.btnShowReportClick(Sender: TObject);
 begin
   if btnShowReport.Caption = 'Hide report' then begin // up arrow
-    ClientHeight := 300;
+    ClientHeight := 340;
     btnShowReport.Caption := 'Show report';
   end else begin
-    ClientHeight := 488;
+    ClientHeight := 528;
     btnShowReport.Caption := 'Hide report';
   end;
 end;

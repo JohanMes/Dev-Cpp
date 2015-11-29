@@ -24,7 +24,7 @@ interface
 uses
 {$IFDEF WIN32}
   Dialogs, Windows, Classes, Graphics, SynEdit, editor, CFGData, IniFiles, ProjectTypes, Math, ShellAPI, ShlObj,
-  ComCtrls;
+  ComCtrls, SynEditTextBuffer;
 {$ENDIF}
 {$IFDEF LINUX}
 QDialogs, Classes, QGraphics, QSynEdit, CFGData, IniFiles, Math, prjtypes;
@@ -155,13 +155,16 @@ type
   TdevCompilerSets = class(TPersistent)
   private
     fList: TList; // list of TdevCompilerSet
-    fCurrentIndex: integer;
-    function GetCurrentSet: TdevCompilerSet;
+    fDefaultIndex: integer;
+    function GetCompilationSet: TdevCompilerSet;
+    function GetCompilationSetIndex: Integer;
+    function GetDefaultSet: TdevCompilerSet; // returns regular current set
   public
     constructor Create;
     destructor Destroy; override;
 
     // sigle set management in memory
+//    procedure OnCompilerSetChanged(OldSet, NewSet: TdevCompilerSet);
     procedure LoadSet(Index: integer; const SetName: AnsiString = '');
     procedure SaveSet(Index: integer);
     function AddSet: TdevCompilerSet; overload; // add empty shell
@@ -179,8 +182,10 @@ type
     procedure ClearSets;
 
     // access to list
-    property CurrentSet: TdevCompilerSet read GetCurrentSet; // project aware
-    property CurrentIndex: integer read fCurrentIndex write fCurrentIndex; // project agnostic
+    property CompilationSet: TdevCompilerSet read GetCompilationSet;
+    property CompilationSetIndex: Integer read GetCompilationSetIndex;
+    property DefaultSet: TdevCompilerSet read GetDefaultSet;
+    property DefaultSetIndex: Integer read fDefaultIndex write fDefaultIndex;
     property Sets[index: integer]: TdevCompilerSet read GetSet; default;
   end;
 
@@ -192,8 +197,6 @@ type
     fDelay: integer;
     fBackColor: integer;
     fEnabled: boolean;
-    fUseCacheFiles: boolean;
-    fCacheFiles: TStrings;
     fParseLocalHeaders: boolean;
     fParseGlobalHeaders: boolean;
   public
@@ -208,8 +211,6 @@ type
     property Delay: integer read fDelay write fDelay;
     property BackColor: integer read fBackColor write fBackColor;
     property Enabled: boolean read fEnabled write fEnabled;
-    property UseCacheFiles: boolean read fUseCacheFiles write fUseCacheFiles;
-    property CacheFiles: TStrings read fCacheFiles write fCacheFiles;
     property ParseLocalHeaders: boolean read fParseLocalHeaders write fParseLocalHeaders;
     property ParseGlobalHeaders: boolean read fParseGlobalHeaders write fParseGlobalHeaders;
   end;
@@ -229,6 +230,46 @@ type
     property ShowInheritedMembers: boolean read fShowInheritedMembers write fShowInheritedMembers;
   end;
 
+  // Options for AStyle
+  TdevFormatter = class(TPersistent)
+  private
+    fBracketStyle: Integer;
+    fIndentStyle: Integer;
+    fTabWidth: Integer;
+    fIndentClasses: Boolean;
+    fIndentSwitches: Boolean;
+    fIndentCases: Boolean;
+    fIndentNamespaces: Boolean;
+    fIndentLabels: Boolean;
+    fIndentPreprocessor: Boolean;
+    fFullCommand: AnsiString; // includes customizations
+    fAStyleDir: AnsiString;
+    fAStyleFile: AnsiString;
+  public
+    constructor Create;
+    procedure SettoDefaults;
+    procedure SaveSettings;
+    procedure LoadSettings;
+    function Validate: Boolean; // check if AStyle.exe can be found
+    function FormatMemory(Editor: TEditor; const OverrideCommand: AnsiString): AnsiString; // apply formatting
+    function FormatFile(const FileName, OverrideCommand: AnsiString): AnsiString; // apply formatting
+    function GetVersion: AnsiString;
+  published
+    property BracketStyle: Integer read fBracketStyle write fBracketStyle;
+    property IndentStyle: Integer read fIndentStyle write fIndentStyle;
+    property TabWidth: Integer read fTabWidth write fTabWidth;
+    property IndentClasses: Boolean read fIndentClasses write fIndentClasses;
+    property IndentSwitches: Boolean read fIndentSwitches write fIndentSwitches;
+    property IndentCases: Boolean read fIndentCases write fIndentCases;
+    property IndentNamespaces: Boolean read fIndentNamespaces write fIndentNamespaces;
+    property IndentLabels: Boolean read fIndentLabels write fIndentLabels;
+    property IndentPreprocessor: Boolean read fIndentPreprocessor write fIndentPreprocessor;
+    property FullCommand: AnsiString read fFullCommand write fFullCommand;
+    property AStyleDir: AnsiString read fAStyleDir write fAStyleDir;
+    property AStyleFile: AnsiString read fAStyleFile write fAStyleFile;
+  end;
+
+  // List of programs to use for unknown file extensions
   TdevExternalPrograms = class(TPersistent)
   private
     fDummy: boolean;
@@ -504,10 +545,12 @@ type
     fToolbarCompilersY: integer;
 
     // file associations (see FileAssocs.pas)
-    fAssociateCpp: boolean;
     fAssociateC: boolean;
-    fAssociateHpp: boolean;
+    fAssociateCpp: boolean;
+    fAssociateCxx: boolean;
     fAssociateH: boolean;
+    fAssociateHpp: boolean;
+    fAssociateHxx: boolean;
     fAssociateDev: boolean;
     fAssociateRc: boolean;
     fAssociateTemplate: boolean;
@@ -617,10 +660,12 @@ type
     property ToolbarCompilersY: integer read fToolbarCompilersY write fToolbarCompilersY;
 
     // file associations
-    property AssociateCpp: boolean read fAssociateCpp write fAssociateCpp;
     property AssociateC: boolean read fAssociateC write fAssociateC;
-    property AssociateHpp: boolean read fAssociateHpp write fAssociateHpp;
+    property AssociateCpp: boolean read fAssociateCpp write fAssociateCpp;
+    property AssociateCxx: boolean read fAssociateCxx write fAssociateCxx;
     property AssociateH: boolean read fAssociateH write fAssociateH;
+    property AssociateHpp: boolean read fAssociateHpp write fAssociateHpp;
+    property AssociateHxx: boolean read fAssociateHxx write fAssociateHxx;
     property AssociateDev: boolean read fAssociateDev write fAssociateDev;
     property AssociateRc: boolean read fAssociateRc write fAssociateRc;
     property AssociateTemplate: boolean read fAssociateTemplate write fAssociateTemplate;
@@ -677,6 +722,7 @@ var
   devCodeCompletion: TdevCodeCompletion = nil;
   devClassBrowsing: TdevClassBrowsing = nil;
   devExternalPrograms: TdevExternalPrograms = nil;
+  devFormatter: TdevFormatter = nil;
 
   ConfigMode: (CFG_APPDATA, CFG_PARAM, CFG_EXEFOLDER) = CFG_APPDATA;
 
@@ -707,33 +753,33 @@ begin
 
     // Obtain list of default compilers
     devCompilerSets.FindSets;
-    devCompilerSets.CurrentIndex := -1;
+    devCompilerSets.DefaultSetIndex := -1;
 
     // Pick a proper default
     if IsWindows64 then begin // TDM-GCC x64, MinGW32, ???
       for I := 0 to devCompilerSets.Count - 1 do begin
         if ContainsText(devCompilerSets[i].Name, 'TDM-GCC') then begin
-          devCompilerSets.CurrentIndex := i;
+          devCompilerSets.DefaultSetIndex := i;
           break;
         end;
       end;
 
       // Pick the 'release' build
-      if devCompilerSets.CurrentIndex = -1 then
-        devCompilerSets.CurrentIndex := 0;
+      if (devCompilerSets.DefaultSetIndex = -1) and (devCompilerSets.Count > 0) then
+        devCompilerSets.DefaultSetIndex := 0;
 
     end else begin // TDM-GCC x86, MinGW32, ???
       for I := 0 to devCompilerSets.Count - 1 do begin
         if ContainsText(devCompilerSets[i].Name, 'TDM-GCC') and ContainsText(devCompilerSets[i].Name, '32-bit') then
           begin
-          devCompilerSets.CurrentIndex := i;
+          devCompilerSets.DefaultSetIndex := i;
           break;
         end;
       end;
 
       // Again, pick the 'release' build
-      if devCompilerSets.CurrentIndex = -1 then
-        devCompilerSets.CurrentIndex := 0; // pick any
+      if (devCompilerSets.DefaultSetIndex = -1) and (devCompilerSets.Count > 0) then
+        devCompilerSets.DefaultSetIndex := 0; // pick any
     end;
     devCompilerSets.SaveSets; // save everything to disk
   end;
@@ -749,6 +795,9 @@ begin
 
   if not Assigned(devExternalPrograms) then
     devExternalPrograms := TdevExternalPrograms.Create;
+
+  if not Assigned(devFormatter) then
+    devFormatter := TdevFormatter.Create;
 end;
 
 procedure SaveOptions;
@@ -760,6 +809,7 @@ begin
   devCodeCompletion.SaveSettings;
   devClassBrowsing.SaveSettings;
   devExternalPrograms.SaveSettings;
+  devFormatter.SaveSettings;
 end;
 
 procedure DestroyOptions;
@@ -771,6 +821,7 @@ begin
   devCodeCompletion.Free;
   devClassBrowsing.Free;
   devExternalPrograms.Free;
+  devFormatter.Free;
 end;
 
 procedure RemoveOptionsDir(const Directory: AnsiString);
@@ -852,7 +903,7 @@ begin
   fFindCols := '75, 75, 120, 150';
   fCompCols := '75, 75, 120, 150';
   fMsgTabs := tpTop; // Top
-  fMRUMax := 10;
+  fMRUMax := 15;
   fMinOnRun := FALSE;
   fBackup := FALSE;
   fAutoOpen := 2; // Reopen
@@ -908,11 +959,13 @@ begin
   //read associations set by installer as defaults
   fAssociateC := getAssociation(0);
   fAssociateCpp := getAssociation(1);
-  fAssociateH := getAssociation(2);
-  fAssociateHpp := getAssociation(3);
-  fAssociateDev := getAssociation(4);
-  fAssociateRc := getAssociation(5);
-  fAssociateTemplate := getAssociation(6);
+  fAssociateCxx := getAssociation(2);
+  fAssociateH := getAssociation(3);
+  fAssociateHpp := getAssociation(4);
+  fAssociateHxx := getAssociation(5);
+  fAssociateDev := getAssociation(6);
+  fAssociateRc := getAssociation(7);
+  fAssociateTemplate := getAssociation(8);
   fCheckAssocs := false;
 
   fShowTipsOnStart := FALSE; // due to popular demand
@@ -1732,6 +1785,7 @@ constructor TdevCompilerSets.Create;
 begin
   inherited;
   fList := TList.Create;
+  fDefaultIndex := -1;
 end;
 
 destructor TdevCompilerSets.Destroy;
@@ -1741,29 +1795,87 @@ begin
   inherited;
 end;
 
-function TdevCompilerSets.GetCurrentSet: TdevCompilerSet;
+function TdevCompilerSets.GetCompilationSet: TdevCompilerSet;
 var
-  index: integer;
+  Index: integer;
 begin
-  index := -1;
-  if Assigned(MainForm) then begin
-    case MainForm.GetCompileTarget of
-      ctNone:
-        index := fCurrentIndex;
-      ctFile:
-        index := fCurrentIndex;
-      ctProject:
-        index := MainForm.Project.Options.CompilerSet;
-    end;
-  end else
-    index := fCurrentIndex;
+  Index := GetCompilationSetIndex;
 
-  // range check...
+  // Range check...
   if (index >= 0) and (index < fList.Count) then
     result := TdevCompilerSet(fList[index])
   else
     result := nil;
 end;
+
+function TdevCompilerSets.GetCompilationSetIndex: Integer;
+begin
+  Result := -1;
+  if Assigned(MainForm) then begin
+    case MainForm.GetCompileTarget of
+      ctNone:
+        Result := fDefaultIndex;
+      ctFile:
+        Result := fDefaultIndex;
+      ctProject:
+        Result := MainForm.Project.Options.CompilerSet;
+    end;
+  end else
+    Result := fDefaultIndex;
+end;
+
+function TdevCompilerSets.GetDefaultSet: TdevCompilerSet;
+var
+  Index: integer;
+begin
+  Index := fDefaultIndex;
+
+  // Range check...
+  if (index >= 0) and (index < fList.Count) then
+    result := TdevCompilerSet(fList[index])
+  else
+    result := nil;
+end;
+{
+procedure TdevCompilerSets.OnCompilerSetChanged(OldSet, NewSet: TdevCompilerSet);
+var
+  I: Integer;
+  OldGCCPath, NewGCCPath: AnsiString;
+begin
+  // Get old gcc directory
+  if Assigned(OldSet) and (OldSet.BinDir.Count > 0) then
+    OldGCCPath := IncludeTrailingPathDelimiter(OldSet.BinDir[0]) + OldSet.gccName;
+
+  // Get new gcc directory
+  if Assigned(NewSet) and (NewSet.BinDir.Count > 0) then
+    NewGCCPath := IncludeTrailingPathDelimiter(NewSet.BinDir[0]) + NewSet.gccName;
+
+  // If not equal, rescan because it's a different compiler installation
+  if NewGCCPath = OldGCCPath then
+    Exit;
+
+  with MainForm do begin
+    CppParser.Reset;
+
+    // Set include paths
+    CppParser.ClearIncludePaths;
+    for I := 0 to NewSet.CDir.Count - 1 do
+      CppParser.AddIncludePath(NewSet.CDir[I]);
+    for I := 0 to NewSet.CppDir.Count - 1 do
+      CppParser.AddIncludePath(NewSet.CppDir[I]);
+    for I := 0 to NewSet.DefInclude.Count - 1 do // Add default include dirs last, just like gcc does
+      CppParser.AddIncludePath(NewSet.DefInclude[I]); // TODO: retrieve those directories in devcfg
+
+    // Set defines
+    CppParser.ResetDefines;
+    for I := 0 to NewSet.Defines.Count - 1 do
+      CppParser.AddHardDefineByLine(NewSet.Defines[i]); // predefined constants from -dM -E
+
+    // Rescan work
+    ScanActiveProject;
+  end;
+end;
+}
 
 procedure TdevCompilerSets.LoadSet(index: integer; const SetName: AnsiString = '');
 var
@@ -1923,9 +2035,10 @@ end;
 
 procedure TdevCompilerSets.LoadSets;
 var
-  I: integer;
+  I, SetToActivate: integer;
   sl: TStringList;
-  CompSet: TdevCompilerSet;
+  CurrentSet: TdevCompilerSet;
+  WasValid: Boolean;
 begin
   // Don't append, but replace
   ClearSets;
@@ -1936,25 +2049,26 @@ begin
     devData.ReadStrings('CompilerSets', sl);
 
     // Populate list
+    SetToActivate := -1;
     for I := 0 to sl.Count - 1 do
       if not SameStr(sl.Names[I], 'Current') then begin
         fList.Add(TdevCompilerSet.Create); // add empty shell
         LoadSet(StrToInt(sl.Names[I]), sl.Values[sl.Names[I]]); // backwards compatibility: save Name here and pass it
       end else
-        CurrentIndex := StrToInt(sl.Values[sl.Names[I]]);
+        SetToActivate := StrToIntDef(sl.Values[sl.Names[I]], -1);
 
-    // Only validate the current set
-    if (CurrentIndex >= 0) and (CurrentIndex < fList.Count) then begin
+    // Activate the set after everything has been loaded
+    DefaultSetIndex := SetToActivate;
 
-      // Ignore project compiler sets
-      CompSet := fList[CurrentIndex];
-      if not CompSet.Validate then begin
-        SaveSet(CurrentIndex);
+    // Validate and load the current set
+    CurrentSet := GetDefaultSet;
 
-        // Reset properties after validation
-        if CompSet.BinDir.Count > 0 then begin
-          CompSet.SetProperties(CompSet.BinDir[0], CompSet.gccName);
-        end;
+    // Check if it is usable
+    WasValid := CurrentSet.Validate;
+    if not WasValid then begin
+      SaveSet(DefaultSetIndex);
+      if CurrentSet.BinDir.Count > 0 then begin
+        CurrentSet.SetProperties(CurrentSet.BinDir[0], CurrentSet.gccName);
       end;
     end;
   finally
@@ -1990,9 +2104,9 @@ begin
   end;
 
   // Then current index
-  if fCurrentIndex >= fList.Count then
-    fCurrentIndex := -1;
-  devData.Write('CompilerSets', 'Current', fCurrentIndex);
+  if fDefaultIndex >= fList.Count then
+    fDefaultIndex := -1;
+  devData.Write('CompilerSets', 'Current', fDefaultIndex);
 end;
 
 procedure TdevCompilerSets.FindSets;
@@ -2267,32 +2381,17 @@ begin
   with Editor do begin
     BeginUpdate;
     try
+      // Set text area properties
+      WantTabs := True;
+      MaxScrollWidth := 4096; // bug-fix #600748
+      MaxUndo := 4096;
+      BorderStyle := bsNone;
+      FontSmoothing := fsmClearType;
 
-      // Select a highlighter
+      // Select highlighter based on filename (a lot depends on this)
       Highlighter := dmMain.GetHighlighter(FileName);
-
       TabWidth := fTabSize;
       Font.Assign(fFont);
-
-      with Gutter do begin
-        Font.Assign(fGutterFont);
-        DigitCount := fGutterSize;
-        Visible := fShowGutter;
-        AutoSize := fGutterAuto;
-        ShowLineNumbers := fLineNumbers;
-        LeadingZeros := fLeadZero;
-        ZeroStart := fFirstisZero;
-
-        // Set gutter color
-        if Assigned(Highlighter) then begin
-          StrtoPoint(pt, fSyntax.Values[cGut]);
-          Color := pt.x;
-          Font.Color := pt.y;
-        end else begin // editor not colored, pick defaults
-          Color := clBtnFace;
-          Font.Color := clBlack;
-        end;
-      end;
 
       // Set selection color
       if Assigned(Highlighter) then begin
@@ -2304,39 +2403,59 @@ begin
         SelectedColor.Foreground := clWhite;
       end;
 
-      // Set folding bar color
+      // Set code folding
       if Assigned(Highlighter) then begin
         StrtoPoint(pt, devEditor.Syntax.Values[cFld]);
         CodeFolding.FolderBarLinesColor := pt.y;
-        UseCodeFolding := true;
+        UseCodeFolding := True;
       end else begin
-        UseCodeFolding := false;
+        UseCodeFolding := False;
       end;
 
+      // More stuff
       if fMarginVis then
         RightEdge := fMarginSize
       else
         RightEdge := 0;
-
       RightEdgeColor := fMarginColor;
-
       InsertCaret := TSynEditCaretType(fInsertCaret);
       OverwriteCaret := TSynEditCaretType(fOverwriteCaret);
-
       ScrollHintFormat := shfTopToBottom;
-
       if HighCurrLine and Assigned(Highlighter) then
         ActiveLineColor := HighColor
       else
         ActiveLineColor := clNone;
 
+      // Set gutter properties
+      with Gutter do begin
+        LeftOffset := 4;
+        RightOffset := 21;
+        BorderStyle := gbsNone;
+        Font.Assign(fGutterFont);
+        DigitCount := fGutterSize;
+        Visible := fShowGutter;
+        AutoSize := fGutterAuto;
+        ShowLineNumbers := fLineNumbers;
+        LeadingZeros := fLeadZero;
+        ZeroStart := fFirstisZero;
+        if Assigned(Highlighter) then begin
+          StrtoPoint(pt, fSyntax.Values[cGut]);
+          Color := pt.x;
+          Font.Color := pt.y;
+        end else begin // editor not colored, pick defaults
+          Color := clBtnFace;
+          Font.Color := clBlack;
+        end;
+      end;
+
+      // Set option enum
       Options := [
         eoAltSetsColumnMode, eoDisableScrollArrows,
         eoDragDropEditing, eoDropFiles, eoKeepCaretX, eoTabsToSpaces,
         eoRightMouseMovesCursor, eoScrollByOneLess, eoAutoSizeMaxScrollWidth
         ];
 
-      //Optional synedit options in devData
+      // Optional synedit options in devData
       if fAutoIndent then
         Options := Options + [eoAutoIndent];
       if fAddIndent then
@@ -2374,14 +2493,12 @@ end;
 constructor TdevCodeCompletion.Create;
 begin
   inherited Create;
-  fCacheFiles := TStringList.Create;
   SettoDefaults;
   LoadSettings;
 end;
 
 destructor TdevCodeCompletion.Destroy;
 begin
-  fCacheFiles.Free;
 end;
 
 procedure TdevCodeCompletion.LoadSettings;
@@ -2401,7 +2518,8 @@ begin
   fDelay := 180;
   fBackColor := clWindow;
   fEnabled := True;
-  fUseCacheFiles := False;
+  fParseLocalHeaders := True;
+  fParseGlobalHeaders := True;
 end;
 
 { TdevClassBrowsing }
@@ -2427,6 +2545,96 @@ procedure TdevClassBrowsing.SettoDefaults;
 begin
   fShowFilter := 2; // sfCurrent
   fShowInheritedMembers := False;
+end;
+
+{ TdevFormatter }
+
+constructor TdevFormatter.Create;
+begin
+  inherited Create;
+  SettoDefaults;
+  LoadSettings;
+end;
+
+procedure TdevFormatter.LoadSettings;
+begin
+  devData.ReadObject('Formatter', Self);
+end;
+
+procedure TdevFormatter.SaveSettings;
+begin
+  devData.WriteObject('Formatter', Self);
+end;
+
+procedure TdevFormatter.SettoDefaults;
+begin
+  fBracketStyle := 2; // Java
+  fIndentStyle := 2; // Tabs
+  fTabWidth := 4;
+  fIndentClasses := True;
+  fIndentSwitches := True;
+  fIndentCases := False;
+  fIndentNamespaces := True;
+  fIndentLabels := False;
+  fIndentPreprocessor := True;
+  fFullCommand := ''; // includes customizations
+  fAStyleDir := 'AStyle\';
+  fAStyleFile := 'AStyle.exe';
+end;
+
+function TdevFormatter.Validate: Boolean;
+begin
+  Result := False;
+
+  // Check if AStyle.exe is where it should be
+  if not DirectoryExists(devDirs.Exec + fAStyleDir) then
+    Exit;
+  if not FileExists(devDirs.Exec + fAStyleDir + fAStyleFile) then
+    Exit;
+
+  Result := True;
+end;
+
+function TdevFormatter.FormatMemory(Editor: TEditor; const OverrideCommand: AnsiString): AnsiString;
+var
+  FileName: AnsiString;
+  DummyEditor: TSynEdit;
+begin
+  FileName := devDirs.Exec + fAStyleDir + ExtractFileName(Editor.FileName);
+  with Editor.Text do begin
+    // Format a copy of the file
+    Lines.SaveToFile(FileName);
+    FormatFile(FileName, OverrideCommand);
+
+    // Load into dummy editor
+    DummyEditor := TSynEdit.Create(nil);
+    try
+      // Use replace selection trick to preserve undo list
+      DummyEditor.Lines.LoadFromFile(FileName);
+      SelectAll;
+      SelText := DummyEditor.Lines.Text; // do NOT use Lines.LoadFromFile which is not undo-able
+    finally
+      DummyEditor.Free;
+    end;
+  end;
+end;
+
+function TdevFormatter.FormatFile(const FileName, OverrideCommand: AnsiString): AnsiString;
+var
+  RunCommand, WorkingDir: AnsiString;
+begin
+  WorkingDir := devDirs.Exec + fAStyleDir;
+  RunCommand := fAStyleFile + ' ' + OverrideCommand + ' "' + FileName + '"';
+  Result := RunAndGetOutput(WorkingDir + RunCommand, WorkingDir, nil, nil, False);
+end;
+
+function TdevFormatter.GetVersion: AnsiString;
+var
+  RunCommand, WorkingDir: AnsiString;
+begin
+  WorkingDir := devDirs.Exec + fAStyleDir;
+  RunCommand := fAStyleFile + ' --version';
+  Result := RunAndGetOutput(WorkingDir + RunCommand, WorkingDir, nil, nil, False);
 end;
 
 { TdevExternalPrograms }
