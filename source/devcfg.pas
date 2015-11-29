@@ -17,18 +17,13 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 }
 
-unit devcfg;
+unit devCFG;
 
 interface
 
 uses
-{$IFDEF WIN32}
   Dialogs, Windows, Classes, Graphics, SynEdit, editor, CFGData, IniFiles, ProjectTypes, Math, ShellAPI, ShlObj,
   ComCtrls, SynEditTextBuffer;
-{$ENDIF}
-{$IFDEF LINUX}
-QDialogs, Classes, QGraphics, QSynEdit, CFGData, IniFiles, Math, prjtypes;
-{$ENDIF}
 
 const
   BoolValYesNo: array[boolean] of AnsiString = ('No', 'Yes');
@@ -82,8 +77,7 @@ type
     flinkOpt: AnsiString;
 
     // Options
-    fOptionString: AnsiString; // options in INI format
-    fOptionList: TList; // options in usable memory format
+    fOptions: TList;
 
     // Initialization
     procedure SetProperties(const BinDir, BinFile: AnsiString);
@@ -92,9 +86,9 @@ type
     procedure SetUserInput;
     procedure SetOptions;
 
-    // Keeps string and list synchronized
-    procedure SetOptionString(const value: AnsiString);
-    procedure OptionListToString;
+    // Converts to and from memory format
+    function GetINIOptions: AnsiString;
+    procedure SetINIOptions(const value: AnsiString);
 
     // Validation
     function Validate: boolean; // returns true if valid
@@ -102,7 +96,7 @@ type
     function ValidateExes: boolean; // idem
   public
     constructor Create; overload; // create empty shell
-    constructor Create(const folder: AnsiString); overload; // create, and let if configure itself
+    constructor Create(const CompilerFolder: AnsiString); overload; // create, and let if configure itself
     destructor Destroy; override;
     procedure Assign(Source: TPersistent); override;
 
@@ -116,7 +110,6 @@ type
     function FindOption(const Option: AnsiString; var opt: PCompilerOption; var Index: integer): boolean;
     procedure SetOption(const Option: AnsiString; Value: Char); overload;
     procedure SetOption(Option: PCompilerOption; Value: char); overload;
-    procedure SetOption(Index: integer; Value: char); overload;
 
     // Obtain response from compiler
     function GetCompilerOutput(const BinDir, BinFile, Input: AnsiString): AnsiString;
@@ -141,8 +134,8 @@ type
     property Defines: TStringList read fDefines;
 
     // Options
-    property OptionList: TList read fOptionList write fOptionList;
-    property OptionString: AnsiString read fOptionString write SetOptionString;
+    property Options: TList read fOptions write fOptions;
+    property INIOptions: AnsiString read GetINIOptions write SetINIOptions;
 
     // User settings
     property AddtoComp: boolean read fCompAdd write fCompAdd;
@@ -236,6 +229,8 @@ type
     fBracketStyle: Integer;
     fIndentStyle: Integer;
     fTabWidth: Integer;
+    fMaxLineLength: Integer;
+    fModifyMaxLineLength: Boolean;
     fIndentClasses: Boolean;
     fIndentSwitches: Boolean;
     fIndentCases: Boolean;
@@ -254,11 +249,13 @@ type
     function FormatMemory(Editor: TEditor; const OverrideCommand: AnsiString): AnsiString; // apply formatting
     function FormatFile(const FileName, OverrideCommand: AnsiString): AnsiString; // apply formatting
     function GetVersion: AnsiString;
-    function GetFullCommand : AnsiString;
+    function GetFullCommand: AnsiString;
   published
     property BracketStyle: Integer read fBracketStyle write fBracketStyle;
     property IndentStyle: Integer read fIndentStyle write fIndentStyle;
     property TabWidth: Integer read fTabWidth write fTabWidth;
+    property MaxLineLength: Integer read fMaxLineLength write fMaxLineLength;
+    property ModifyMaxLineLength: Boolean read fModifyMaxLineLength write fModifyMaxLineLength;
     property IndentClasses: Boolean read fIndentClasses write fIndentClasses;
     property IndentSwitches: Boolean read fIndentSwitches write fIndentSwitches;
     property IndentCases: Boolean read fIndentCases write fIndentCases;
@@ -509,7 +506,6 @@ type
     fdblFiles: boolean; // double click opens files out of project manager
     fLangChange: boolean; // flag for language change
     fthemeChange: boolean; // did the theme change?
-    fNoSplashScreen: boolean; // disable splash screen
     fInterfaceFont: AnsiString; // UI font
     fInterfaceFontSize: integer; // UI font size
     fConsolePause: boolean; // pause console program after return
@@ -602,7 +598,6 @@ type
     property First: boolean read fFirst write fFirst;
     property Splash: AnsiString read fSplash write fSplash;
     property MRUMax: integer read fMRUMax write fMRUMax;
-    property NoSplashScreen: boolean read fNoSplashScreen write fNoSplashScreen;
     property ShortenCompPaths: boolean read fShortenCompPaths write fShortenCompPaths;
 
     //Execution
@@ -725,19 +720,11 @@ var
   devExternalPrograms: TdevExternalPrograms = nil;
   devFormatter: TdevFormatter = nil;
 
-  ConfigMode: (CFG_APPDATA, CFG_PARAM, CFG_EXEFOLDER) = CFG_APPDATA;
-
 implementation
 
 uses
-{$IFDEF WIN32}
   MultiLangSupport, DataFrm, SysUtils, StrUtils, Forms, main, compiler, Controls, version, utils, SynEditMiscClasses,
   FileAssocs, TypInfo, DateUtils, Types;
-{$ENDIF}
-{$IFDEF LINUX}
-MultiLangSupport, SysUtils, StrUtils, QForms, QControls, version, utils, QSynEditMiscClasses,
-FileAssocs, Types;
-{$ENDIF}
 
 procedure CreateOptions;
 var
@@ -1053,7 +1040,7 @@ begin
   fCDir := TStringList.Create;
   fCppDir := TStringList.Create;
   fLibDir := TStringList.Create;
-  fOptionList := TList.Create;
+  fOptions := TList.Create;
 
   // Misc.
   fDefInclude := TStringList.Create;
@@ -1065,7 +1052,7 @@ begin
   SetOptions;
 end;
 
-constructor TdevCompilerSet.Create(const folder: AnsiString);
+constructor TdevCompilerSet.Create(const CompilerFolder: AnsiString);
 begin
   inherited Create;
 
@@ -1074,20 +1061,14 @@ begin
   fCDir := TStringList.Create;
   fCppDir := TStringList.Create;
   fLibDir := TStringList.Create;
-  fOptionList := TList.Create;
+  fOptions := TList.Create;
 
   // Misc.
   fDefInclude := TStringList.Create;
   fDefines := TStringList.Create;
 
-  // If relative, append exe dir
-  if (Length(folder) < 2) or (folder[2] <> ':') then // if not absolute
-    fFolder := devDirs.Exec + folder
-  else
-    fFolder := folder;
-
   // Set properties, assume bin\gcc.exe exists (it is our helper)
-  SetProperties(fFolder + pd + 'bin', GCC_PROGRAM);
+  SetProperties(CompilerFolder + pd + 'bin', GCC_PROGRAM);
 
   // Depending on properties, set default exes
   SetExecutables;
@@ -1107,12 +1088,12 @@ var
   I: integer;
 begin
   // delete options
-  for I := 0 to fOptionList.Count - 1 do begin
-    if Assigned(PCompilerOption(fOptionList[I])^.Choices) then
-      PCompilerOption(fOptionList[I])^.Choices.Free;
-    Dispose(PCompilerOption(fOptionList[I]));
+  for I := 0 to fOptions.Count - 1 do begin
+    if Assigned(PCompilerOption(fOptions[I])^.Choices) then
+      PCompilerOption(fOptions[I])^.Choices.Free;
+    Dispose(PCompilerOption(fOptions[I]));
   end;
-  fOptionList.Free;
+  fOptions.Free;
 
   // delete directories
   fBinDir.Free;
@@ -1163,7 +1144,7 @@ begin
   flinkOpt := input.fLinkOpt;
 
   // Option list
-  OptionString := input.fOptionString;
+  INIOptions := input.INIOptions;
 end;
 
 procedure TdevCompilerSet.SetProperties(const BinDir, BinFile: AnsiString);
@@ -1440,8 +1421,6 @@ begin
   AddOption(ID_COPT_MEM, ID_COPT_GRP_OUTPUT, True, True, False, 0, '-fverbose-asm', nil);
   AddOption(ID_COPT_ASSEMBLY, ID_COPT_GRP_OUTPUT, True, True, False, 0, '-S', nil);
   AddOption(ID_COPT_PIPES, ID_COPT_GRP_OUTPUT, True, True, False, 0, '-pipe', nil);
-
-  OptionListToString;
 end;
 
 procedure TdevCompilerSet.AddOption(Name, Section: integer; IsC, IsCpp, IsLinker: boolean; Value: integer; const
@@ -1458,7 +1437,7 @@ begin
   option^.Value := Value;
   option^.Setting := Setting;
   option^.Choices := Choices;
-  fOptionList.Add(option);
+  fOptions.Add(option);
 end;
 
 function TdevCompilerSet.GetOption(const Option: AnsiString): Char;
@@ -1477,37 +1456,31 @@ var
   I: integer;
 begin
   Result := False;
-  for I := 0 to fOptionList.Count - 1 do
-    if SameStr(PCompilerOption(fOptionList[I])^.Setting, Option) then begin
-      opt := PCompilerOption(fOptionList[I]);
+  for I := 0 to fOptions.Count - 1 do
+    if SameStr(PCompilerOption(fOptions[I])^.Setting, Option) then begin
+      opt := PCompilerOption(fOptions[I]);
       Index := I;
       Result := True;
       Break;
     end;
 end;
 
-procedure TdevCompilerSet.SetOptionString(const value: AnsiString);
+function TdevCompilerSet.GetINIOptions: AnsiString;
 var
   I: integer;
 begin
-  // set string
-  fOptionString := value;
-
-  // set list
-  for I := 0 to fOptionList.Count - 1 do
-    if I < Length(value) then // set option in list
-      PCompilerOption(fOptionList[I])^.Value := CharToValue(fOptionString[I + 1])
-    else
-      fOptionString := fOptionString + '0';
+  Result := '';
+  for I := 0 to fOptions.Count - 1 do
+    Result := Result + ValueToChar[PCompilerOption(fOptions[I])^.Value];
 end;
 
-procedure TdevCompilerSet.OptionListToString;
+procedure TdevCompilerSet.SetINIOptions(const value: AnsiString);
 var
   I: integer;
 begin
-  fOptionString := '';
-  for I := 0 to fOptionList.Count - 1 do
-    fOptionString := fOptionString + ValueToChar[PCompilerOption(fOptionList[I])^.Value];
+  for I := 0 to fOptions.Count - 1 do
+    if I < Length(value) then
+      PCompilerOption(fOptions[I])^.Value := CharToValue(value[I + 1]);
 end;
 
 procedure TdevCompilerSet.SetOption(const Option: AnsiString; Value: Char);
@@ -1516,22 +1489,12 @@ var
   OptionIndex: integer;
 begin
   if FindOption(Option, OptionStruct, OptionIndex) then
-    SetOption(OptionIndex, Value);
+    SetOption(Option, Value);
 end;
 
 procedure TdevCompilerSet.SetOption(Option: PCompilerOption; Value: char);
 begin
   Option^.Value := CharToValue(Value);
-  OptionListToString;
-end;
-
-procedure TdevCompilerSet.SetOption(Index: integer; Value: char);
-var
-  NewOptionString: AnsiString;
-begin
-  NewOptionString := fOptionString;
-  NewOptionString[Index + 1] := Value;
-  SetOptionString(NewOptionString);
 end;
 
 function TdevCompilerSet.GetCompilerOutput(const BinDir, BinFile, Input: AnsiString): AnsiString;
@@ -1767,8 +1730,6 @@ begin
   fwindresName := '';
   fgprofName := '';
 
-  fOptionString := '';
-
   fCompOpt := '';
   fLinkOpt := '';
   fCompAdd := false;
@@ -1881,6 +1842,8 @@ end;
 procedure TdevCompilerSets.LoadSet(index: integer; const SetName: AnsiString = '');
 var
   key: AnsiString;
+  I: Integer;
+  Item: TdevCompilerSet;
 
   procedure ReadDirList(list: TStringList; const entry: AnsiString);
   var
@@ -1916,7 +1879,7 @@ begin
     fgprofName := devData.ReadS(key, GPROF_PROGRAM);
 
     // Load the option in string format
-    OptionString := devData.ReadS(key, 'Options');
+    INIOptions := devData.ReadS(key, 'Options');
 
     // Extra parameters
     fCompOpt := devData.ReadS(key, 'CompOpt');
@@ -1931,8 +1894,25 @@ begin
     ReadDirList(fCppDir, 'Cpp');
 
     // Set properties for current gcc path
-    if fBinDir.Count > 0 then
-      SetProperties(fBinDir[0], fgccName);
+    if fBinDir.Count > 0 then begin
+      // Check if this directory has already been used to set properties
+      for I := 0 to devCompilerSets.Count - 1 do begin
+        if I <> index then begin
+          Item := devCompilerSets[i];
+          if (Item.BinDir.Count > 0) and (Item.BinDir[0] = fBinDir[0]) and (Item.gccName = fgccName) then begin
+            fVersion := Item.fVersion;
+            fFolder := Item.fFolder;
+            fType := Item.fType;
+            if fName = '' then
+              fName := Item.fName;
+            fDumpMachine := Item.fDumpMachine;
+            //fDefInclude.Assign(Item.fDefInclude);
+            fDefines.Assign(Item.fDefines);
+          end else
+            SetProperties(fBinDir[0], fgccName); // read properties from disk
+        end;
+      end;
+    end;
   end;
 end;
 
@@ -1972,7 +1952,7 @@ begin
     devData.Write(key, GPROF_PROGRAM, fgprofName);
 
     // Save option string
-    devData.Write(key, 'Options', fOptionString);
+    devData.Write(key, 'Options', INIOptions);
 
     // Save extra 'general' options
     devData.Write(key, 'CompOpt', fCompOpt);
@@ -2057,7 +2037,7 @@ begin
       end else
         SetToActivate := StrToIntDef(sl.Values[sl.Names[I]], -1);
 
-    // Activate the set after everything has been loaded
+    // Activate the current set after everything has been loaded
     DefaultSetIndex := SetToActivate;
 
     // Validate and load the current set
@@ -2570,6 +2550,8 @@ begin
   fBracketStyle := 2; // Java
   fIndentStyle := 2; // Tabs
   fTabWidth := 4;
+  fModifyMaxLineLength := False;
+  fMaxLineLength := 80;
   fIndentClasses := True;
   fIndentSwitches := True;
   fIndentCases := False;
@@ -2581,7 +2563,7 @@ begin
   fAStyleFile := 'AStyle.exe';
 end;
 
-function TdevFormatter.GetFullCommand : AnsiString;
+function TdevFormatter.GetFullCommand: AnsiString;
 begin
   Result := '';
 
@@ -2596,6 +2578,10 @@ begin
     3: Result := Result + ' --indent=force-tab=' + IntToStr(fTabWidth);
     4: Result := Result + ' --indent=force-tab-x=' + IntToStr(fTabWidth);
   end;
+
+  // Add line length
+  if fModifyMaxLineLength then
+    Result := Result + ' --max-code-length=' + IntToStr(fMaxLineLength);
 
   // Add indentation options
   if fIndentClasses then
@@ -2632,22 +2618,27 @@ var
   FileName: AnsiString;
   DummyEditor: TSynEdit;
 begin
+  // Store file backup in AStyle dir and format that file
   FileName := devDirs.Exec + fAStyleDir + ExtractFileName(Editor.FileName);
-  with Editor.Text do begin
-    // Format a copy of the file
-    Lines.SaveToFile(FileName);
-    FormatFile(FileName, OverrideCommand);
+  Editor.Text.Lines.SaveToFile(FileName);
+  FormatFile(FileName, OverrideCommand);
 
-    // Load into dummy editor
-    DummyEditor := TSynEdit.Create(nil);
+  // Load formatted file into dummy
+  DummyEditor := TSynEdit.Create(nil);
+  try
+    // Use replace selection trick to preserve undo list
+    DummyEditor.Lines.LoadFromFile(FileName);
+
+    // Use replace all functionality
+    Editor.Text.BeginUpdate;
     try
-      // Use replace selection trick to preserve undo list
-      DummyEditor.Lines.LoadFromFile(FileName);
-      SelectAll;
-      SelText := DummyEditor.Lines.Text; // do NOT use Lines.LoadFromFile which is not undo-able
+      Editor.Text.SelectAll;
+      Editor.Text.SelText := DummyEditor.Lines.Text; // do NOT use Lines.LoadFromFile which is not undo-able
     finally
-      DummyEditor.Free;
+      Editor.Text.EndUpdate; // repaint once
     end;
+  finally
+    DummyEditor.Free;
   end;
 end;
 
@@ -2732,7 +2723,6 @@ end;
 procedure TdevExternalPrograms.SetToDefaults;
 begin
   inherited;
-
 end;
 
 end.

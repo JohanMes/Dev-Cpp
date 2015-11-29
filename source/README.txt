@@ -2,25 +2,29 @@
 
 To be able to use compiled executables directly, please place the Source folder 
 (the one this file you're looking at is placed in) in the root folder of a 
-Dev-C++ installation. This makes sure that when compiling, devcpp.exe will end 
+Dev-C++ installation. This makes sure that after compiling, devcpp.exe will end 
 up in the right location so you end up with a usable and testable product right 
 away.
 
 2. Compiling devcpp.exe
 
-The the main executable devcpp.exe can be built using the following steps:
+The main executable devcpp.exe can be built using the following steps:
 
-	1) Compile and Install the following packages:
+	1) Compile and install the following package(s):
 		Source\VCL\DevCpp.dpk
 		Source\VCL\SynEditPackages\SynEdit_<Delphi Version>.dpk
 		Source\VCL\ClassBrowsing\ClassBrowsing.dpk
 
-	2) Compile resources by running the following scripts:
+	2) Compile resources by running the following script(s):
 		Source\CompileResources.bat
 		
 	3) Open the project file devcpp.dpr. Your IDE should not produce any 
-	   'Module Not Found' or 'Resource Not Found' when opening files, compiling
-	   files or running devcpp.exe.
+	   'Module Not Found' or 'Resource Not Found' errors when opening files, 
+	   compiling files or running devcpp.exe.
+
+	4) It is advisable to run CleanSource.bat before commiting work, when you get
+ 	   errors complaining about old versions of code or when you want to diff the
+	   source folder.
 
 This process has only been tested using Delphi 6 and Delphi 7. The code base
 should be compatible with more recent versions of Delphi, but there is no 
@@ -29,14 +33,14 @@ guarantee anything will work.
 3. Compiling associated tools
 
 There are a couple of executables that need to be compiled and/or put in the
-right folder when building a release:
+right folder when building a release. These files can be found in the Tools
+subfolder.
 
 	1) ConsolePauser.exe. This needs to be put in the root directory next to
 	   devcpp.exe. This executable is launched by devcpp.exe when a console 
 	   program is run and the option "Pause console programs after return" is
 	   enabled in Environment Options. This file can be compiled using
 	   Source\Tools\ConsolePauser\ConsolePauser.dev
-	   
 	   
 	2) devcppPortable.exe. This file should be provided with all builds of
 	   Dev-C++ (also the nonportable ones) and should also be placed in the root
@@ -45,11 +49,27 @@ right folder when building a release:
 	   %APPDATA%\Dev-Cpp. This file can be compiled using
 	   Source\Tools\DevCppPortable\DevCppPortable.dev
 	   
-	3) Packman.exe. This file is launched by the menu item located at
+	3) Packman.exe (legacy). This file is launched by the menu item located at
 	   Tools >> Package Manager and provides .pak plugin support. This file has
 	   not been touched since like 2005 so do what you wish with it.
 	   
-4. UPX
+4. Other tools
+
+Other tools provided for legacy reasons or to easy the developer's life are:
+
+	1) GitPush. Automated script that adds, commits, and pushes the current code
+	   base to the SourceForge git repo. Please position this executable in the
+	   root folder of Dev-C++.
+	   
+	2) HeywordHighlighter. Used to generate the hash table of function pointers
+	   used by SynEditHighlighterCpp.pas to determine if a word is a keyword.
+	   
+	3) LangCheck. Compares any language file to the english language file and
+	   checks for missing entries and formatting options compatibility.
+	   
+	4) PackMaker (legacy). Used to create PAK extension files.
+	   
+5. UPX
 
 To decrease the main executable size, the old developers from Bloodshed used a
 program called UPX to compress it. Here is a copy of their instructions on how
@@ -63,7 +83,7 @@ of the provided compiler):
 	Otherwise upx will compress all icons and the file associations will point
 	to nonexisting (moved) icons within devcpp.exe
 	
-5. Shortcut Map
+6. Shortcut Map
 
 This is an up to date map of the default shortcuts of Dev-C++. All Ctrl+(Letter)
 combinations are in use, except for the following letters: UJKL. The Shift 
@@ -74,7 +94,6 @@ avoided.
 Misc.
 -----
 F1			Help
-			
 Alt+F4		Close
 Ctrl+Space	Open Code Completion
 
@@ -90,6 +109,7 @@ F9			Compile
 F10			Start Regular
 F11			Compile and Run Regular
 F12			Rebuild
+Ctrl+F9		Syntax Check Current File
 
 Editing
 -------
@@ -139,7 +159,6 @@ Ctrl+B			Open Containing Folder
 
 View
 ----
-Ctrl+F10		Hide Fullscreen Bar
 Ctrl+F11		Toggle Fullscreen
 Ctrl+F12		Toggle Fullscreen Bar
 Ctrl+Tab		Next Editor
@@ -149,7 +168,7 @@ Project
 -------
 Ctrl+H			Project Options
 	
-6. Image Map (somewhat outdated)
+7. Image Map (somewhat outdated)
 
 These are the descriptions of the indices of the menu images lists used in d
 Transparent color is selected as the left most pixel of the bottom row.

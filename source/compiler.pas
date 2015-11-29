@@ -22,14 +22,8 @@ unit Compiler;
 interface
 
 uses
-{$IFDEF WIN32}
   Windows, SysUtils, Dialogs, StdCtrls, Controls, ComCtrls, Forms,
-  devrun, version, project, utils, ProjectTypes, Classes, Graphics, devcfg;
-{$ENDIF}
-{$IFDEF LINUX}
-SysUtils, QDialogs, QStdCtrls, QComCtrls, QForms,
-devrun, version, project, utils, prjtypes, Classes, QGraphics;
-{$ENDIF}
+  devRun, version, project, utils, ProjectTypes, Classes, Graphics, devCFG;
 
 type
   TLogEntryEvent = procedure(const Msg: AnsiString) of object;
@@ -280,7 +274,7 @@ begin
   GetLibrariesParams;
   GetIncludesParams;
 
-  if Pos(' -g3', fCompileParams) > 0 then begin
+  if (Pos(' -g3', fCompileParams) > 0) or (Pos('-g3', fCompileParams) = 1) then begin
     Writeln(F, 'CPP      = ' + fCompilerSet.gppName + ' -D__DEBUG__');
     Writeln(F, 'CC       = ' + fCompilerSet.gccName + ' -D__DEBUG__');
   end else begin
@@ -532,8 +526,8 @@ begin
   end;
 
   // Walk all options
-  for I := 0 to fCompilerSet.OptionList.Count - 1 do begin
-    option := PCompilerOption(fCompilerSet.OptionList[I])^;
+  for I := 0 to fCompilerSet.Options.Count - 1 do begin
+    option := PCompilerOption(fCompilerSet.Options[I])^;
 
     // consider project specific options for the compiler, else global compiler options
     if (Assigned(fProject) and (I < Length(fProject.Options.CompilerOptions))) or (not Assigned(fProject) and
@@ -1168,8 +1162,8 @@ begin
   fLibrariesParams := Trim(fLibrariesParams);
 
   // Add project settings that need to be passed to the linker
-  for I := 0 to fCompilerSet.OptionList.Count - 1 do begin
-    option := PCompilerOption(fCompilerSet.OptionList[I])^;
+  for I := 0 to fCompilerSet.Options.Count - 1 do begin
+    option := PCompilerOption(fCompilerSet.Options[I])^;
     if (Assigned(fProject) and (I < Length(fProject.Options.CompilerOptions))) or (not Assigned(fProject) and
       (option.Value > 0)) then begin
       if option.IsLinker then

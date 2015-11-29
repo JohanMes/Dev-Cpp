@@ -22,15 +22,9 @@ unit Project;
 interface
 
 uses
-{$IFDEF WIN32}
   IniFiles, SysUtils, Dialogs, ComCtrls, Editor, Contnrs, SynExportHTML,
   Classes, Controls, version, Forms, Templates, ProjectTypes,
   Windows;
-{$ENDIF}
-{$IFDEF LINUX}
-IniFiles, SysUtils, QDialogs, QComCtrls, Editor, Contnrs,
-Classes, QControls, version, prjtypes, Templates, QForms;
-{$ENDIF}
 
 type
   TProjUnit = class;
@@ -114,7 +108,7 @@ type
     property Directory: AnsiString read GetDirectory;
     property Executable: AnsiString read GetExecutableName;
     property Units: TUnitList read fUnits write fUnits;
-    property INIFile: TMemIniFile read fINIFile write fINIFile;
+//    property INIFile: TMemIniFile read fINIFile write fINIFile;
     property Modified: boolean read GetModified write SetModified;
     property MakeFileName: AnsiString read GetMakeFileName;
     constructor Create(const nFileName, nName: AnsiString);
@@ -296,8 +290,9 @@ begin
   // Does the option exist?
   if devCompilerSets[fOptions.CompilerSet].FindOption(OptionString, OptionStruct, OptionIndex) then begin
     // Can it be found in the project options list?
-    if (OptionIndex + 1 <= Length(fOptions.CompilerOptions)) then
+    if (OptionIndex + 1 <= Length(fOptions.CompilerOptions)) then begin
       result := fOptions.CompilerOptions[OptionIndex + 1];
+    end;
   end;
 end;
 
@@ -309,10 +304,11 @@ begin
   // Does the option exist?
   if devCompilerSets[fOptions.CompilerSet].FindOption(OptionString, OptionStruct, OptionIndex) then begin
     // Can it be found in the project options list?
-    if (OptionIndex + 1 <= Length(fOptions.CompilerOptions)) and (fOptions.CompilerOptions[OptionIndex + 1] <> value)
-      then begin
-      fOptions.CompilerOptions[OptionIndex + 1] := Value;
-      SetModified(true);
+    if (OptionIndex + 1 <= Length(fOptions.CompilerOptions)) then begin
+      if (fOptions.CompilerOptions[OptionIndex + 1] <> value) then begin
+        fOptions.CompilerOptions[OptionIndex + 1] := Value;
+        SetModified(true);
+      end;
     end;
   end;
 end;
@@ -876,6 +872,8 @@ begin
       DeleteKey('Project', 'Use_GPP');
     end;
   end;
+
+  fINIFile.UpdateFile; // force flush
 end;
 
 function TProject.SaveUnits: Boolean;
@@ -1195,9 +1193,6 @@ begin
     Exit;
   SaveOptions; // update other data, and save to disk
   SaveLayout; // save current opened files, and which is "active".
-
-  // Write to disk
-  finiFile.UpdateFile;
 
   // We have saved everything to disk, so mark unmodified
   SetModified(false);

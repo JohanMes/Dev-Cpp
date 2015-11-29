@@ -22,14 +22,8 @@ unit AboutFrm;
 interface
 
 uses
-{$IFDEF WIN32}
   Windows, SysUtils, Classes, version, Graphics, Controls, Forms, Dialogs,
   StdCtrls, Buttons, ExtCtrls;
-{$ENDIF}
-{$IFDEF LINUX}
-SysUtils, Classes, QGraphics, QControls, QForms, QDialogs,
-QStdCtrls, QButtons, QExtCtrls;
-{$ENDIF}
 
 type
   TAboutForm = class(TForm)
@@ -57,23 +51,21 @@ type
     pnlFish: TPanel;
     FishImage: TImage;
     imgBanner: TImage;
-    lblDonateHint: TLabel;
     bvNew: TBevel;
-    imgDonate: TImage;
     lblSubreddit: TLabel;
     lblSubredditURL: TLabel;
     lblRepository: TLabel;
     lblRepositoryURL: TLabel;
     lblTDM: TLabel;
     lblTDMURL: TLabel;
-    bvCompiler: TBevel;
     lblPost4992: TLabel;
     lblCompilers: TLabel;
     lblPre4992: TLabel;
+    bvCompilers: TBevel;
+    imgDonate: TImage;
     procedure URLLabelClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure btnAuthorsClick(Sender: TObject);
-    procedure btnUpdateCheckClick(Sender: TObject);
     procedure btnAuthorsDragOver(Sender, Source: TObject; X, Y: Integer; State: TDragState; var Accept: Boolean);
     procedure btnAuthorsDragDrop(Sender, Source: TObject; X, Y: Integer);
     procedure timerFishTimer(Sender: TObject);
@@ -87,12 +79,7 @@ type
 implementation
 
 uses
-{$IFDEF WIN32}
   ShellAPI, devcfg, utils, MultiLangSupport, main;
-{$ENDIF}
-{$IFDEF LINUX}
-devcfg, MultiLangSupport, CheckForUpdate, main;
-{$ENDIF}
 
 {$R *.dfm}
 
@@ -109,7 +96,6 @@ begin
   lblRepository.Caption := Lang[ID_AB_REPOSITORY];
   lblSubreddit.Caption := Lang[ID_AB_SUBREDDIT];
   lblBlog.Caption := Lang[ID_AB_BLOGNAME];
-  lblDonateHint.Caption := Lang[ID_AB_DONATE];
   lblCompilers.Caption := Lang[ID_AB_COMPILERS];
   lblMinGW.Caption := Lang[ID_AB_LBLMINGWSITE];
   lblTDM.Caption := Lang[ID_AB_TDMGCC];
@@ -160,11 +146,6 @@ const
 begin
   MessageBeep($F);
   MessageDlg(MessageText, MtInformation, [MbOK], 0);
-end;
-
-procedure TAboutForm.btnUpdateCheckClick(Sender: TObject);
-begin
-  MainForm.actUpdateCheckExecute(sender);
 end;
 
 procedure TAboutForm.btnAuthorsDragOver(Sender, Source: TObject; X,

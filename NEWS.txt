@@ -1,3 +1,17 @@
+Version 5.10 - 11 March 2015
+
+- Improved startup speed.
+- Removed splash window.
+- Temporarily removed the web update window.
+- Rewrote the LangCheck tool that can be used to validate translation files.
+- Improved indent guides painting and positioning.
+- Removed full screen information bar.
+- Added GUI option for maximum line length option to AStyle > Formatter Options.
+- Fixed parameter mismatch in Chinese translation.
+- Fixed memory leak in Edit > Unindent.
+- Improved behaviour of Edit > Toggle Comment.
+- Improved opening speed of Tools > Compiler Options.
+
 Version 5.9.2 - 1 Februari 2015
 
 - Changed Format Current File shortcut from Shift+F to Shift+Ctrl+A.

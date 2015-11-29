@@ -24,22 +24,13 @@ unit main;
 interface
 
 uses
-{$IFDEF WIN32}
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
   Menus, StdCtrls, ComCtrls, ToolWin, ExtCtrls, Buttons, utils, SynEditPrint,
   Project, editor, DateUtils, compiler, ActnList, ToolFrm, AppEvnts,
-  debugger, ClassBrowser, CodeCompletion, CppParser, CppTokenizer,
+  debugger, ClassBrowser, CodeCompletion, CppParser, CppTokenizer, SyncObjs,
   StrUtils, SynEditTypes, devFileMonitor, devMonitorTypes, DdeMan, EditorList,
   devShortcuts, debugreader, ExceptionFrm, CommCtrl, devcfg, SynEditTextBuffer,
   CppPreprocessor, CBUtils, StatementList, FormatterOptionsFrm;
-{$ENDIF}
-{$IFDEF LINUX}
-SysUtils, Classes, QGraphics, QControls, QForms, QDialogs,
-QMenus, QStdCtrls, QComCtrls, QExtCtrls, QButtons, utils,
-project, editor, compiler, QActnList,
-debugger, ClassBrowser, CodeCompletion, CppParser, CppTokenizer,
-devShortcuts, StrUtils, devFileMonitor, devMonitorTypes, Types;
-{$ENDIF}
 
 type
   TRunEndAction = (reaNone, reaProfile);
@@ -264,8 +255,6 @@ type
     DebugSheet: TTabSheet;
     actAddWatch: TAction;
     actEditWatch: TAction;
-    FullScreenPanel: TPanel;
-    btnFullScrRevert: TSpeedButton;
     actNextLine: TAction;
     actStepOver: TAction;
     actWatchItem: TAction;
@@ -323,7 +312,6 @@ type
     N29: TMenuItem;
     Profileanalysis1: TMenuItem;
     N24: TMenuItem;
-    CheckforupdatesItem: TMenuItem;
     N31: TMenuItem;
     actBrowserAddFolder: TAction;
     actBrowserRemoveFolder: TAction;
@@ -409,7 +397,7 @@ type
     ClearallWatchPop: TMenuItem;
     CompilerOutput: TListView;
     N5: TMenuItem;
-    Class1: TMenuItem;
+    NewClassItem: TMenuItem;
     DeleteProfilingInformation: TMenuItem;
     actDeleteProfile: TAction;
     GotoDefineEditor: TMenuItem;
@@ -417,7 +405,6 @@ type
     N15: TMenuItem;
     actGotoDeclEditor: TAction;
     actGotoImplEditor: TAction;
-    actHideFSBar: TAction;
     ToolButton1: TToolButton;
     ToolButton2: TToolButton;
     ProfileBtn: TToolButton;
@@ -477,7 +464,7 @@ type
     Abortcompilation1: TMenuItem;
     oggleBreakpoint1: TMenuItem;
     N18: TMenuItem;
-    ToolButton4: TToolButton;
+    StopBtn: TToolButton;
     ToolButton5: TToolButton;
     actRevSearchAgain: TAction;
     SearchAgainBackwards1: TMenuItem;
@@ -542,6 +529,9 @@ type
     actFormatOptions: TAction;
     actFormatOptions1: TMenuItem;
     N46: TMenuItem;
+    actRunTests: TAction;
+    DonateItem: TMenuItem;
+    actDonate: TAction;
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
     procedure FormDestroy(Sender: TObject);
     procedure ToggleBookmarkClick(Sender: TObject);
@@ -587,7 +577,6 @@ type
     procedure actUnitRenameExecute(Sender: TObject);
     procedure actUnitOpenExecute(Sender: TObject);
     procedure actUnitCloseExecute(Sender: TObject);
-    procedure actUpdateCheckExecute(Sender: TObject);
     procedure actAboutExecute(Sender: TObject);
     procedure actProjectNewExecute(Sender: TObject);
     procedure actProjectAddExecute(Sender: TObject);
@@ -731,7 +720,6 @@ type
     procedure actMsgSaveAllExecute(Sender: TObject);
     procedure actDeleteProfileExecute(Sender: TObject);
     procedure actGotoImplDeclEditorExecute(Sender: TObject);
-    procedure actHideFSBarExecute(Sender: TObject);
     procedure FormMouseWheel(Sender: TObject; Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint; var Handled:
       Boolean);
     procedure ImportCBCprojectClick(Sender: TObject);
@@ -799,6 +787,9 @@ type
     procedure actFormatOptionsExecute(Sender: TObject);
     procedure FindOutputSelectItem(Sender: TObject; Item: TListItem;
       Selected: Boolean);
+    procedure actRunTestsExecute(Sender: TObject);
+    procedure WMCopyData(var Message: TMessage); message WM_COPYDATA;
+    procedure actDonateExecute(Sender: TObject);
   private
     fPreviousHeight: integer; // stores MessageControl height to be able to restore to previous height
     fTools: TToolController; // tool list controller
@@ -806,7 +797,6 @@ type
     fReportToolWindow: TForm; // floating bottom tab control
     WindowPlacement: TWindowPlacement; // idem
     fFirstShow: boolean; // true for first WM_SHOW, false for others
-    fShowTips: boolean;
     fRunEndAction: TRunEndAction; // determines what to do when program execution finishes
     fCompSuccessAction: TCompSuccessAction; // determines what to do when compilation finishes
     fParseStartTime: Cardinal; // TODO: move to CppParser?
@@ -818,8 +808,9 @@ type
     fEditorList: TEditorList;
     fCurrentPageHint: AnsiString;
     fLogOutputRawData: TStringList;
-    procedure UpdateSplash(const LoadingText: AnsiString);
-    function ParseParams(s: AnsiString): AnsiString;
+    fCriticalSection: TCriticalSection; // protects fFilesToOpen
+    fFilesToOpen: TStringList; // files to open on show
+    function ParseToolParams(s: AnsiString): AnsiString;
     procedure BuildBookMarkMenus;
     procedure SetHints;
     procedure MRUClick(Sender: TObject);
@@ -846,6 +837,7 @@ type
     procedure ClearCompileMessages;
     procedure ClearMessageControl;
     procedure UpdateClassBrowsing;
+    function ParseParameters(const Parameters: WideString): Integer;
   public
     procedure ScanActiveProject;
     procedure UpdateCompilerList;
@@ -877,28 +869,15 @@ var
 implementation
 
 uses
-{$IFDEF WIN32}
   ShellAPI, IniFiles, Clipbrd, MultiLangSupport, version,
   DataFrm, NewProjectFrm, AboutFrm, PrintFrm,
   CompOptionsFrm, EditorOptFrm, IncrementalFrm, EnviroFrm,
-  SynEdit, Math, ImageTheme, SynEditKeyCmds,
-  Types, FindFrm, ProjectTypes, devExec,
+  SynEdit, Math, ImageTheme, SynEditKeyCmds, Instances,
+  Types, FindFrm, ProjectTypes, devExec, Tests,
   NewTemplateFrm, FunctionSearchFrm, NewFunctionFrm, NewVarFrm, NewClassFrm,
   ProfileAnalysisFrm, FilePropertiesFrm, AddToDoFrm, ViewToDoFrm,
-  ImportMSVCFrm, ImportCBFrm, CPUFrm, FileAssocs, TipOfTheDayFrm, SplashFrm,
-  WindowListFrm, RemoveUnitFrm, ParamsFrm, WebUpdate, ProcessListFrm, SynEditHighlighter;
-{$ENDIF}
-{$IFDEF LINUX}
-Xlib, IniFiles, QClipbrd, MultiLangSupport, version,
-devcfg, datamod, NewProjectFrm, AboutFrm, PrintFrm,
-CompOptionsFrm, EditorOptfrm, Incrementalfrm, Search_Center, Envirofrm,
-QSynEdit, QSynEditTypes,
-debugfrm, Prjtypes, devExec,
-NewTemplateFm, FunctionSearchFm, NewMemberFm, NewVarFm, NewClassFm,
-ProfileAnalysisFm, FilePropertiesFm, AddToDoFm, ViewToDoFm,
-ImportMSVCFm, CPUFrm, FileAssocs, TipOfTheDayFm, Splash,
-WindowListFrm, ParamsFrm, WebUpdate, ProcessListFrm, ModifyVarFrm;
-{$ENDIF}
+  ImportMSVCFrm, ImportCBFrm, CPUFrm, FileAssocs, TipOfTheDayFrm,
+  WindowListFrm, RemoveUnitFrm, ParamsFrm, ProcessListFrm, SynEditHighlighter;
 
 {$R *.dfm}
 
@@ -999,6 +978,8 @@ end;
 
 procedure TMainForm.FormDestroy(Sender: TObject);
 begin
+  fFilesToOpen.Free;
+  fCriticalSection.Free;
   fLogOutputRawData.Free;
   fTools.Free;
   AutoSaveTimer.Free;
@@ -1257,9 +1238,10 @@ begin
   ListItem.Caption := Lang[ID_ITEM_LIST];
 
   // Help menu
-  HelpMenuItem.Caption := Lang[ID_ITEM_HELPDEVCPP];
+  actHelp.Caption := Lang[ID_ITEM_HELPDEVCPP];
   actAbout.Caption := Lang[ID_ITEM_ABOUT];
   actShowTips.Caption := Lang[ID_TIPS_CAPTION];
+  actDonate.Caption := Lang[ID_ITEM_DONATE];
 
   // Debugging buttons
   actAddWatch.Caption := Lang[ID_ITEM_WATCHADD];
@@ -1353,9 +1335,6 @@ begin
   LeftProjectSheet.Caption := Lang[ID_LP_PROJECT];
   LeftClassSheet.Caption := Lang[ID_LP_CLASSES];
   LeftDebugSheet.Caption := Lang[ID_SHEET_DEBUG];
-
-  // Misc.
-  FullScreenPanel.Caption := Format(Lang[ID_FULLSCREEN_MSG], [DEVCPP, DEVCPP_VERSION]);
 
   BuildBookMarkMenus;
   SetHints;
@@ -1478,7 +1457,7 @@ begin // TODO: ask on SO
   idx := (Sender as TMenuItem).Tag;
 
   with fTools.ToolList[idx]^ do
-    ExecuteFile(ParseParams(Exec), ParseParams(Params), ParseParams(WorkDir), SW_SHOW);
+    ExecuteFile(ParseToolParams(Exec), ParseToolParams(Params), ParseToolParams(WorkDir), SW_SHOW);
 end;
 
 procedure TMainForm.OpenProject(const s: AnsiString);
@@ -1596,7 +1575,7 @@ begin
   ListItem.SubItems.Add(msg);
 end;
 
-function TMainForm.ParseParams(s: AnsiString): AnsiString;
+function TMainForm.ParseToolParams(s: AnsiString): AnsiString;
 resourcestring
   cEXEName = '<EXENAME>';
   cPrjName = '<PROJECTNAME>';
@@ -1751,6 +1730,7 @@ begin
 
           // This item has a line number, proceed to set cursor properly
           CompilerOutput.Selected := CompilerOutput.Items[I];
+          CompilerOutput.Selected.MakeVisible(False);
           CompilerOutputDblClick(CompilerOutput);
           Exit;
         end;
@@ -1762,6 +1742,7 @@ begin
       if not SameStr(CompilerOutput.Items[I].Caption, '') then begin
         if StartsStr('[Warning]', CompilerOutput.Items[I].SubItems[2]) then begin
           CompilerOutput.Selected := CompilerOutput.Items[I];
+          CompilerOutput.Selected.MakeVisible(False);
           CompilerOutputDblClick(CompilerOutput);
           Exit;
         end;
@@ -1772,6 +1753,7 @@ begin
     for I := 0 to CompilerOutput.Items.Count - 1 do begin
       if not SameStr(CompilerOutput.Items[I].Caption, '') then begin
         CompilerOutput.Selected := CompilerOutput.Items[I];
+        CompilerOutput.Selected.MakeVisible(False);
         CompilerOutputDblClick(CompilerOutput);
         Exit;
       end;
@@ -1780,6 +1762,7 @@ begin
     // Then try to find a resource error
     if ResourceOutput.Items.Count > 0 then begin
       ResourceOutput.Selected := ResourceOutput.Items[0];
+      ResourceOutput.Selected.MakeVisible(False);
       CompilerOutputDblClick(ResourceOutput);
     end;
   end;
@@ -1925,7 +1908,7 @@ procedure TMainForm.actNewProjectExecute(Sender: TObject);
 var
   s: AnsiString;
 begin
-  with TNewProjectForm.Create(Self) do try
+  with TNewProjectForm.Create(nil) do try
     rbCpp.Checked := devData.DefCpp;
     rbC.Checked := not rbCpp.Checked;
     if ShowModal = mrOk then begin
@@ -1947,7 +1930,7 @@ begin
       end;
 
       // Ask the user where he wants to save
-      with TSaveDialog.Create(Application) do try
+      with TSaveDialog.Create(nil) do try
         Filter := FLT_PROJECTS;
         InitialDir := devDirs.Default;
         FileName := edProjectName.Text + DEV_EXT; // guess initial name
@@ -1971,7 +1954,6 @@ begin
 
           // Save project preferences to disk. Don't force save all editors yet
           fProject.SaveOptions;
-          fProject.INIFile.UpdateFile; // force flush
         end;
       finally
         Free;
@@ -2346,7 +2328,6 @@ begin
     BorderStyle := bsNone;
     FullScreenModeItem.Caption := Lang[ID_ITEM_FULLSCRBACK];
     ToolbarDock.Visible := devData.ShowBars;
-    FullScreenPanel.Visible := TRUE;
 
     // set size to hide form menu
     // works with multi monitors now.
@@ -2355,6 +2336,10 @@ begin
       (Top + Monitor.WorkAreaRect.Top) - ClientOrigin.Y,
       Monitor.Width + (Width - ClientWidth),
       Monitor.Height + (Height - ClientHeight));
+
+    // Put hint in status bar
+    SetStatusbarMessage(Format(Lang[ID_FULLSCREEN_MSGNEW], [ShortCutToText(actFullScreen.ShortCut),
+      ShortCutToText(actShowBars.ShortCut)]));
   end else begin
 
     // Reset old window position
@@ -2365,7 +2350,6 @@ begin
     BorderStyle := bsSizeable;
     FullScreenModeItem.Caption := Lang[ID_ITEM_FULLSCRMODE];
     ToolbarDock.Visible := TRUE;
-    FullScreenPanel.Visible := FALSE;
   end;
 
   // Remember focus
@@ -2385,7 +2369,7 @@ end;
 
 procedure TMainForm.actCompOptionsExecute(Sender: TObject);
 begin
-  with TCompOptForm.Create(Self) do try
+  with TCompOptForm.Create(nil) do try
     if ShowModal = mrOk then begin
       CheckForDLLProfiling;
       UpdateCompilerList;
@@ -2400,7 +2384,7 @@ var
   I: integer;
   e1, e2: TEditor;
 begin
-  with TEditorOptForm.Create(Self) do try
+  with TEditorOptForm.Create(nil) do try
     if ShowModal = mrOk then begin
 
       // Apply editor options
@@ -2443,25 +2427,19 @@ var
 begin
   if not assigned(fProject) then
     exit;
-{$IFDEF WIN32}
   while ProjectView.SelectionCount > 0 do begin
     node := ProjectView.Selections[0];
-{$ENDIF}
-{$IFDEF LINUX}
-    while ProjectView.SelCount > 0 do begin
-      node := ProjectView.Selected[0];
-{$ENDIF}
-      if not assigned(node) or (node.Level < 1) then
-        Continue;
-      if node.Data = Pointer(-1) then
-        Continue;
+    if not assigned(node) or (node.Level < 1) then
+      Continue;
+    if node.Data = Pointer(-1) then
+      Continue;
 
-      idx := integer(node.Data);
+    idx := integer(node.Data);
 
-      if not fProject.RemoveEditor(idx, true) then
-        exit;
-    end;
+    if not fProject.RemoveEditor(idx, true) then
+      exit;
   end;
+end;
 
 procedure TMainForm.actUnitRenameExecute(Sender: TObject);
 var
@@ -2562,13 +2540,6 @@ begin
   end;
 end;
 
-procedure TMainForm.actUpdateCheckExecute(Sender: TObject);
-begin
-  with TWebUpdateForm.Create(self) do begin
-    ShowModal;
-  end;
-end;
-
 procedure TMainForm.actAboutExecute(Sender: TObject);
 begin
   with TAboutForm.Create(Self) do begin
@@ -2596,8 +2567,6 @@ begin
     end;
 end;
 
-{ begin XXXKF changed }
-
 procedure TMainForm.actProjectAddExecute(Sender: TObject);
 var
   idx: integer;
@@ -2606,25 +2575,28 @@ begin
   if not Assigned(fProject) then
     Exit;
 
-  with TOpenDialog.Create(Self) do try
-
+  // Let the user point to a file
+  with TOpenDialog.Create(nil) do try
     Title := Lang[ID_NV_OPENADD];
     Filter := BuildFilter([FLT_CS, FLT_CPPS, FLT_RES, FLT_HEADS]);
     Options := Options + [ofAllowMultiSelect];
 
+    // If sucessful, add to selected node
     if Execute then begin
       if Assigned(ProjectView.Selected) and (ProjectView.Selected.Data = Pointer(-1)) then
         FolderNode := ProjectView.Selected
       else
         FolderNode := fProject.Node;
 
-      for idx := 0 to pred(Files.Count) do begin
+      // Add all files
+      for idx := 0 to Files.Count-1 do begin
         fProject.AddUnit(Files[idx], FolderNode, false); // add under folder
         CppParser.AddFileToScan(Files[idx], true);
       end;
 
+      // Rebuild project tree and parse
       fProject.RebuildNodes;
-      CppParser.ParseList;
+      CppParser.ParseFileList;
     end;
   finally
     Free;
@@ -3169,7 +3141,7 @@ end;
 
 procedure TMainForm.actEnviroOptionsExecute(Sender: TObject);
 begin
-  with TEnviroForm.Create(Self) do try
+  with TEnviroForm.Create(nil) do try
     if ShowModal = mrOk then begin
       // Update pagecontrol
       EditorList.SetPreferences(devData.MsgTabs, devData.MultiLineTab);
@@ -3316,6 +3288,7 @@ begin
   ClearCompileMessages;
   fCompiler.Target := ctProject;
   fCompiler.Project := fProject;
+  fCompiler.CompilerSet := devCompilerSets.CompilationSet;
   fCompiler.BuildMakeFile;
 
   // Show the results
@@ -3599,11 +3572,8 @@ end;
 
 procedure TMainForm.actShowBarsExecute(Sender: TObject);
 begin
-  if devData.FullScreen then begin
+  if devData.FullScreen then
     ToolbarDock.Visible := not ToolbarDock.Visible;
-    if ToolbarDock.Visible then
-      FullScreenPanel.Top := -2;
-  end;
 end;
 
 procedure TMainForm.FormContextPopup(Sender: TObject; MousePos: TPoint; var Handled: Boolean);
@@ -3786,16 +3756,10 @@ var
 begin
   for I := (ToolsMenu.IndexOf(PackageManagerItem) + 2) to ToolsMenu.Count - 1 do begin
     J := ToolsMenu.Items[I].tag;
-    ToolsMenu.Items[I].Enabled := FileExists(ParseParams(fTools.ToolList[J]^.Exec));
+    ToolsMenu.Items[I].Enabled := FileExists(ParseToolParams(fTools.ToolList[J]^.Exec));
     if not ToolsMenu.Items[I].Enabled then
       ToolsMenu.Items[I].Caption := fTools.ToolList[J]^.Title + ' (Tool not found)';
   end;
-end;
-
-procedure TMainForm.UpdateSplash(const LoadingText: AnsiString);
-begin
-  if Assigned(SplashForm) then
-    SplashForm.SetText(LoadingText);
 end;
 
 procedure TMainForm.UpdateCompilerList;
@@ -3903,7 +3867,7 @@ begin
       end else
         ProjectDir := '';
     end;
-    ParseList;
+    ParseFileList;
   end;
 end;
 
@@ -5405,35 +5369,20 @@ end;
 
 procedure TMainForm.CompilerOutputKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
 begin
-{$IFDEF WIN32}
   if Key = VK_RETURN then
-{$ENDIF}
-{$IFDEF LINUX}
-    if Key = XK_RETURN then
-{$ENDIF}
-      CompilerOutputDblClick(sender);
+    CompilerOutputDblClick(sender);
 end;
 
 procedure TMainForm.FindOutputKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
 begin
-{$IFDEF WIN32}
   if Key = VK_RETURN then
-{$ENDIF}
-{$IFDEF LINUX}
-    if Key = XK_RETURN then
-{$ENDIF}
-      FindOutputDblClick(sender);
+    FindOutputDblClick(sender);
 end;
 
 procedure TMainForm.DebugViewKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
 begin
-{$IFDEF WIN32}
   if Key = VK_DELETE then
-{$ENDIF}
-{$IFDEF LINUX}
-    if Key = XK_DELETE then
-{$ENDIF}
-      actRemoveWatchExecute(sender);
+    actRemoveWatchExecute(sender);
 end;
 
 procedure TMainForm.DebugPopupPopup(Sender: TObject);
@@ -5662,15 +5611,6 @@ begin
   end;
 end;
 
-procedure TMainForm.actHideFSBarExecute(Sender: TObject);
-begin
-  if devData.FullScreen then
-    if FullScreenPanel.Height <> 0 then
-      FullScreenPanel.Height := 0
-    else
-      FullScreenPanel.Height := 16;
-end;
-
 procedure TMainForm.FormMouseWheel(Sender: TObject; Shift: TShiftState; WheelDelta: Integer; MousePos: TPoint; var
   Handled: Boolean);
 var
@@ -5823,8 +5763,6 @@ procedure TMainForm.FormCreate(Sender: TObject);
 begin
   fFirstShow := true;
 
-  UpdateSplash('Applying settings...');
-
   // Backup PATH variable
   devDirs.OriginalPath := GetEnvironmentVariable('PATH');
 
@@ -5876,15 +5814,15 @@ begin
     end;
   end;
 
-  UpdateSplash('Applying shortcuts...');
+  // Create critical section to support a single instance
+  fCriticalSection := TCriticalSection.Create;
+  fFilesToOpen := TStringList.Create;
 
   // Apply shortcuts BEFORE TRANSLATING!!!
   with Shortcuts do begin
     Filename := devDirs.Config + DEV_SHORTCUTS_FILE;
     Load(ActionList);
   end;
-
-  UpdateSplash('Applying UI settings...');
 
   // Accept file drags
   DragAcceptFiles(Self.Handle, true);
@@ -5956,8 +5894,6 @@ begin
   // PageControl settings
   fEditorList.SetPreferences(devData.MsgTabs, devData.MultiLineTab);
 
-  UpdateSplash('Loading misc. data...');
-
   // Create datamod
   dmMain := TdmMain.Create(Self);
   with dmMain do begin
@@ -5970,14 +5906,10 @@ begin
     LoadDataMod;
   end;
 
-  UpdateSplash('Loading icons...');
-
   // Create icon themes
   devImageThemes := TDevImageThemeFactory.Create;
   devImageThemes.LoadFromDirectory(devDirs.Themes);
   LoadTheme;
-
-  UpdateSplash('Loading translation...');
 
   // Set languages and other first time stuff
   if devData.First or (devData.Language = '') then
@@ -5985,14 +5917,11 @@ begin
   else
     Lang.Open(devData.Language);
 
-  UpdateSplash('Applying translation...');
-
   // Load bookmarks, captions and hints
   LoadText;
 
   // Load the current compiler set
-  UpdateSplash(Lang[ID_LOAD_COMPILERSET]);
-  devCompilerSets.LoadSets; // SLOWWWW
+  devCompilerSets.LoadSets;
 
   // Update toolbar
   UpdateCompilerList;
@@ -6001,7 +5930,6 @@ begin
   DDETopic := DevCppDDEServer.Name;
   if devData.CheckAssocs then begin
     try
-      UpdateSplash(Lang[ID_LOAD_FILEASSOC]);
       CheckAssociations(true); // check and fix
     except
       MessageBox(Application.Handle, PAnsiChar(Lang[ID_ENV_UACERROR]), PAnsiChar(Lang[ID_ERROR]), MB_OK);
@@ -6010,11 +5938,7 @@ begin
   end;
 
   // Configure parser, code completion, class browser
-  UpdateSplash(Lang[ID_LOAD_INITCLASSBROWSER]);
   UpdateClassBrowsing;
-
-  // Show the window to the user
-  UpdateSplash(Lang[ID_LOAD_RESTOREWINDOW]);
 
   // Showing for the first time? Maximize
   if devData.First then
@@ -6093,8 +6017,7 @@ end;
 
 procedure TMainForm.FormShow(Sender: TObject);
 var
-  I: integer;
-  FileList: TStringList;
+  FileCount: Integer;
 begin
   if not fFirstShow then
     Exit;
@@ -6107,34 +6030,19 @@ begin
   OpenCloseMessageSheet(False);
 
   // Open files passed to us (HAS to be done at FormShow)
-  FileList := TStringList.Create;
-  try
-    I := 1;
-    fShowTips := true;
-    while I <= ParamCount do begin
+  // This includes open file commands send to us via WMCopyData
+  FileCount := ParseParameters(GetCommandLine);
 
-      // Skip the configuration redirect stuff
-      if ParamStr(i) = '-c' then begin
-        I := I + 2;
-        Continue;
-      end;
+  // Open them according to OpenFileList rules
+  OpenFileList(fFilesToOpen);
+  if FileCount = 0 then
+    UpdateAppTitle;
+  fFilesToOpen.Clear;
 
-      FileList.Add(ParamStr(i));
-      Inc(I);
-    end;
-
-    // Open them according to OpenFileList rules
-    OpenFileList(FileList);
-    if FileList.Count = 0 then
-      UpdateAppTitle;
-
-    // do not show tips if Dev-C++ is launched with a file and only slow
-    // when the form shows for the first time, not when going fullscreen too
-    if devData.ShowTipsOnStart and (FileList.Count = 0) then
-      actShowTips.Execute;
-  finally
-    FileList.Free;
-  end;
+  // do not show tips if Dev-C++ is launched with a file and only slow
+  // when the form shows for the first time, not when going fullscreen too
+  if devData.ShowTipsOnStart and (FileCount = 0) then
+    actShowTips.Execute;
 end;
 
 procedure TMainForm.actSkipFunctionExecute(Sender: TObject);
@@ -6405,7 +6313,7 @@ var
     // Notify project
     // Discard changes made to the old set...
     fProject.Options.CompilerSet := index;
-    fProject.Options.CompilerOptions := devCompilerSets[index].OptionString;
+    fProject.Options.CompilerOptions := devCompilerSets[index].INIOptions;
     fProject.Modified := true;
   end;
 
@@ -6646,7 +6554,7 @@ end;
 
 procedure TMainForm.actFormatOptionsExecute(Sender: TObject);
 begin
-  with TFormatterOptionsForm.Create(Self) do try
+  with TFormatterOptionsForm.Create(nil) do try
     if ShowModal = mrOk then begin
     end;
   finally
@@ -6661,6 +6569,81 @@ begin
     Item.Caption := '>'
   else
     Item.Caption := '';
+end;
+
+procedure TMainForm.actRunTestsExecute(Sender: TObject);
+begin
+  with TTestClass.Create do try
+    TestAll;
+  finally
+    Free;
+  end;
+end;
+
+procedure TMainForm.WMCopyData(var Message: TMessage);
+var
+  MessageData: AnsiString;
+begin
+  MessageData := GetSentStructData(Message);
+  if MessageData <> '' then begin
+    fCriticalSection.Acquire;
+    try
+      ParseParameters(MessageData); // not thread safe
+
+      // Ff the window has already opened, force open here
+      // Otherwise, these files get added to the big file of files to open
+      // when the main instance executes FormShow.
+      if not fFirstShow then begin
+        OpenFileList(fFilesToOpen);
+        fFilesToOpen.Clear;
+      end;
+      Application.BringToFront;
+    finally
+      fCriticalSection.Release;
+    end;
+  end;
+end;
+
+function TMainForm.ParseParameters(const Parameters: WideString): Integer;
+type
+  TPWideCharArray = array[0..0] of PWideChar;
+var
+  I, ParameterCount: Integer;
+  ParameterList: PPWideChar;
+  Item: WideString;
+begin
+  Result := 0;
+
+  // Convert string to list of items
+  ParameterList := CommandLineToArgvW(PWideChar(Parameters), ParameterCount);
+  if not Assigned(ParameterList) then
+    Exit;
+
+  // Walk the list
+  I := 1; // skip first one
+  while I < ParameterCount do begin
+    Item := TPWideCharArray(ParameterList^)[i];
+
+    // Skip the configuration redirect stuff
+    if Item = '-c' then begin
+      I := I + 2;
+      Continue;
+    end;
+
+    fFilesToOpen.Add(Item);
+    Inc(I);
+  end;
+  Result := fFilesToOpen.Count;
+
+  // Free list of pointers
+  LocalFree(Cardinal(ParameterList));
+end;
+
+procedure TMainForm.actDonateExecute(Sender: TObject);
+begin
+  ShellExecute(GetDesktopWindow(), 'open',
+    PAnsiChar('https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=7FD675DNV8KKJ'), nil, nil,
+    SW_SHOWNORMAL);
 end;
 
 end.

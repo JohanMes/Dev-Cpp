@@ -22,17 +22,10 @@ unit Editor;
 interface
 
 uses
-{$IFDEF WIN32}
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs, CodeCompletion, CppParser, SynExportTeX,
   SynEditExport, SynExportRTF, Menus, ImgList, ComCtrls, StdCtrls, ExtCtrls, SynEdit, SynEditKeyCmds, version,
   SynEditCodeFolding, SynExportHTML, SynEditTextBuffer, Math, StrUtils, SynEditTypes, SynEditHighlighter, DateUtils,
   CodeToolTip, CBUtils;
-{$ENDIF}
-{$IFDEF LINUX}
-SysUtils, Classes, Graphics, QControls, QForms, QDialogs, CodeCompletion, CppParser,
-QMenus, QImgList, QComCtrls, QStdCtrls, QExtCtrls, QSynEdit, QSynEditKeyCmds, version,
-QSynCompletionProposal, StrUtils, QSynEditTypes, QSynEditHighlighter, DevCodeToolTip, QSynAutoIndent, Types;
-{$ENDIF}
 
 type
   TEditor = class;
@@ -163,14 +156,8 @@ type
 implementation
 
 uses
-{$IFDEF WIN32}
   main, project, MultiLangSupport, devcfg, utils,
   DataFrm, GotoLineFrm, Macros, debugreader, IncrementalFrm, CodeCompletionForm, SynEditMiscClasses;
-{$ENDIF}
-{$IFDEF LINUX}
-Xlib, main, project, MultiLangSupport, devcfg, Search_Center, utils,
-datamod, GotoLineFrm, Macros;
-{$ENDIF}
 
 { TDebugGutter }
 
@@ -637,8 +624,7 @@ var
 begin
   SynExporterHTML := TSynExporterHTML.Create(nil);
   try
-    with TSaveDialog.Create(Application) do try
-
+    with TSaveDialog.Create(nil) do try
       Filter := SynExporterHTML.DefaultFilter;
       Title := Lang[ID_NV_EXPORT];
       DefaultExt := HTML_EXT;
@@ -674,8 +660,7 @@ var
 begin
   SynExporterRTF := TSynExporterRTF.Create(nil);
   try
-    with TSaveDialog.Create(Application) do try
-
+    with TSaveDialog.Create(nil) do try
       Filter := SynExporterRTF.DefaultFilter;
       Title := Lang[ID_NV_EXPORT];
       DefaultExt := RTF_EXT;
@@ -710,7 +695,7 @@ var
 begin
   SynExporterTEX := TSynExporterTEX.Create(nil);
   try
-    with TSaveDialog.Create(Application) do try
+    with TSaveDialog.Create(nil) do try
       Filter := SynExporterTEX.DefaultFilter;
       Title := Lang[ID_NV_EXPORT];
       DefaultExt := TEX_EXT;
@@ -961,11 +946,11 @@ var
 
   procedure HandleBraceCompletion;
   var
-    KeyWordBefore, Indent, MoreIndent: AnsiString;
+    LineBeforeCaret, Indent, MoreIndent: AnsiString;
     IndentCount, TabCount: integer;
   begin
     // Determine what word is before us
-    KeyWordBefore := Trim(Copy(fText.LineText, 1, fText.CaretX - 1));
+    LineBeforeCaret := Trim(Copy(fText.LineText, 1, fText.CaretX - 1));
 
     // Determine current indent
     IndentCount := fText.LeftSpacesEx(fText.LineText, True);
@@ -981,8 +966,8 @@ var
 
     // For case, do the following:
     //{ + enter + indent + tab + break; + enter + }
-    if StartsStr('case', KeyWordBefore) or
-      StartsStr('default', KeyWordBefore) then begin
+    if StartsStr('case', LineBeforeCaret) or
+      StartsStr('default', LineBeforeCaret) then begin
 
       // Get extra indentation string
       if eoTabsToSpaces in fText.Options then
@@ -996,12 +981,13 @@ var
 
       // For other valid block starts, do the following:
       // { + enter + indent + }
-    end else if EndsStr(')', KeyWordBefore) or
-      SameStr('', KeyWordBefore) or
-      EndsStr('else', KeyWordBefore) or
-      EndsStr('try', KeyWordBefore) or
-      EndsStr('catch', KeyWordBefore) or
-      EndsStr('do', KeyWordBefore) then begin
+    end else if EndsStr(')', LineBeforeCaret) or
+      SameStr('', LineBeforeCaret) or
+      EndsStr('else', LineBeforeCaret) or
+      EndsStr('try', LineBeforeCaret) or
+      EndsStr('catch', LineBeforeCaret) or
+      StartsStr('namespace', LineBeforeCaret) or
+      EndsStr('do', LineBeforeCaret) then begin
 
       InsertString('{' + #13#10 + Indent + '}', false);
       fText.CaretXY := BufferCoord(fText.CaretX + 1, fText.CaretY);
@@ -1010,11 +996,11 @@ var
       // For structs and derivatives, do the following:
       // { + enter + indent + }; <-- SAME EXCEPT FOR THE SEMICOLON
     end else if
-      StartsStr('struct', KeyWordBefore) or
-      StartsStr('union', KeyWordBefore) or
-      StartsStr('class', KeyWordBefore) or
-      StartsStr('enum', KeyWordBefore) or
-      StartsStr('typedef ', KeyWordBefore) then begin
+      StartsStr('struct', LineBeforeCaret) or
+      StartsStr('union', LineBeforeCaret) or
+      StartsStr('class', LineBeforeCaret) or
+      StartsStr('enum', LineBeforeCaret) or
+      StartsStr('typedef ', LineBeforeCaret) then begin
 
       InsertString('{' + #13#10 + Indent + '};', false);
       fText.CaretXY := BufferCoord(fText.CaretX + 1, fText.CaretY);
@@ -1299,8 +1285,9 @@ begin
 
     // Reparse whole file (not function bodies) if it has been modified
     // use stream, don't read from disk (not saved yet)
-    if fText.Modified then
+    if fText.Modified then begin
       MainForm.CppParser.ParseFile(fFileName, InProject, False, True, M);
+    end;
 
     // Scan the current function body
     fCompletionBox.CurrentStatement := MainForm.CppParser.FindAndScanBlockAt(fFileName, fText.CaretY, M);
@@ -1689,9 +1676,13 @@ var
 
 begin
   // Don't bother wasting time when we don't have to
-  if (not Assigned(fText.Highlighter)) or (not devEditor.Match) or fText.SelAvail then
+  if not Assigned(fText.Highlighter) then // no highlighted file is viewed
     Exit;
-
+  if not devEditor.Match then // user has disabled match painting
+    Exit;
+  if fText.SelAvail then // not clear cut what to paint
+    Exit;
+  //Exit; // greatly reduces flicker
   HighlightCharPos.Line := -1;
 
   // Is there a bracket char before us?
@@ -1731,14 +1722,18 @@ begin
   // Draw the character the caret is at here using this color
   SetColors(HighlightCharPos);
   Pix := fText.RowColumnToPixels(fText.BufferToDisplayPos(HighlightCharPos));
-  S := fText.Lines[HighlightCharPos.Line - 1][HighlightCharPos.Char];
-  Canvas.TextOut(Pix.X, Pix.Y, S);
+  if Pix.X > fText.GutterWidth then begin // only draw if inside viewable area
+    S := fText.Lines[HighlightCharPos.Line - 1][HighlightCharPos.Char];
+    Canvas.TextOut(Pix.X, Pix.Y, S);
+  end;
 
   // Then draw complement
   SetColors(ComplementCharPos);
   Pix := fText.RowColumnToPixels(fText.BufferToDisplayPos(ComplementCharPos));
-  S := fText.Lines[ComplementCharPos.Line - 1][ComplementCharPos.Char];
-  Canvas.TextOut(Pix.X, Pix.Y, S);
+  if Pix.X > fText.GutterWidth then begin // only draw if inside viewable area
+    S := fText.Lines[ComplementCharPos.Line - 1][ComplementCharPos.Char];
+    Canvas.TextOut(Pix.X, Pix.Y, S);
+  end;
 
   // Reset brush
   Canvas.Brush.Style := bsSolid;
@@ -1821,7 +1816,7 @@ var
   SaveFileName: AnsiString;
 begin
   Result := True;
-  with TSaveDialog.Create(Application) do try
+  with TSaveDialog.Create(nil) do try
     Title := Lang[ID_NV_SAVEAS];
     Filter := BuildFilter([FLT_CS, FLT_CPPS, FLT_HEADS, FLT_RES]);
     Options := Options + [ofOverwritePrompt];

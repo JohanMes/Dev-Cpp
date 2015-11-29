@@ -22,16 +22,9 @@ unit FormatterOptionsFrm;
 interface
 
 uses
-{$IFDEF WIN32}
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
   Buttons, StdCtrls, Inifiles, ExtCtrls, ComCtrls, Spin, Math,
   CompOptionsFrame, CompOptionsList, SynEdit, Editor;
-{$ENDIF}
-{$IFDEF LINUX}
-SysUtils, Classes, QGraphics, QControls, QForms, QDialogs,
-QButtons, QStdCtrls, Inifiles, QExtCtrls, QComCtrls,
-CompOptionsFrame;
-{$ENDIF}
 
 type
   TFormatterOptionsForm = class(TForm)
@@ -58,12 +51,16 @@ type
     chkPreprocessor: TCheckBox;
     lblIndentParts: TLabel;
     memFullCommand: TMemo;
+    spinMaxLineLength: TSpinEdit;
+    chkMaxLineLength: TCheckBox;
     procedure btnCancelClick(Sender: TObject);
     procedure btnOkClick(Sender: TObject);
     procedure btnHelpClick(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure OptionChange(Sender: TObject);
     procedure CommandChange(Sender: TObject);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+    procedure FormActivate(Sender: TObject);
   private
     fCreating: Boolean;
     fValid: Boolean;
@@ -78,12 +75,7 @@ type
 implementation
 
 uses
-{$IFDEF WIN32}
   ShellAPI, Main, FileCtrl, version, devcfg, utils, MultiLangSupport, DataFrm;
-{$ENDIF}
-{$IFDEF LINUX}
-Xlib, Main, version, devcfg, utils, MultiLangSupport, datamod;
-{$ENDIF}
 
 {$R *.dfm}
 
@@ -120,6 +112,7 @@ begin
   lblBracketStyle.Caption := Lang[ID_FORMATTER_BRACKET];
   lblIndentStyle.Caption := Lang[ID_FORMATTER_INDENT];
   lblTabWidth.Caption := Lang[ID_FORMATTER_TABWIDTH];
+  chkMaxLineLength.Caption := Lang[ID_FORMATTER_MAXLINELENGTH];
   lblIndentParts.Caption := Lang[ID_FORMATTER_INDENTPARTS];
   chkClasses.Caption := Lang[ID_FORMATTER_CLASSES];
   chkSwitches.Caption := Lang[ID_FORMATTER_SWITCHES];
@@ -193,8 +186,14 @@ begin
     // Set indent style
     cmbIndentStyle.ItemIndex := IndentStyle;
 
-    // Set indentation options
+    // Set tab width
     spinTabWidth.Value := TabWidth;
+
+    // Set max line length
+    chkMaxLineLength.Checked := ModifyMaxLineLength;
+    spinMaxLineLength.Value := MaxLineLength;
+
+    // Set indentation options
     chkClasses.Checked := IndentClasses;
     chkSwitches.Checked := IndentSwitches;
     chkNamespace.Checked := IndentNamespaces;
@@ -215,8 +214,14 @@ begin
     // Set indent style
     IndentStyle := cmbIndentStyle.ItemIndex;
 
-    // Set indentation options (not really used)
+    // Set tab width
     TabWidth := spinTabWidth.Value;
+
+    // Set max line length
+    ModifyMaxLineLength := chkMaxLineLength.Checked;
+    MaxLineLength := spinMaxLineLength.Value;
+
+    // Set indentation options
     IndentClasses := chkClasses.Checked;
     IndentSwitches := chkSwitches.Checked;
     IndentNamespaces := chkNamespace.Checked;
@@ -239,15 +244,19 @@ end;
 
 procedure TFormatterOptionsForm.CommandChange(Sender: TObject);
 var
-  AStyleOutput: AnsiString;
+  AStyleOutput, DummyFileName: AnsiString;
 begin
   if fCreating then
     Exit;
   // Apply to dummy file
-  AStyleOutput := devFormatter.FormatFile(
-    devDirs.Exec + devFormatter.AStyleDir + 'DummyInput.txt', memFullCommand.Text);
-  synExample.Lines.LoadFromFile(
-    devDirs.Exec + devFormatter.AStyleDir + 'DummyInput.txt');
+  DummyFileName := devDirs.Exec + devFormatter.AStyleDir + 'DummyInput.txt';
+  AStyleOutput := devFormatter.FormatFile(DummyFileName, memFullCommand.Text);
+
+  // Check if formatting finished correctly
+  if FileExists(DummyFileName) then begin
+    synExample.Lines.LoadFromFile(DummyFileName);
+  end else
+    synExample.Lines.Text := Format(Lang[ID_FORMATTER_LOADERROR], [DummyFileName]);
 end;
 
 // copy of TdevFormatter.GetFullCommand
@@ -268,6 +277,14 @@ begin
     4: Result := Result + ' --indent=force-tab-x=' + IntToStr(spinTabWidth.Value);
   end;
 
+  // Add line length
+  if chkMaxLineLength.Checked then begin
+    if spinMaxLineLength.Text <> '' then
+      Result := Result + ' --max-code-length=' + IntToStr(spinMaxLineLength.Value)
+    else
+      Result := Result + ' --max-code-length=' + IntToStr(spinMaxLineLength.MinValue);
+  end;
+
   // Add indentation options
   if chkClasses.Checked then
     Result := Result + ' --indent-classes';
@@ -283,6 +300,17 @@ begin
     Result := Result + ' --indent-preprocessor';
 
   Result := TrimLeft(Result);
+end;
+
+procedure TFormatterOptionsForm.FormClose(Sender: TObject;
+  var Action: TCloseAction);
+begin
+  Action := caFree;
+end;
+
+procedure TFormatterOptionsForm.FormActivate(Sender: TObject);
+begin
+  ActiveControl := nil;
 end;
 
 end.

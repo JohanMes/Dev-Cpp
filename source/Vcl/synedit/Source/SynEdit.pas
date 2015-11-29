@@ -3069,13 +3069,13 @@ var
 
   procedure PaintFoldAttributes;
   var
-    i, X, Y: integer;
+    i, TabSteps, LineIndent, LastNonBlank, X, Y, cRow, vLine: integer;
     DottedPen, OldPen: HPEN;
     DottedPenDesc: LOGBRUSH;
   begin
     // Paint indent guides. Use folds to determine indent value of these
     // Use a separate loop so we can use a custom pen
-    if not UseCodeFolding or not fCodeFolding.IndentGuides then
+    if not UseCodeFolding then
       Exit;
 
     // Paint indent guides using custom pen
@@ -3086,25 +3086,36 @@ var
       try
         OldPen := SelectObject(Canvas.Handle, DottedPen);
 
-        // For each uncollapsed visible fold, draw a line
-        for i := 0 to fAllFoldRanges.Count - 1 do begin
-          with fAllFoldRanges[i] do begin
-            // Uncollapsed (line visible), not on first level, and inside clip rect
-            if not Collapsed and not ParentCollapsed and (Indent > 0) and (FromLine < vLastLine) and (ToLine >
-              vFirstLine) then begin
+        // Now loop through all the lines. The indices are valid for Lines.
+        for cRow := aFirstRow to aLastRow do begin
+          vLine := RowToLine(cRow);
+          if (vLine > Lines.Count) and not (Lines.Count = 0) then
+            break;
 
-              // Get starting and end points
-              X := Indent * CharWidth + fTextOffset - 2;
-              Y := Max(AClip.Top, (LineToRow(FromLine + 1) - TopLine) * fTextHeight); // limit inside clip rect
+          // Set vertical coord
+          Y := (vLine - TopLine) * fTextHeight; // limit inside clip rect
+          if (fTextHeight mod 2 = 1) and (vLine mod 2 = 0) then // even
+            Inc(Y);
 
-              // Due to even line heights, we need to alternate between starting at pixel 1 or 2
-              if Y mod 2 = 0 then // even
-                Inc(Y);
+          // Get next nonblank line
+          LastNonBlank := vLine - 1;
+          while (LastNonBlank + 1 < fLines.Count) and (TrimLeft(fLines[LastNonBlank]) = '') do
+            Inc(LastNonBlank);
+          LineIndent := GetLineIndent(fLines[LastNonBlank]);
 
-              Canvas.MoveTo(X, Y);
-              Y := Min(AClip.Bottom, ((LineToRow(ToLine) - TopLine) * fTextHeight)); // limit inside clip rect
-              Canvas.LineTo(X, Y);
-            end;
+          // Step horizontal coord
+          TabSteps := TabWidth;
+          while TabSteps < LineIndent do begin
+            X := TabSteps * CharWidth + fTextOffset - 2;
+            Inc(TabSteps, TabWidth);
+
+            // Move to top of vertical line
+            Canvas.MoveTo(X, Y);
+            Inc(Y, fTextHeight);
+
+            // Draw down and move back up
+            Canvas.LineTo(X, Y);
+            Dec(Y, fTextHeight);
           end;
         end;
 
@@ -3120,7 +3131,7 @@ var
       Canvas.Pen.Color := fCodeFolding.CollapsedLineColor;
       for i := 0 to fAllFoldRanges.Count - 1 do begin
         with fAllFoldRanges[i] do begin
-          if Collapsed and not ParentCollapsed then begin
+          if Collapsed and not ParentCollapsed and (FromLine <= vLastLine) and (FromLine >= vFirstLine) then begin
 
             // Get starting and end points
             Y := (LineToRow(FromLine) - TopLine + 1) * fTextHeight - 1;
@@ -6272,7 +6283,8 @@ var
   OrigBlockEnd: TBufferCoord;
   OrigCaret: TBufferCoord;
   MoveDelim: TBufferCoord;
-  EndLine: integer;
+  BeginIndex: integer;
+  EndIndex: integer;
   StartOfBlock: TBufferCoord;
   bChangeScroll: boolean;
   moveBkm: boolean;
@@ -6881,19 +6893,20 @@ begin
           OrigBlockEnd := BlockEnd;
 
           // Ignore the last line the cursor is placed on
-          if OrigBlockEnd.Char = 1 then
-            EndLine := max(OrigBlockBegin.Line - 1, OrigBlockEnd.Line - 1)
+          BeginIndex := BlockBegin.Line - 1;
+          if BlockEnd.Char = 1 then
+            EndIndex := max(0,BlockEnd.Line - 2)
           else
-            EndLine := OrigBlockEnd.Line - 1;
+            EndIndex := BlockEnd.Line - 1;
 
           // if everything is commented, then uncomment
-          for I := OrigBlockEnd.Line - 1 to EndLine do begin
-            if Pos('//', TrimLeft(Lines[i])) = 1 then begin
-              DoUncomment;
+          for I := BeginIndex to EndIndex do begin
+            if Pos('//', TrimLeft(fLines[i])) <> 1 then begin // not fully commented
+              DoComment; // comment everything
               Exit;
             end;
           end;
-          DoComment;
+          DoUncomment;
         end;
       ecCommentInline: // toggle inline comment
         if not ReadOnly and SelAvail then begin
@@ -6938,7 +6951,7 @@ begin
             BlockEnd := BufferCoord(OrigBlockEnd.Char - 4, OrigBlockEnd.Line);
           end else begin
             SelText := '/*' + SelText + '*/';
-            BlockBegin := BufferCoord(OrigBlockBegin.Char,OrigBlockBegin.Line);
+            BlockBegin := BufferCoord(OrigBlockBegin.Char, OrigBlockBegin.Line);
             BlockEnd := BufferCoord(OrigBlockEnd.Char + 4, OrigBlockEnd.Line);
           end;
         end;
@@ -8905,6 +8918,7 @@ begin
       x := x - TmpDelLen;
 
     FirstIndent := -1;
+    FullStrToDelete := nil;
     // Delete string
     if SomethingToDelete then begin
       FullStrToDelete := StrToDelete;
@@ -8949,6 +8963,10 @@ begin
       SetCaretAndSelection(OrgCaretPos, BB, BE);
     end;
     ActiveSelectionMode := OrgSelectionMode;
+    if FullStrToDelete <> nil then
+      StrDispose(FullStrToDelete)
+    else
+      StrDispose(StrToDelete);
   end;
 end;
 
@@ -10133,7 +10151,6 @@ var
                 Parent,
                 TopFoldRanges,
                 Line + 1,
-                GetLineIndent(CurLine),
                 fCodeFolding.FoldRegions[FoldIndex],
                 Line + 1);
               ParentFoldRanges := Parent.SubFoldRanges;

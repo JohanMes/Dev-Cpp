@@ -24,19 +24,16 @@ program devcpp;
 
 uses
   FastMM4 in 'FastMM4.pas',
-
-{$IFDEF WIN32}
-  Windows, Forms, sysUtils, SHFolder, Dialogs,
-{$ENDIF}
-{$IFDEF LINUX}
-  QForms, sysUtils, QDialogs,
-{$ENDIF}
-
+  Windows,
+  Forms,
+  sysUtils,
+  SHFolder,
+  Messages,
   main in 'main.pas' {MainForm},
   MultiLangSupport in 'MultiLangSupport.pas',
-  SplashFrm in 'SplashFrm.pas' {SplashForm},
   Version in 'Version.pas',
   Utils in 'Utils.pas',
+  Tests in 'Tests.pas',
   LangFrm in 'LangFrm.pas' {LangForm},
   Project in 'Project.pas',
   Templates in 'Templates.pas',
@@ -86,71 +83,70 @@ uses
   CompOptionsFrame in 'CompOptionsFrame.pas' {CompOptionsFrame: TFrame},
   CompOptionsFrm in 'CompOptionsFrm.pas' {CompOptionsForm},
   FormatterOptionsFrm in 'FormatterOptionsFrm.pas' {FormatterOptionsForm},
-  WebThread in 'Tools\webupdate\WebThread.pas',
-  WebUpdate in 'Tools\webupdate\WebUpdate.pas' {WebUpdateForm},
   ProcessListFrm in 'ProcessListFrm.pas' {ProcessListForm},
   PackmanExitCodesU in 'Tools\Packman\PackmanExitCodesU.pas',
-  ImageTheme in 'ImageTheme.pas';
+  ImageTheme in 'ImageTheme.pas',
+  Instances in 'Instances.pas';
 
 {$R *.res}
 
 var
-  appdata, inifilename, exefolder: AnsiString;
-  tempc: array[0..MAX_PATH] of char;
+  AppData, INIFileName, ExeFolder: AnsiString;
+  Buffer: array[0..MAX_PATH] of char;
+  PrevInstance: THandle;
 begin
-  inifilename := ChangeFileExt(ExtractFileName(Application.ExeName), INI_EXT);
-  exefolder := ExtractFilePath(Application.ExeName);
+  // Check for previous instances (only allow once instance)
+  // If we are able to find a previous instance, activate that one instead
+  PrevInstance := GetPreviousInstance;
+  if PrevInstance <> 0 then begin
+    SendToPreviousInstance(PrevInstance, AnsiString(GetCommandLineW));
+    Exit;
+  end;
 
+  // Read INI filename
+  INIFileName := ChangeFileExt(ExtractFileName(Application.ExeName), INI_EXT);
+  ExeFolder := ExtractFilePath(Application.ExeName);
+
+  // Create config files directory
+  // Set devData.INIFileName, ConfigMode
   // Did someone pass the -c command to us?
   if (ParamCount >= 2) and SameStr(ParamStr(1), '-c') then begin
     if not DirectoryExists(ParamStr(2)) then
       CreateDir(ParamStr(2));
 
+    // Store the INI file in the directory given to us
     if ParamStr(2)[2] <> ':' then // if a relative path is specified...
-      devData.INIFileName := exefolder + IncludeTrailingBackslash(ParamStr(2)) + inifilename
+      devData.INIFileName := ExeFolder + IncludeTrailingBackslash(ParamStr(2)) + INIFileName
     else
-      devData.INIFileName := IncludeTrailingBackslash(ParamStr(2)) + inifilename;
-
-    ConfigMode := CFG_PARAM;
+      devData.INIFileName := IncludeTrailingBackslash(ParamStr(2)) + INIFileName;
   end else begin
 
     // default dir should be %APPDATA%\Dev-Cpp
-    appdata := '';
-    if SUCCEEDED(SHGetFolderPath(0, CSIDL_APPDATA, 0, 0, tempc)) then
-      appdata := IncludeTrailingBackslash(AnsiString(tempc));
+    AppData := '';
+    if SUCCEEDED(SHGetFolderPath(0, CSIDL_APPDATA, 0, 0, Buffer)) then
+      AppData := IncludeTrailingBackslash(AnsiString(Buffer));
 
-    if (appdata <> '') and (DirectoryExists(appdata + 'Dev-Cpp') or CreateDir(appdata + 'Dev-Cpp')) then begin
-      devData.INIFileName := appdata + 'Dev-Cpp\' + inifilename;
-      ConfigMode := CFG_APPDATA;
-    end else begin
-
+    // Store the INI file in %APPDATA% or if we are not allowed to do so, in the exe directory
+    if (AppData <> '') and (DirectoryExists(AppData + 'Dev-Cpp') or CreateDir(AppData + 'Dev-Cpp')) then
+      devData.INIFileName := AppData + 'Dev-Cpp\' + INIFileName
+    else
       // store it in the default portable config folder anyways...
-      devData.INIFileName := exefolder + 'config\' + inifilename;
-      ConfigMode := CFG_EXEFOLDER;
-    end;
+      devData.INIFileName := ExeFolder + 'config\' + INIFileName;
   end;
 
   // free ansistrings...
-  SetLength(appdata, 0);
-  SetLength(inifilename, 0);
-  SetLength(exefolder, 0);
+  SetLength(AppData, 0);
+  SetLength(INIFileName, 0);
+  SetLength(ExeFolder, 0);
 
-  // Make the caption look nice
-  Application.Initialize;
-  Application.Title := 'Dev-C++';
-
-  // Create and fill settings structures
+  // Load settings
   devData.ReadSelf;
   CreateOptions;
 
-  // Display it as soon as possible, and only if its worth viewing...
-  if (not devData.NoSplashScreen) or devData.First then
-    SplashForm := TSplashForm.Create(nil);
-
+  // Create main window
+  Application.Initialize;
+  Application.Title := 'Dev-C++';
   Application.CreateForm(TMainForm, MainForm);
-  if Assigned(SplashForm) then
-    SplashForm.Close;
-
   Application.Run;
 end.
 
