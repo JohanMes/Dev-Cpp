@@ -1,6 +1,6 @@
 object EditorOptForm: TEditorOptForm
-  Left = 566
-  Top = 261
+  Left = 902
+  Top = 333
   HelpType = htKeyword
   BorderStyle = bsDialog
   Caption = 'Editor Options'
@@ -25,27 +25,16 @@ object EditorOptForm: TEditorOptForm
     408)
   PixelsPerInch = 96
   TextHeight = 13
-  object PagesMain: TdevPages
+  object PagesMain: TPageControl
     Left = 7
     Top = 8
     Width = 415
     Height = 365
-    ActivePage = tabGeneral
+    ActivePage = tabClassBrowsing
     Anchors = [akLeft, akTop, akRight, akBottom]
+    TabOrder = 0
     OnChange = PagesMainChange
-    OnKeyDown = FormKeyDown
-    object tabGeneral: TdevPage
-      Left = 0
-      Top = 23
-      Width = 415
-      Height = 342
-      HorzScrollBar.Smooth = True
-      HorzScrollBar.Tracking = True
-      VertScrollBar.Smooth = True
-      VertScrollBar.Tracking = True
-      Align = alClient
-      BevelKind = bkTile
-      TabOrder = 0
+    object tabGeneral: TTabSheet
       Caption = 'General'
       object lblTabSize: TLabel
         Left = 215
@@ -396,23 +385,28 @@ object EditorOptForm: TEditorOptForm
         OnClick = cbHighCurrLineClick
       end
     end
-    object tabDisplay: TdevPage
-      Left = 0
-      Top = 23
-      Width = 415
-      Height = 342
-      HorzScrollBar.Smooth = True
-      HorzScrollBar.Tracking = True
-      VertScrollBar.Smooth = True
-      VertScrollBar.Tracking = True
-      Align = alClient
-      BevelKind = bkTile
-      TabOrder = 1
-      Visible = False
+    object tabDisplay: TTabSheet
       Caption = 'Display'
+      object ScrollHint: TLabel
+        Left = 0
+        Top = 304
+        Width = 409
+        Height = 13
+        Alignment = taCenter
+        AutoSize = False
+        Caption = 
+          'It is also possible to edit text size by using Control+Scroll, j' +
+          'ust like in browsers!'
+        Font.Charset = DEFAULT_CHARSET
+        Font.Color = clWindowText
+        Font.Height = -11
+        Font.Name = 'MS Sans Serif'
+        Font.Style = []
+        ParentFont = False
+      end
       object grpGutter: TGroupBox
         Left = 6
-        Top = 168
+        Top = 128
         Width = 398
         Height = 159
         Caption = '  Gutter  '
@@ -606,19 +600,7 @@ object EditorOptForm: TEditorOptForm
         end
       end
     end
-    object tabSyntax: TdevPage
-      Left = 0
-      Top = 23
-      Width = 415
-      Height = 342
-      HorzScrollBar.Smooth = True
-      HorzScrollBar.Tracking = True
-      VertScrollBar.Smooth = True
-      VertScrollBar.Tracking = True
-      Align = alClient
-      BevelKind = bkTile
-      TabOrder = 2
-      Visible = False
+    object tabSyntax: TTabSheet
       Caption = 'Syntax'
       object cpForeground: TColorPickerButton
         Left = 161
@@ -832,44 +814,21 @@ object EditorOptForm: TEditorOptForm
           'Matrix')
       end
     end
-    object tabCode: TdevPage
-      Left = 0
-      Top = 23
-      Width = 415
-      Height = 342
-      HorzScrollBar.Smooth = True
-      HorzScrollBar.Tracking = True
-      VertScrollBar.Smooth = True
-      VertScrollBar.Tracking = True
-      Align = alClient
-      BevelKind = bkTile
-      TabOrder = 3
-      Visible = False
+    object tabCode: TTabSheet
       Caption = 'Code'
-      object codepages: TdevPages
-        Left = 5
+      object codepages: TPageControl
+        Left = 0
         Top = 0
-        Width = 401
-        Height = 331
+        Width = 407
+        Height = 337
         ActivePage = tabCPInserts
-        BackTextColor = clInactiveCaptionText
-        BackColor = clInactiveCaption
-        Orientation = toBottom
-        object tabCPInserts: TdevPage
-          Left = 0
-          Top = 0
-          Width = 401
-          Height = 308
-          HorzScrollBar.Smooth = True
-          HorzScrollBar.Tracking = True
-          VertScrollBar.Smooth = True
-          VertScrollBar.Tracking = True
-          Align = alClient
-          TabOrder = 0
+        Align = alClient
+        TabOrder = 0
+        object tabCPInserts: TTabSheet
           Caption = 'Inserts'
           object lblCode: TLabel
             Left = 0
-            Top = 107
+            Top = 108
             Width = 28
             Height = 13
             Align = alBottom
@@ -934,8 +893,8 @@ object EditorOptForm: TEditorOptForm
           end
           object CodeIns: TSynEdit
             Left = 0
-            Top = 120
-            Width = 401
+            Top = 121
+            Width = 399
             Height = 188
             Align = alBottom
             Ctl3D = True
@@ -969,18 +928,7 @@ object EditorOptForm: TEditorOptForm
               end>
           end
         end
-        object tabCPDefault: TdevPage
-          Left = 0
-          Top = 0
-          Width = 401
-          Height = 308
-          HorzScrollBar.Smooth = True
-          HorzScrollBar.Tracking = True
-          VertScrollBar.Smooth = True
-          VertScrollBar.Tracking = True
-          Align = alClient
-          TabOrder = 1
-          Visible = False
+        object tabCPDefault: TTabSheet
           Caption = 'Default Source'
           object seDefault: TSynEdit
             Left = 0
@@ -1035,49 +983,26 @@ object EditorOptForm: TEditorOptForm
         end
       end
     end
-    object tabClassBrowsing: TdevPage
-      Left = 0
-      Top = 23
-      Width = 415
-      Height = 342
-      HorzScrollBar.Smooth = True
-      HorzScrollBar.Tracking = True
-      VertScrollBar.Smooth = True
-      VertScrollBar.Tracking = True
-      Align = alClient
-      BevelKind = bkTile
-      TabOrder = 4
-      Visible = False
+    object tabClassBrowsing: TTabSheet
       Caption = 'Class browsing'
       object chkEnableClassBrowser: TCheckBox
         Left = 8
-        Top = 12
+        Top = 4
         Width = 361
         Height = 17
         Caption = 'Enable class browser'
         TabOrder = 0
         OnClick = chkEnableClassBrowserClick
       end
-      object ClassCodePage: TdevPages
+      object ClassCodePage: TPageControl
         Left = 8
-        Top = 32
+        Top = 24
         Width = 393
-        Height = 297
-        ActivePage = tabCBBrowser
-        Orientation = toBottom
+        Height = 305
+        ActivePage = tabCBCompletion
+        TabOrder = 1
         OnChange = ClassCodePageChange
-        object tabCBBrowser: TdevPage
-          Left = 0
-          Top = 0
-          Width = 393
-          Height = 274
-          HorzScrollBar.Smooth = True
-          HorzScrollBar.Tracking = True
-          VertScrollBar.Smooth = True
-          VertScrollBar.Tracking = True
-          Align = alClient
-          BevelKind = bkTile
-          TabOrder = 0
+        object tabCBBrowser: TTabSheet
           Caption = 'Class browsing'
           object lblClassBrowserSample: TLabel
             Left = 8
@@ -1090,7 +1015,7 @@ object EditorOptForm: TEditorOptForm
             Left = 52
             Top = 156
             Width = 317
-            Height = 109
+            Height = 117
             Images = dmMain.ClassImages
             ReadOnly = True
             Indent = 19
@@ -1164,19 +1089,7 @@ object EditorOptForm: TEditorOptForm
             end
           end
         end
-        object tabCBCompletion: TdevPage
-          Left = 0
-          Top = 0
-          Width = 393
-          Height = 274
-          HorzScrollBar.Smooth = True
-          HorzScrollBar.Tracking = True
-          VertScrollBar.Smooth = True
-          VertScrollBar.Tracking = True
-          Align = alClient
-          BevelKind = bkTile
-          TabOrder = 1
-          Visible = False
+        object tabCBCompletion: TTabSheet
           Caption = 'Code completion'
           object lblCompletionDelay: TLabel
             Left = 8
@@ -1265,7 +1178,7 @@ object EditorOptForm: TEditorOptForm
             Left = 8
             Top = 136
             Width = 265
-            Height = 121
+            Height = 129
             ItemHeight = 13
             Sorted = True
             TabOrder = 3

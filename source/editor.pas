@@ -24,19 +24,13 @@ interface
 uses 
 {$IFDEF WIN32}
   Windows, SysUtils, Classes, Graphics, Controls, Forms, Dialogs, CodeCompletion, CppParser,
-  Menus, ImgList, ComCtrls, StdCtrls, ExtCtrls, SynEdit, SynEditKeyCmds, version, Grids,
-  SynCompletionProposal, StrUtils, SynEditTypes, SynEditHighlighter, 
-
-  {** Modified by Peter **}
-  DevCodeToolTip, SynAutoIndent;
+  Menus, ImgList, ComCtrls, StdCtrls, ExtCtrls, SynEdit, SynEditKeyCmds, version,
+  SynCompletionProposal, StrUtils, SynEditTypes, SynEditHighlighter, DevCodeToolTip, SynAutoIndent;
 {$ENDIF}
 {$IFDEF LINUX}
   SysUtils, Classes, Graphics, QControls, QForms, QDialogs, CodeCompletion, CppParser,
-  QMenus, QImgList, QComCtrls, QStdCtrls, QExtCtrls, QSynEdit, QSynEditKeyCmds, version, QGrids,
-  QSynCompletionProposal, StrUtils, QSynEditTypes, QSynEditHighlighter, 
-
-  {** Modified by Peter **}
-  DevCodeToolTip, QSynAutoIndent, Types;
+  QMenus, QImgList, QComCtrls, QStdCtrls, QExtCtrls, QSynEdit, QSynEditKeyCmds, version,
+  QSynCompletionProposal, StrUtils, QSynEditTypes, QSynEditHighlighter, DevCodeToolTip, QSynAutoIndent, Types;
 {$ENDIF}
 
 type
@@ -70,6 +64,7 @@ type
     fOnBreakPointToggle: TBreakpointToggleEvent;
     fHintTimer: TTimer;
     fCurrentHint: string;
+    fCurrentHintFull: string;
     //////// CODE-COMPLETION - mandrav /////////////
     fCompletionEatSpace: boolean;
     fTimer: TTimer;
@@ -219,22 +214,19 @@ begin
 	else
 		fFileName := File_name;
 
-	// Setup an new tabs
+	// Setup a new tab
 	fTabSheet := TTabSheet.Create(MainForm.PageControl);
 	fTabSheet.Caption := Caption_;
 	fTabSheet.PageControl := MainForm.PageControl;
-	fTabSheet.TabVisible:= FALSE;//FALSE;
-	// This way we can contact the editor from MainForm.PageControl.TabIndex
-	fTabSheet.Tag := integer(self);
+	fTabSheet.Tag := integer(self); // Define an index for each tab
 
-	// Set events
+	// Set breakpoint events
 	fOnBreakpointToggle := MainForm.OnBreakpointToggle;
 
 	// Create an editor
 	fText := TSynEdit.Create(fTabSheet);
-	fText.Parent := fTabSheet;
-	fText.Align := alClient;
 
+	// Load the file
 	if (DoOpen) then
 		try
 			fText.Lines.LoadFromFile(FileName);
@@ -256,17 +248,22 @@ begin
 	else
 		fNew := True;
 
-	fText.Visible := True;
+	// Create a tooltip timer
 	fHintTimer := TTimer.Create(Application);
 	fHintTimer.Interval := 100;
 	fHintTimer.OnTimer := EditorHintTimer;
 	fHintTimer.Enabled := False;
 
+	// Set a whole lot of data
+	fText.Parent := fTabSheet;
+	fText.Align := alClient;
+//	fText.BorderStyle := bsNone;
+	fText.Visible := True;
 	fText.PopupMenu := MainForm.EditorPopupMenu;
 	fText.Font.Color:= clWindowText;
 	fText.Color:= clWindow;
-	fText.Font.Name:= 'Courier';
-	fText.Font.Size:= 10;
+//	fText.Font.Name:= 'Courier New';
+//	fText.Font.Size:= 10;
 	fText.WantTabs := True;
 	fText.OnStatusChange:= EditorStatusChange;
 	fText.OnSpecialLineColors:= EditorSpecialLineColors;
@@ -275,11 +272,12 @@ begin
 	fText.OnDropFiles:= EditorDropFiles;
 	fText.OnDblClick:= EditorDblClick;
 	fText.OnMouseDown := EditorMouseDown;
+	fText.OnMouseMove := EditorMouseMove;
 	fText.OnPaintTransient := EditorPaintTransient;
-
 	fText.MaxScrollWidth:=4096; // bug-fix #600748
 	fText.MaxUndo:=4096;
 
+	// Set the current editor and highlighter
 	devEditor.AssignEditor(fText);
 	if not fNew then
 		fText.Highlighter:= dmMain.GetHighlighter(fFileName)
@@ -288,16 +286,15 @@ begin
 	else
 		fText.Highlighter:= dmMain.cpp;
 
-	// update the selected text color
+	// Set the text color
 	StrtoPoint(pt, devEditor.Syntax.Values[cSel]);
 	fText.SelectedColor.Background:= pt.X;
 	fText.SelectedColor.Foreground:= pt.Y;
 
-	fTabSheet.PageControl.ActivePage := fTabSheet;
-	fTabSheet.TabVisible:= TRUE;
+	// Create a gutter
 	fDebugGutter := TDebugGutter.Create(self);
-	Application.ProcessMessages;
 
+	// Initialize code completion
 	InitCompletion;
 
 	// Function arguments
@@ -333,14 +330,15 @@ begin
 	FAutoIndent.IndentChars := '{:';
 	FAutoIndent.UnIndentChars := '}';
 
-	fText.OnMouseMove := EditorMouseMove;
-
-	// monitor this file for outside changes
+	// Setup a monitor which keeps track of outside-of-editor changes
 	MainForm.devFileMonitor1.Files.Add(fFileName);
 	MainForm.devFileMonitor1.Refresh(True);
 
 	// RNC set any breakpoints that should be set in this file
 	SetBreakPointsOnOpen;
+
+	// Only show on the very last
+//	fTabSheet.PageControl.ActivePage := fTabSheet; // unneeded, pagecontrols switch to new tabs automagically
 end;
 
 destructor TEditor.Destroy;
@@ -390,7 +388,7 @@ procedure TEditor.Activate;
 begin
 	if assigned(fTabSheet) then begin
 		fTabSheet.PageControl.Show;
-		fTabSheet.PageControl.ActivePage:=  fTabSheet;
+		fTabSheet.PageControl.ActivePage:= fTabSheet;
 
 		if fText.Visible then
 			fText.SetFocus;
@@ -774,35 +772,32 @@ begin
 	if not assigned(fText) then exit;
 	pt:= fText.CaretXY;
 	tmp:= TStringList.Create;
-  try // move cursor to pipe '|', don't do that, might be used by code, use *|* instead
-   tmp.Text:= Value;
-   if Move then
-    for idx:= 0 to pred(tmp.Count) do
-     begin
-       Line:= tmp[idx];
-       idx2:= AnsiPos('*|*', Line);
-       if idx2> 0 then
-        begin
-          delete(Line, idx2, 3);
-          tmp[idx]:= Line;
+	try // move cursor to pipe '|', don't do that, might be used by code, use *|* instead
+		tmp.Text:= Value;
+		if Move then
+			for idx:= 0 to pred(tmp.Count) do begin
+				Line:= tmp[idx];
+				idx2:= AnsiPos('*|*', Line);
+				if idx2> 0 then begin
+					delete(Line, idx2, 3);
+					tmp[idx]:= Line;
+					inc(pt.Line, idx);
+					if idx = 0 then
+						inc(pt.Char, idx2 -1)
+					else
+						pt.Char:= idx2;
 
-          inc(pt.Line, idx);
-          if idx = 0 then
-           inc(pt.Char, idx2 -1)
-          else
-           pt.Char:= idx2;
-
-          break;
-        end;
-     end;
-   Line:= tmp.Text;
-   Delete(Line,Length(Line)-1,2);
-   fText.SelText:= Line;
-   fText.CaretXY:= pt;
-   fText.EnsureCursorPosVisible;
-  finally
-   tmp.Free;
-  end;
+					break;
+				end;
+			end;
+		Line:= tmp.Text;
+		Delete(Line,Length(Line)-1,2);
+		fText.SelText:= Line;
+		fText.CaretXY:= pt;
+		fText.EnsureCursorPosVisible;
+	finally
+		tmp.Free;
+	end;
 end;
 
 function TEditor.Search(const isReplace: boolean): boolean;
@@ -1029,6 +1024,11 @@ var
 	attr: TSynHighlighterAttributes;
 	s : string;
 	allowcompletion : boolean;
+
+	// Key localisation
+	keystate: TKeyboardState;
+	localizedkey : string;
+	charlen : integer;
 begin
 	// Indent/Unindent selected text with TAB key, like Visual C++ ...
 {$IFDEF WIN32}
@@ -1055,33 +1055,43 @@ begin
 		fText.GetHighlighterAttriAtRowCol(BufferCoord(fText.CaretX-1,fText.CaretY), s, attr);
 		if Assigned(attr) or (Length(fText.LineText) = 0) then
 			allowcompletion := true;
-	//	if(Length(fText.LineText) > 1) then
-	//		if(fText.LineText[fText.CaretX-1] in [#9,#32]) then
-	//			allowcompletion := true;
-		if (attr = fText.Highlighter.StringAttribute) or (attr = fText.Highlighter.CommentAttribute) then
-			allowcompletion := false;
+		if Assigned(attr) then
+			if (attr = fText.Highlighter.StringAttribute) or (attr = fText.Highlighter.CommentAttribute) then
+				allowcompletion := false;
 
 		if allowcompletion then begin
-			if Key = 57 then begin // 9 key + shift = (
-				if (ssShift in Shift) then
-					InsertString(')',false);
-			end else if Key = 219 then begin // [ key on US standard layout according to MSDN
-				if (ssShift in Shift) then begin
-					counter:=0;
-					if Length(fText.LineText) > 1 then begin
-						repeat
-							Inc(counter);
-						until not (fText.LineText[counter] in [#9,#32]);
-						fText.Lines.Insert(FText.CaretY,Copy(FText.LineText,1,counter-1) + '}');
-					end else
-						InsertString(#13#10 + '}',false);
-				end;
-			end else if Key = 188 then begin // , key + shift = <
-				if (ssShift in Shift) and (AnsiStartsStr('#include',TrimLeft(fText.LineText))) then
+
+			// Kijken waar we op klikten
+			GetKeyboardState(keystate);
+			SetLength(localizedkey,2);
+
+			// yes, you saw that right. I'm calling it twice. Have a look at this for an explanation
+			// http://stackoverflow.com/questions/1964614/toascii-tounicode-in-a-keyboard-hook-destroys-dead-keys
+			ToAscii(Key,MapVirtualKey(Key,0),keystate,@localizedkey[1],0);
+			charlen := ToAscii(Key,MapVirtualKey(Key,0),keystate,@localizedkey[1],0);
+
+			// Skip key combinations
+			if charlen = 1 then
+				SetLength(localizedkey,1);
+			if charlen = 0 then Exit;
+
+			// Check if we typed anything completable...
+			if localizedkey = '(' then begin
+				InsertString(')',false);
+			end else if localizedkey = '[' then begin
+				InsertString(']',false);
+			end else if localizedkey = '{' then begin
+				counter:=0;
+				if Length(fText.LineText) > 1 then begin
+					repeat
+						Inc(counter);
+					until not (fText.LineText[counter] in [#9,#32]);
+					fText.Lines.Insert(FText.CaretY,Copy(FText.LineText,1,counter-1) + '}');
+				end else
+					InsertString(#13#10 + '}',false);
+			end else if localizedkey = '<' then begin
+				if (AnsiStartsStr('#include',TrimLeft(fText.LineText))) then
 					InsertString('>',false);
-//			end else if Key = 222 then begin // ' key + shift = "
-//				if (ssShift in Shift) then
-//					InsertString('""',false); // Annoying...
 			end;
 		end;
 	end;
@@ -1389,6 +1399,7 @@ var
 	st: PStatement;
 	localfind : string;
 	localfindpoint : TPoint;
+	thisword : string;
 //	M: TMemoryStream;
 begin
 	fHintTimer.Enabled := false;
@@ -1401,13 +1412,18 @@ begin
 
 		// If we're editting, show information of word
 		if not MainForm.fDebugger.Executing then begin
+
+			// Skip if we're scanning for the second time...
+			thisword := fText.WordAtMouse;
+			if thisword = fCurrentHintFull then Exit;
+			fCurrentHintFull := thisword;
+
+			st:=MainForm.findstatement(localfind,localfindpoint,false);
+
 			r.Left := Mouse.CursorPos.X;
-			r.Top := Mouse.CursorPos.Y + fText.LineHeight;
+			r.Top := Mouse.CursorPos.Y - 2*fText.LineHeight;
 			r.Bottom := Mouse.CursorPos.Y + 10 + fText.LineHeight;
 			r.Right := Mouse.CursorPos.X + 60;
-
-
-			st:=MainForm.findstatement(localfind,localfindpoint,false); // BEZIG
 
 		//	M:=TMemoryStream.Create;
 		//	try
@@ -1439,35 +1455,34 @@ end;
 
 procedure TEditor.CommentSelection;
 var
-  S: string;
-  Offset: integer;
-  backup: TBufferCoord;
+	S: string;
+	Offset: integer;
+	backup: TBufferCoord;
 begin
-  if Text.SelAvail then begin // has selection
-    backup:=Text.CaretXY;
-    Text.BeginUpdate;
-    S:='//'+Text.SelText;
-    Offset:=0;
-    if S[Length(S)]=#10 then begin // if the selection ends with a newline, eliminate it
-      if S[Length(S)-1]=#13 then // do we ignore 1 or 2 chars?
-        Offset:=2
-      else
-        Offset:=1;
-      S:=Copy(S, 1, Length(S)-Offset);
-    end;
-    S:=StringReplace(S, #10, #10'//', [rfReplaceAll]);
-    if Offset=1 then
-      S:=S+#10
-    else if Offset=2 then
-      S:=S+#13#10;
-    Text.SelText:=S;
-    Text.EndUpdate;
-    Text.CaretXY:=backup;
-  end
-  else // no selection; easy stuff ;)
-    Text.LineText:='//'+Text.LineText;
-  Text.UpdateCaret;
-  Text.Modified:=True;
+	if Text.SelAvail then begin // has selection
+		backup:=FText.CaretXY;
+		Text.BeginUpdate;
+		S:='//'+FText.SelText;
+		Offset:=0;
+		if S[Length(S)]=#10 then begin // if the selection ends with a newline, eliminate it
+			if S[Length(S)-1]=#13 then // do we ignore 1 or 2 chars?
+				Offset:=2
+			else
+				Offset:=1;
+		end;
+		if Offset = 2 then
+			S:=StringReplace(S, #13#10, #13#10'//', [rfReplaceAll])
+		else
+			S:=StringReplace(S, #10, #10'//', [rfReplaceAll]);
+
+		Text.SelText:=S;
+		Text.EndUpdate;
+		Text.CaretXY:=backup;
+	end else // no selection; easy stuff ;)
+		Text.LineText:='//'+Text.LineText;
+
+	Text.UpdateCaret;
+	Text.Modified:=True;
 end;
 
 {** Modified by Peter **}
@@ -1491,67 +1506,60 @@ end;
 {** Modified by Peter **}
 procedure TEditor.UncommentSelection;
 
-  function FirstCharIndex(const S: string): Integer;
-  //  Get the index of the first non whitespace character in 
-  //  the string specified by S
-  //  On success it returns the index, otherwise it returns 0
-  var
-    I: Integer;
-  begin
-    Result := 0;
+	function FirstCharIndex(const S: string; const start : integer): Integer;
+	//  Get the index of the first non whitespace character in
+	//  the string specified by S
+	//  On success it returns the index, otherwise it returns 0
+	var
+		I: Integer;
+	begin
+		Result := 0;
 
-    if S <> '' then
-      for I := 1 to Length(S) do
-        if not (S[I] in [#0..#32]) then
-        begin
-          Result := I;
-          Break;
-        end;
-  end;
+		if S <> '' then
+			for I := start to Length(S) do
+				if not (S[I] in [#0..#32]) then begin
+					Result := I;
+					Break;
+				end;
+	end;
 
 var
-  S: string;
-  I: Integer;
-  Idx: Integer;
-  Strings: TStringList;
+	I: Integer;
+	Idx: Integer;
+	selection: string;
 begin
-  // has selection
-  if Text.SelAvail then 
-  begin
-     // start an undoblock, so we can undo
-     // it afterwards!
-     FText.BeginUndoBlock;
-    
-     Strings := TStringList.Create;
-     try
-      Strings.Text := FText.SelText;
+	// has selection
+	if FText.SelAvail then begin
 
-      if Strings.Count > 0 then
-      begin
-        for I := 0 to Strings.Count-1 do begin
-          S := Strings.Strings[I];
-          Idx := FirstCharIndex(S);
+		// start an undoblock, so we can undo it afterwards!
+		FText.BeginUndoBlock;
 
-          // check if the very first two letters in the string are '//'
-          // if they are, then delete them from the string and set the
-          // modified string to the stringlist ...
-          if (Length(S) > Idx) and (S[Idx]='/') and (S[Idx+1]='/') then
-          begin
-            Delete(S, Idx, 2);
-            Strings.Strings[I] := S;
-          end;
-        end;
-      end;
+		// Scan the first line too
+		selection := FText.SelText;
+		Idx := FirstCharIndex(selection,0);
+		if (selection[Idx]='/') and (selection[Idx+1]='/') then
+			Delete(selection, Idx, 2);
 
-      FText.SelText := Strings.Text;
-     finally
-      Strings.Free;
-     end;
+		for I := 0 to Length(selection) do begin
+			if selection[I] = #10 then begin
 
-     FText.EndUndoBlock;
-     FText.UpdateCaret;
-     FText.Modified:=True;
-  end;
+				// Now that we've found a newline, check for a comment
+				Idx := FirstCharIndex(selection,I);
+
+				// check if the very first two letters in the string are '//'
+				// if they are, then delete them from the string and set the
+				// modified string to the stringlist ...
+				if (selection[Idx]='/') and (selection[Idx+1]='/') then
+					Delete(selection, Idx, 2);
+			end;
+		end;
+
+		FText.SelText := selection;
+
+		FText.EndUndoBlock;
+		FText.UpdateCaret;
+		FText.Modified:=True;
+	end;
 end;
 
 procedure TEditor.EditorMouseDown(Sender: TObject; Button: TMouseButton;Shift: TShiftState; X, Y: Integer);
@@ -1799,7 +1807,7 @@ end;
 // This code is executed whenever a function parameter suggestion balloon is shown
 procedure TEditor.DoOnCodeCompletion(Sender: TObject; const AStatement: TStatement; const AIndex: Integer);
 begin
-	// disable the tooltip here, becasue we check against Enabled
+	// disable the tooltip here, because we check against Enabled
 	// in the 'EditorStatusChange' event to prevent it's redrawing there
 	if Assigned(FCodeToolTip) then begin
 		FCodeToolTip.Enabled := False;

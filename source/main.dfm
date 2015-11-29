@@ -1,7 +1,7 @@
 object MainForm: TMainForm
-  Left = 648
-  Top = 243
-  Width = 1024
+  Left = 731
+  Top = 205
+  Width = 949
   Height = 769
   HorzScrollBar.Visible = False
   VertScrollBar.Visible = False
@@ -21,6 +21,7 @@ object MainForm: TMainForm
   OnContextPopup = FormContextPopup
   OnDestroy = FormDestroy
   OnKeyDown = FormKeyDown
+  OnMouseWheel = FormMouseWheel
   OnPaint = FormPaint
   OnResize = FormResize
   OnShow = FormShow
@@ -37,7 +38,7 @@ object MainForm: TMainForm
   object SplitterBottom: TSplitter
     Left = 0
     Top = 556
-    Width = 1008
+    Width = 933
     Height = 3
     Cursor = crVSplit
     Align = alBottom
@@ -47,7 +48,7 @@ object MainForm: TMainForm
   object MessageControl: TPageControl
     Left = 0
     Top = 559
-    Width = 1008
+    Width = 933
     Height = 133
     ActivePage = CompSheet
     Align = alBottom
@@ -66,7 +67,7 @@ object MainForm: TMainForm
       object CompilerOutput: TListView
         Left = 0
         Top = 0
-        Width = 996
+        Width = 921
         Height = 101
         Align = alClient
         BevelOuter = bvRaised
@@ -108,7 +109,7 @@ object MainForm: TMainForm
       object ResourceOutput: TListBox
         Left = 0
         Top = 0
-        Width = 996
+        Width = 921
         Height = 101
         Align = alClient
         BevelInner = bvNone
@@ -208,7 +209,7 @@ object MainForm: TMainForm
       object DebugSubPages: TPageControl
         Left = 0
         Top = 0
-        Width = 996
+        Width = 921
         Height = 101
         ActivePage = tabVars
         Align = alClient
@@ -588,7 +589,7 @@ object MainForm: TMainForm
           object lvBacktrace: TListView
             Left = 0
             Top = 0
-            Width = 988
+            Width = 913
             Height = 70
             Align = alClient
             Columns = <
@@ -622,7 +623,7 @@ object MainForm: TMainForm
           object DebugOutput: TMemo
             Left = 0
             Top = 22
-            Width = 988
+            Width = 913
             Height = 48
             Align = alClient
             Lines.Strings = (
@@ -634,7 +635,7 @@ object MainForm: TMainForm
           object GdbOutputPanel: TPanel
             Left = 0
             Top = 0
-            Width = 988
+            Width = 913
             Height = 22
             Align = alTop
             BevelOuter = bvNone
@@ -674,7 +675,7 @@ object MainForm: TMainForm
       object FindOutput: TListView
         Left = 0
         Top = 0
-        Width = 996
+        Width = 921
         Height = 101
         Align = alClient
         BevelOuter = bvNone
@@ -723,7 +724,7 @@ object MainForm: TMainForm
   object ControlBar1: TControlBar
     Left = 0
     Top = 16
-    Width = 1008
+    Width = 933
     Height = 56
     Align = alTop
     AutoDock = False
@@ -1097,7 +1098,7 @@ object MainForm: TMainForm
   object StatusBar: TStatusBar
     Left = 0
     Top = 692
-    Width = 1008
+    Width = 933
     Height = 19
     Panels = <
       item
@@ -1118,7 +1119,7 @@ object MainForm: TMainForm
   object PageControl: TPageControl
     Left = 196
     Top = 72
-    Width = 812
+    Width = 737
     Height = 484
     Align = alClient
     HotTrack = True
@@ -1134,20 +1135,20 @@ object MainForm: TMainForm
   object pnlFull: TPanel
     Left = 0
     Top = 0
-    Width = 1008
+    Width = 933
     Height = 16
     Align = alTop
     BevelOuter = bvNone
     Caption = 
-      'Dev-C++ version 5.0.0.5 Fullscreen. Press F10 to toggle this bar' +
+      'Dev-C++ version 5.0.0.6 Fullscreen. Press F10 to toggle this bar' +
       ', F11 to toggle Toolbars or F12 to toggle Fullscreen.'
     TabOrder = 4
     Visible = False
     DesignSize = (
-      1008
+      933
       16)
     object btnFullScrRevert: TSpeedButton
-      Left = 991
+      Left = 916
       Top = 0
       Width = 16
       Height = 16

@@ -24,21 +24,21 @@ interface
 uses
 {$IFDEF WIN32}
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, ComCtrls, devTabs, StdCtrls, ExtCtrls, Spin, ColorPickerButton,
-  SynEdit, SynEditHighlighter, SynHighlighterCpp, CheckLst, SynMemo,
+  Dialogs, ComCtrls, StdCtrls, ExtCtrls, Spin, ColorPickerButton,
+  SynEdit, SynEditHighlighter, SynHighlighterCpp,
   Buttons, ClassBrowser, CppParser, CppTokenizer, StrUtils;
 {$ENDIF}
 {$IFDEF LINUX}
   SysUtils, Variants, Classes, QGraphics, QControls, QForms,
-  QDialogs, QComCtrls, devTabs, QStdCtrls, QExtCtrls, ColorPickerButton,
-  QSynEdit, QSynEditHighlighter, QSynHighlighterCpp, QCheckLst, QSynMemo,
+  QDialogs, QComCtrls, QStdCtrls, QExtCtrls, ColorPickerButton,
+  QSynEdit, QSynEditHighlighter, QSynHighlighterCpp, QCheckLst,
   QButtons, ClassBrowser, CppParser, CppTokenizer, StrUtils, Types;
 {$ENDIF}
 
 type
   TEditorOptForm = class(TForm)
-    PagesMain: TdevPages;
-    tabDisplay: TdevPage;
+    PagesMain: TPageControl;
+    tabDisplay: TTabSheet;
     grpGutter: TGroupBox;
     cbGutterVis: TCheckBox;
     cbGutterAuto: TCheckBox;
@@ -52,8 +52,8 @@ type
     lblGutterWidth: TLabel;
     lblGutterFontSize: TLabel;
     cboGutterSize: TComboBox;
-    tabGeneral: TdevPage;
-    tabSyntax: TdevPage;
+    tabGeneral: TTabSheet;
+    tabSyntax: TTabSheet;
     cpForeground: TColorPickerButton;
     cpBackground: TColorPickerButton;
     lblForeground: TLabel;
@@ -85,10 +85,10 @@ type
     lblOverCaret: TLabel;
     cboInsertCaret: TComboBox;
     cboOverwriteCaret: TComboBox;
-    tabCode: TdevPage;
-    codepages: TdevPages;
-    tabCPInserts: TdevPage;
-    tabCPDefault: TdevPage;
+    tabCode: TTabSheet;
+    codepages: TPageControl;
+    tabCPInserts: TTabSheet;
+    tabCPDefault: TTabSheet;
     seDefault: TSynEdit;
     btnAdd: TButton;
     btnEdit: TButton;
@@ -104,12 +104,12 @@ type
     CodeIns: TSynEdit;
     Panel1: TPanel;
     cbDefaultintoprj: TCheckBox;
-    tabClassBrowsing: TdevPage;
+    tabClassBrowsing: TTabSheet;
     chkEnableClassBrowser: TCheckBox;
     btnSaveSyntax: TSpeedButton;
-    ClassCodePage: TdevPages;
-    tabCBBrowser: TdevPage;
-    tabCBCompletion: TdevPage;
+    ClassCodePage: TPageControl;
+    tabCBBrowser: TTabSheet;
+    tabCBCompletion: TTabSheet;
     lblClassBrowserSample: TLabel;
     ClassBrowser1: TClassBrowser;
     gbCBEngine: TGroupBox;
@@ -157,6 +157,7 @@ type
     cbAutoIndent: TCheckBox;
     cbAppendNewline: TCheckBox;
     cbCloseBrace: TCheckBox;
+    ScrollHint: TLabel;
     procedure FormCreate(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure FormActivate(Sender: TObject);
@@ -226,7 +227,6 @@ type
     procedure LoadSyntax(Value: string);
     procedure FillSyntaxSets;
     procedure FillCCC;
-    procedure StyleFix;
   end;
 
 var
@@ -282,31 +282,6 @@ begin
   ClassCodePage.ActivePageIndex:= 0;
 end;
 
-procedure TEditorOptForm.StyleFix;
-begin
-    // General
-	lblTabSize.Refresh;
-    cpHighColor.Refresh;
-
-    // Syntax
-	lblElements.Refresh;
-	lblForeGround.Refresh;
-    cpForeGround.Refresh;
-    lblBackGround.Refresh;
-    cpBackGround.Refresh;
-    btnSaveSyntax.Refresh;
-    lblSpeed.Refresh;
-
-    // Browsing
-    lblCompletionDelay.Refresh;
-    lblCCCache.Refresh;
-    lblCompletionColor.Refresh;
-    cpCompletionBackground.Refresh;
-    btnCCCnew.Refresh;
-    btnCCCdelete.Refresh;
-    pbCCCache.Refresh;
-end;
-
 procedure TEditorOptForm.FormActivate(Sender: TObject);
 begin
 	// Lees inibestand of register
@@ -314,8 +289,6 @@ begin
 
 	// Update code insertion
 	UpdateCIButtons;
-
-	StyleFix;
 end;
 
 function TEditorOptForm.FormHelp(Command: Word; Data: Integer;
@@ -618,6 +591,8 @@ begin
   btnAdd.Caption:=               Lang[ID_BTN_ADD];
   btnEdit.Caption:=              Lang[ID_BTN_EDIT];
   btnRemove.Caption:=            Lang[ID_BTN_REMOVE];
+
+  ScrollHint.Caption:=           Lang[ID_EOPT_CTRLSCROLLHINT];
 end;
 
 procedure TEditorOptForm.LoadSampleText;
@@ -968,8 +943,6 @@ end;
 procedure TEditorOptForm.PagesMainChange(Sender: TObject);
 begin
 	HelpKeyword:= Help_Topic[PagesMain.ActivePageIndex];
-
-	StyleFix;
 end;
 
 procedure TEditorOptForm.btnCancelClick(Sender: TObject);
@@ -1681,8 +1654,6 @@ procedure TEditorOptForm.ClassCodePageChange(Sender: TObject);
 begin
 	if (ClassCodePage.ActivePage=tabCBCompletion) and (CppParser1.Statements.Count=0) then
 		FillCCC;
-
-	StyleFix;
 end;
 
 procedure TEditorOptForm.chkCBShowInheritedClick(Sender: TObject);

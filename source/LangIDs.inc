@@ -173,6 +173,7 @@ const
   ID_ITEM_PROGRAMRESET             = 217;
   ID_ITEM_PROFILE                  = 218;
   ID_ITEM_ABORTCOMP                = 219;
+  ID_ITEM_DELPROFINFORMATION       = 225;
   //free to 219 for execute menu
   //more IDs at 2900
 
@@ -201,7 +202,7 @@ const
   ID_ITEM_ABOUT                    = 240;
   ID_ITEM_UPDATECHECK              = 241;
   ID_ITEM_CUSTOM                   = 242;
-  ID_ITEM_HELPDEVCPP               = 243;     
+  ID_ITEM_HELPDEVCPP               = 243;
 
   //rest dynamic from help.ini
 
@@ -412,6 +413,7 @@ const
 
 
     // Display Tab
+  ID_EOPT_CTRLSCROLLHINT           = 459;
   ID_EOPT_EDFONT                   = 460;
   ID_EOPT_FONT                     = 461;
   ID_EOPT_SIZE                     = 462;
@@ -975,7 +977,7 @@ const
   ID_CPU_ASMCODE                   = 2601;
   ID_CPU_FUNC                      = 2602;
   ID_CPU_SYNTAX                    = 2603;
-  ID_CPU_REGISTERS                 = 2604;               
+  ID_CPU_REGISTERS                 = 2604;
 
 { Tip Of The Day }
   ID_TIPS_CAPTION                  = 2700;
@@ -1006,6 +1008,7 @@ const
   ID_ENV_GBALTCONFIG               = 2817;
   ID_ENV_USEALTCONFIG              = 2818;
   ID_ENV_CONFIGCHANGED             = 2819;
+  ID_ENV_UACERROR                  = 2820;
 
 { Execute menu }
   ID_ITEM_EXECPARAMS               = 2900;
