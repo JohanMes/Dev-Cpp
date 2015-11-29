@@ -23,7 +23,7 @@ interface
 
 uses
 {$IFDEF WIN32}
-  Dialogs, Windows, Classes, Graphics, SynEdit, CFGData, IniFiles, prjtypes, Math;
+  Dialogs, Windows, Classes, Graphics, SynEdit, editor, CFGData, IniFiles, prjtypes, Math;
 {$ENDIF}
 {$IFDEF LINUX}
   QDialogs, Classes, QGraphics, QSynEdit, CFGData, IniFiles, Math, prjtypes;
@@ -331,7 +331,7 @@ type
     procedure SaveSettings;
     procedure LoadSettings;
 
-    procedure AssignEditor(Editor: TSynEdit);
+    procedure AssignEditor(editor : TSynEdit;const FileName : AnsiString);
   published
     //Editor props
     property AutoIndent: boolean read fAutoIndent write fAutoIndent;
@@ -474,9 +474,13 @@ type
 		fPrintLineNumbers : boolean;
 		fPrintLineNumbersMargins : boolean;
 
-		// General debug options
+		// Some debug options
 		fWatchHint : boolean;             // watch variable under mouse
 		fUseATTSyntax : boolean;
+		fShowCPUSignal : boolean; // show CPU window on signal
+		fCPURegisterCol1 : integer; // width of column 1
+		fCPURegisterCol2 : integer; // width of column 1
+		fCPURegisterCol3 : integer; // width of column 1
 
 		// Search preferences
 		fCaseSensitive : boolean;
@@ -484,7 +488,7 @@ type
 		fPromptReplace : boolean;
 		fScopeIsSelected : boolean; // false == Global
 		fOriginEntireScope : boolean; // false == from cursor
-		fWhereOpenFiles : boolean; // you get the idea
+		fSearchWhere : integer; // 0 == project files, 1 == open files, 2 == current file
 		fDirBackward : boolean;
 
   public
@@ -581,6 +585,10 @@ type
     // General debugging options
     property WatchHint : boolean read fWatchHint write fWatchHint;
     property UseATTSyntax : boolean read fUseATTSyntax write fUseATTSyntax;
+    property ShowCPUSignal : boolean read fShowCPUSignal write fShowCPUSignal;
+    property CPURegisterCol1 : integer read fCPURegisterCol1 write fCPURegisterCol1;
+    property CPURegisterCol2 : integer read fCPURegisterCol2 write fCPURegisterCol2;
+    property CPURegisterCol3 : integer read fCPURegisterCol3 write fCPURegisterCol3;
 
     // Search preferences
     property CaseSensitive : boolean read fCaseSensitive write fCaseSensitive;
@@ -588,7 +596,7 @@ type
     property PromptReplace : boolean read fPromptReplace write fPromptReplace;
     property ScopeIsSelected : boolean read fScopeIsSelected write fScopeIsSelected;
     property OriginEntireScope : boolean read fOriginEntireScope write fOriginEntireScope;
-    property WhereOpenFiles : boolean read fWhereOpenFiles write fWhereOpenFiles;
+    property SearchWhere : integer read fSearchWhere write fSearchWhere;
     property DirBackward : boolean read fDirBackward write fDirBackward;
   end;
 
@@ -622,7 +630,7 @@ implementation
 
 uses
 {$IFDEF WIN32}
-  MultiLangSupport, SysUtils, StrUtils, Forms, main, compiler, Controls, version, utils, SynEditMiscClasses,
+  MultiLangSupport, datamod, SysUtils, StrUtils, Forms, main, compiler, Controls, version, utils, SynEditMiscClasses,
   FileAssocs;
 {$ENDIF}
 {$IFDEF LINUX}
@@ -829,7 +837,8 @@ begin
 		raise Exception.Create('devData Externally Created');
 	inherited Create(aOwner);
 	IgnoreProperties.Add('Style');
-
+	IgnoreProperties.Add('Exec');
+	IgnoreProperties.Add('Config');
 	SettoDefaults;
 end;
 
@@ -927,6 +936,10 @@ begin
 	// Debug stuff
 	fWatchHint := false;
 	fUseATTSyntax := true;
+	fShowCPUSignal := true;
+	fCPURegisterCol1 := 70;
+	fCPURegisterCol2 := 104;
+	fCPURegisterCol3 := 4;
 
 	// Search stuff
 	fCaseSensitive := false;
@@ -934,7 +947,7 @@ begin
 	fPromptReplace := false;
 	fScopeIsSelected := false;
 	fOriginEntireScope := false;
-	fWhereOpenFiles := false;
+	fSearchWhere := 1;
 	fDirBackward := false;
 end;
 
@@ -989,7 +1002,7 @@ begin
 	if Assigned(option) then
 		option^.optValue := CharToValue(newvalue);
 
-	if index+1 < Length(fOptionString) then
+	if index+1 <= Length(fOptionString) then
 		fOptionString[index+1] := newvalue;
 		// complete string?
 end;
@@ -1476,6 +1489,7 @@ procedure TdevDirs.SettoDefaults;
 begin
 	fExec:= IncludeTrailingPathDelimiter(ExtractFilePath(Application.ExeName));
 	fConfig := fExec;
+
 	fHelp   := fExec + HELP_DIR;
 	fIcons  := fExec + ICON_DIR;
 	fLang   := fExec + LANGUAGE_DIR;
@@ -1615,7 +1629,7 @@ begin
 	fCompleteSymbols := TRUE;
 end;
 
-procedure TdevEditor.AssignEditor(Editor: TSynEdit);
+procedure TdevEditor.AssignEditor(editor : TSynEdit;const FileName : AnsiString);
 var
 	pt: TPoint;
 begin
@@ -1633,19 +1647,37 @@ begin
 				LeadingZeros:= fLeadZero;
 				ZeroStart:= fFirstisZero;
 
-				// Always apply custom colors, even when not using a custom font
-				StrtoPoint(pt, fSyntax.Values[cGut]);
-				Color:= pt.x;
-				Font.Color:= pt.y;
+				// Select a highlighter
+				Highlighter := dmMain.GetHighlighter(FileName);
+
+				// Set gutter color
+				if Assigned(Highlighter) then begin
+					StrtoPoint(pt, fSyntax.Values[cGut]);
+					Color:= pt.x;
+					Font.Color:= pt.y;
+				end else begin // editor not colored, pick defaults
+					Color:= clBtnFace;
+					Font.Color:= clBlack;
+				end;
 			end;
 
-			// update the selected text color
-			StrtoPoint(pt, devEditor.Syntax.Values[cSel]);
-			SelectedColor.Background:= pt.X;
-			SelectedColor.Foreground:= pt.Y;
+			// Set selection color
+			if Assigned(Highlighter) then begin
+				StrtoPoint(pt, devEditor.Syntax.Values[cSel]);
+				SelectedColor.Background:= pt.X;
+				SelectedColor.Foreground:= pt.Y;
+			end else begin // editor not colored, pick defaults
+				SelectedColor.Background:= clNavy;
+				SelectedColor.Foreground:= clWhite;
+			end;
 
-			StrtoPoint(pt, fSyntax.Values[cFld]);
-			CodeFolding.FolderBarLinesColor := pt.y;
+			// Set folding bar color
+			if Assigned(Highlighter) then begin
+				StrtoPoint(pt, devEditor.Syntax.Values[cFld]);
+				CodeFolding.FolderBarLinesColor := pt.y;
+			end else begin // editor not colored, pick defaults
+				CodeFolding.FolderBarLinesColor := clBlack;
+			end;
 
 			if fMarginVis then
 				RightEdge:= fMarginSize
@@ -1659,7 +1691,7 @@ begin
 
 			ScrollHintFormat:= shfTopToBottom;
 
-			if HighCurrLine then
+			if HighCurrLine and Assigned(Highlighter) then
 				ActiveLineColor := HighColor
 			else
 				ActiveLineColor := clNone;

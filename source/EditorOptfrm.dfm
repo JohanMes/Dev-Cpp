@@ -1,6 +1,6 @@
 object EditorOptForm: TEditorOptForm
-  Left = 785
-  Top = 485
+  Left = 1138
+  Top = 281
   BorderStyle = bsDialog
   Caption = 'Editor Options'
   ClientHeight = 462
@@ -644,6 +644,7 @@ object EditorOptForm: TEditorOptForm
         Gutter.GradientEndColor = clBackground
         HideSelection = True
         Highlighter = cpp
+        UseCodeFolding = True
         Options = [eoAutoIndent, eoDisableScrollArrows, eoHideShowScrollbars, eoNoCaret, eoNoSelection, eoSmartTabs, eoTrimTrailingSpaces]
         ReadOnly = True
         RightEdge = 0
@@ -741,7 +742,9 @@ object EditorOptForm: TEditorOptForm
           'Visual Studio'
           'Borland'
           'Matrix'
-          'Obsidian')
+          'Obsidian'
+          'GSS Hacker'
+          'Obvilion')
       end
       object edSyntaxExt: TEdit
         Left = 168
@@ -853,6 +856,7 @@ object EditorOptForm: TEditorOptForm
             Gutter.RightOffset = 21
             Gutter.ShowLineNumbers = True
             Highlighter = cpp
+            UseCodeFolding = True
             Options = [eoAutoIndent, eoHideShowScrollbars, eoKeepCaretX, eoSmartTabs, eoTabIndent, eoTrimTrailingSpaces]
             TabWidth = 4
             WantTabs = True
@@ -963,6 +967,7 @@ object EditorOptForm: TEditorOptForm
             Gutter.RightOffset = 21
             Gutter.ShowLineNumbers = True
             Highlighter = cpp
+            UseCodeFolding = True
             Options = [eoAutoIndent, eoHideShowScrollbars, eoKeepCaretX, eoSmartTabs, eoTabIndent, eoTrimTrailingSpaces]
             TabWidth = 4
             WantTabs = True

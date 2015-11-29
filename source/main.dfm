@@ -1,6 +1,6 @@
 object MainForm: TMainForm
-  Left = 676
-  Top = 339
+  Left = 229
+  Top = 254
   HorzScrollBar.Visible = False
   VertScrollBar.Visible = False
   AutoScroll = False
@@ -31,7 +31,6 @@ object MainForm: TMainForm
     Left = 193
     Top = 70
     Height = 340
-    AutoSnap = False
     MinSize = 45
     ResizeStyle = rsUpdate
   end
@@ -42,8 +41,7 @@ object MainForm: TMainForm
     Height = 3
     Cursor = crVSplit
     Align = alBottom
-    Color = clBtnFace
-    ParentColor = False
+    ResizeStyle = rsUpdate
     OnMoved = SplitterBottomMoved
   end
   object MessageControl: TPageControl
@@ -231,7 +229,7 @@ object MainForm: TMainForm
           Left = 4
           Top = 30
           Width = 350
-          Height = 112
+          Height = 108
           Align = alCustom
           Anchors = [akLeft, akTop, akRight, akBottom]
           ReadOnly = True
@@ -413,11 +411,11 @@ object MainForm: TMainForm
           Left = 4
           Top = 127
           Width = 460
-          Height = 17
+          Height = 13
           Align = alCustom
           Anchors = [akLeft, akTop, akRight, akBottom]
           ReadOnly = True
-          ScrollBars = ssVertical
+          ScrollBars = ssBoth
           TabOrder = 8
         end
         object SkipFuncBtn: TButton
@@ -936,7 +934,7 @@ object MainForm: TMainForm
     Top = 70
     Width = 193
     Height = 340
-    ActivePage = DebugLeftSheet
+    ActivePage = ClassSheet
     Align = alLeft
     Images = dmMain.ProjectImage_NewLook
     TabOrder = 6
@@ -947,7 +945,7 @@ object MainForm: TMainForm
         Left = 0
         Top = 0
         Width = 185
-        Height = 312
+        Height = 311
         Align = alClient
         Anchors = [akLeft, akTop, akBottom]
         BevelInner = bvNone
@@ -983,7 +981,7 @@ object MainForm: TMainForm
         Left = 0
         Top = 0
         Width = 185
-        Height = 312
+        Height = 311
         Align = alClient
         Images = dmMain.ClassImages
         ReadOnly = True
@@ -991,6 +989,7 @@ object MainForm: TMainForm
         TabOrder = 0
         PopupMenu = BrowserPopup
         BorderStyle = bsNone
+        MultiSelectStyle = []
         ShowFilter = sfAll
         OnSelect = ClassBrowser1Select
         Parser = CppParser
@@ -1019,7 +1018,7 @@ object MainForm: TMainForm
         Left = 0
         Top = 0
         Width = 185
-        Height = 312
+        Height = 311
         Align = alClient
         BevelInner = bvNone
         BevelOuter = bvNone
@@ -2969,6 +2968,11 @@ object MainForm: TMainForm
       ShortCut = 16470
       OnExecute = actMsgPasteExecute
     end
+    object actMsgSelAll: TAction
+      Caption = 'Select All'
+      ShortCut = 16449
+      OnExecute = actMsgSelAllExecute
+    end
     object actMsgSaveAll: TAction
       Caption = 'Save All'
       ShortCut = 16467
@@ -2993,6 +2997,12 @@ object MainForm: TMainForm
     end
     object MsgPasteItem: TMenuItem
       Action = actMsgPaste
+    end
+    object N74: TMenuItem
+      Caption = '-'
+    end
+    object MsgSellAllItem: TMenuItem
+      Action = actMsgSelAll
     end
     object N71: TMenuItem
       Caption = '-'
@@ -3061,9 +3071,6 @@ object MainForm: TMainForm
     end
     object mnuBrowserNewClass: TMenuItem
       Action = actBrowserNewClass
-    end
-    object mnuBrowserSep2: TMenuItem
-      Caption = '-'
     end
     object mnuBrowserNewMember: TMenuItem
       Action = actBrowserNewMember

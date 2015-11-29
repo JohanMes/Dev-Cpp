@@ -645,6 +645,7 @@ const
   ID_FIND_REPLACEFILES                  = 38057;
   ID_FIND_REPLACEWITH                   = 38058;
   ID_FIND_PROMPTREPLACE                 = 38059;
+  ID_FIND_CURRENTFILE                   = 38060;
 
   // Goto function form
   ID_GF_TEXT                            = 40001;
@@ -975,6 +976,8 @@ const
   ID_ERR_FILENOTFOUND                   = 61014;
   ID_ERR_HOSTMISSING                    = 61015;
   ID_ERR_HOSTNOTEXIST                   = 61016;
+  ID_ERR_PROJECTNOTCOMPILEDSUGGEST      = 61017;
+  ID_ERR_SRCNOTCOMPILEDSUGGEST          = 61018;
 
   //other 2000+
   ID_UNTITLED                           = 62001;
@@ -997,6 +1000,7 @@ const
   ID_COMPILEABORT                       = 62018;
   ID_STATUSBARPLUS                      = 62019;
   ID_DONEPARSING                        = 62020;
+  ID_SEARCHCOUNT                        = 62021;
 
 { -- Button Captions -- }
   ID_BTN_OK                             = 63001;
