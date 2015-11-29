@@ -676,7 +676,7 @@ var
 				Font.Style := [fsBold];
 				if (ttoCurrentArgumentBlackOnly in FOptions) then
 					Font.Color := clRed;
-			end else if AnsiPos('(',FLookupEditor.Text) > Index then
+			end else if (AnsiPos('(',FLookupEditor.Text) > Index) and Assigned(HLAttr) then
 				Font.Style := HLAttr.Style
 			else
 				Font.Style := []; // Don't highlight
@@ -923,6 +923,11 @@ begin
 			ReleaseHandle;
 			Exit;
 		end;
+		if (P[CurPos] = '/') and (P[CurPos+1] = '/') then begin
+			repeat
+				Inc(CurPos);
+			until P[CurPos] = #10;
+		end;
 		Inc(CurPos);
 	end;
 
@@ -937,6 +942,8 @@ begin
 	// Then walk back and analyse everything
 	for I := 1 to FMaxScanLength do begin
 		Dec(CurPos);
+		if CurPos = 0 then break;
+
 		case P[CurPos] of
 			'/':
 				if P[CurPos-1] = '*' then
@@ -962,7 +969,6 @@ begin
 				if nBraces = 1 then
 					Inc(nCommas);
 			end;
-			#0: Exit;
 		end;
 	end;
 

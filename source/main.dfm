@@ -1,10 +1,11 @@
 object MainForm: TMainForm
-  Left = 537
-  Top = 157
-  Width = 1109
-  Height = 858
+  Left = 685
+  Top = 323
+  Width = 968
+  Height = 692
   HorzScrollBar.Visible = False
   VertScrollBar.Visible = False
+  Caption = 'Dev-C++'
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -30,15 +31,15 @@ object MainForm: TMainForm
   object SplitterLeft: TSplitter
     Left = 193
     Top = 72
-    Height = 573
+    Height = 407
     AutoSnap = False
     MinSize = 45
     ResizeStyle = rsUpdate
   end
   object SplitterBottom: TSplitter
     Left = 0
-    Top = 645
-    Width = 1093
+    Top = 479
+    Width = 952
     Height = 3
     Cursor = crVSplit
     Align = alBottom
@@ -47,10 +48,10 @@ object MainForm: TMainForm
   end
   object MessageControl: TPageControl
     Left = 0
-    Top = 648
-    Width = 1093
+    Top = 482
+    Width = 952
     Height = 133
-    ActivePage = CompSheet
+    ActivePage = FindSheet
     Align = alBottom
     Constraints.MinHeight = 1
     Images = dmMain.MenuImages_NewLook
@@ -67,7 +68,7 @@ object MainForm: TMainForm
       object CompilerOutput: TListView
         Left = 0
         Top = 0
-        Width = 1081
+        Width = 940
         Height = 101
         Align = alClient
         BevelOuter = bvRaised
@@ -87,7 +88,7 @@ object MainForm: TMainForm
           end
           item
             Caption = 'Message'
-            Width = 580
+            Width = 640
           end>
         ColumnClick = False
         GridLines = True
@@ -109,8 +110,8 @@ object MainForm: TMainForm
       object ResourceOutput: TListBox
         Left = 0
         Top = 0
-        Width = 1081
-        Height = 100
+        Width = 940
+        Height = 101
         Align = alClient
         BevelInner = bvNone
         BevelOuter = bvNone
@@ -209,7 +210,7 @@ object MainForm: TMainForm
       object DebugSubPages: TPageControl
         Left = 0
         Top = 0
-        Width = 1081
+        Width = 940
         Height = 101
         ActivePage = tabVars
         Align = alClient
@@ -589,8 +590,8 @@ object MainForm: TMainForm
           object lvBacktrace: TListView
             Left = 0
             Top = 0
-            Width = 1073
-            Height = 69
+            Width = 932
+            Height = 70
             Align = alClient
             Columns = <
               item
@@ -623,7 +624,7 @@ object MainForm: TMainForm
           object DebugOutput: TMemo
             Left = 0
             Top = 22
-            Width = 1073
+            Width = 932
             Height = 48
             Align = alClient
             Lines.Strings = (
@@ -635,7 +636,7 @@ object MainForm: TMainForm
           object GdbOutputPanel: TPanel
             Left = 0
             Top = 0
-            Width = 1073
+            Width = 932
             Height = 22
             Align = alTop
             BevelOuter = bvNone
@@ -675,8 +676,8 @@ object MainForm: TMainForm
       object FindOutput: TListView
         Left = 0
         Top = 0
-        Width = 1081
-        Height = 100
+        Width = 940
+        Height = 101
         Align = alClient
         BevelOuter = bvNone
         BorderStyle = bsNone
@@ -695,7 +696,7 @@ object MainForm: TMainForm
           end
           item
             Caption = 'Message'
-            Width = 580
+            Width = 640
           end>
         ColumnClick = False
         Font.Charset = DEFAULT_CHARSET
@@ -724,7 +725,7 @@ object MainForm: TMainForm
   object ControlBar1: TControlBar
     Left = 0
     Top = 16
-    Width = 1093
+    Width = 952
     Height = 56
     Align = alTop
     AutoDock = False
@@ -990,14 +991,13 @@ object MainForm: TMainForm
       end
     end
     object tbSpecials: TToolBar
-      Left = 476
+      Left = 11
       Top = 30
       Width = 231
       Height = 22
       AutoSize = True
       ButtonWidth = 60
       Caption = 'Specials'
-      Constraints.MaxWidth = 500
       Constraints.MinWidth = 231
       DragKind = dkDock
       EdgeBorders = []
@@ -1006,8 +1006,11 @@ object MainForm: TMainForm
       Flat = True
       Images = dmMain.SpecialImages_NewLook
       List = True
+      ParentShowHint = False
       ShowCaptions = True
+      ShowHint = False
       TabOrder = 5
+      Transparent = False
       Wrapable = False
       object NewAllBtn: TToolButton
         Left = 0
@@ -1043,7 +1046,7 @@ object MainForm: TMainForm
       end
     end
     object tbClasses: TToolBar
-      Left = 11
+      Left = 255
       Top = 30
       Width = 452
       Height = 22
@@ -1097,15 +1100,15 @@ object MainForm: TMainForm
   end
   object StatusBar: TStatusBar
     Left = 0
-    Top = 781
-    Width = 1093
+    Top = 615
+    Width = 952
     Height = 19
     Panels = <
       item
-        Width = 70
+        Width = 80
       end
       item
-        Width = 50
+        Width = 80
       end
       item
         Width = 80
@@ -1119,8 +1122,8 @@ object MainForm: TMainForm
   object PageControl: TPageControl
     Left = 196
     Top = 72
-    Width = 897
-    Height = 573
+    Width = 756
+    Height = 407
     Align = alClient
     HotTrack = True
     MultiLine = True
@@ -1135,20 +1138,20 @@ object MainForm: TMainForm
   object pnlFull: TPanel
     Left = 0
     Top = 0
-    Width = 1093
+    Width = 952
     Height = 16
     Align = alTop
     BevelOuter = bvNone
     Caption = 
-      'Dev-C++ version 5.0.0.6 Fullscreen. Press F10 to toggle this bar' +
-      ', F11 to toggle Toolbars or F12 to toggle Fullscreen.'
+      'Dev-C++ Fullscreen. Press F10 to toggle this bar, F11 to toggle ' +
+      'Toolbars or F12 to toggle Fullscreen.'
     TabOrder = 4
     Visible = False
     DesignSize = (
-      1093
+      952
       16)
     object btnFullScrRevert: TSpeedButton
-      Left = 1076
+      Left = 935
       Top = 0
       Width = 16
       Height = 16
@@ -1182,7 +1185,7 @@ object MainForm: TMainForm
     Left = 0
     Top = 72
     Width = 193
-    Height = 573
+    Height = 407
     ActivePage = ClassSheet
     Align = alLeft
     Images = dmMain.ProjectImage_NewLook
@@ -1194,7 +1197,7 @@ object MainForm: TMainForm
         Left = 0
         Top = 0
         Width = 185
-        Height = 545
+        Height = 379
         Align = alClient
         Anchors = [akLeft, akTop, akBottom]
         BevelInner = bvNone
@@ -1230,7 +1233,7 @@ object MainForm: TMainForm
         Left = 0
         Top = 0
         Width = 185
-        Height = 545
+        Height = 379
         Align = alClient
         Images = dmMain.ClassImages
         ReadOnly = True
@@ -1266,7 +1269,7 @@ object MainForm: TMainForm
         Left = 0
         Top = 0
         Width = 185
-        Height = 545
+        Height = 379
         Align = alClient
         BevelInner = bvNone
         BevelOuter = bvNone
@@ -1693,7 +1696,6 @@ object MainForm: TMainForm
       end
       object DeleteProfilingInformation: TMenuItem
         Action = actDeleteProfileProject
-        Caption = 'Delete Profiling Information'
       end
       object N25: TMenuItem
         Caption = '-'
@@ -2854,28 +2856,24 @@ object MainForm: TMainForm
       Caption = 'Comment'
       ShortCut = 49342
       OnExecute = actCommentExecute
-      OnUpdate = actUpdateEmptyEditor
     end
     object actUncomment: TAction
       Category = 'Edit'
       Caption = 'Uncomment'
       ShortCut = 49340
       OnExecute = actUncommentExecute
-      OnUpdate = actUpdateEmptyEditor
     end
     object actIndent: TAction
       Category = 'Edit'
       Caption = 'Indent'
       ShortCut = 9
       OnExecute = actIndentExecute
-      OnUpdate = actUpdateEmptyEditor
     end
     object actUnindent: TAction
       Category = 'Edit'
       Caption = 'Unindent'
       ShortCut = 8201
       OnExecute = actUnindentExecute
-      OnUpdate = actUpdateEmptyEditor
     end
     object actGotoFunction: TAction
       Category = 'Search'
@@ -3120,7 +3118,7 @@ object MainForm: TMainForm
     end
     object actDeleteProfileProject: TAction
       Category = 'Execute'
-      Caption = 'actDeleteProfileProject'
+      Caption = 'Delete Profiling information'
       ImageIndex = 11
       OnExecute = actDeleteProfileProjectExecute
       OnUpdate = actDeleteProfRunUpdate

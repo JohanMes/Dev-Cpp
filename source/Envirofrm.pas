@@ -101,6 +101,9 @@ type
     edCVSExec: TEdit;
     spnCVSCompression: TSpinEdit;
     chkCVSUseSSH: TCheckBox;
+    UIfontlabel: TLabel;
+    cbUIfont: TComboBox;
+    cvsdownloadlabel: TLabel;
     procedure BrowseClick(Sender: TObject);
     procedure btnOkClick(Sender: TObject);
     procedure FormShow(Sender: TObject);
@@ -113,6 +116,8 @@ type
     procedure btnExtAddClick(Sender: TObject);
     procedure btnExtDelClick(Sender: TObject);
     procedure chkAltConfigClick(Sender: TObject);
+    procedure cbUIfontChange(Sender: TObject);
+    procedure cvsdownloadlabelClick(Sender: TObject);
   private
     procedure LoadText;
   end;
@@ -121,7 +126,7 @@ implementation
 
 uses
 {$IFDEF WIN32}
-  Filectrl, devcfg, MultiLangSupport, version, datamod, utils, FileAssocs, ImageTheme, main;
+  ShellAPI, Filectrl, devcfg, MultiLangSupport, version, datamod, utils, FileAssocs, ImageTheme, main;
 {$ENDIF}
 {$IFDEF LINUX}
   Xlib, devcfg, MultiLangSupport, version, datamod, utils, FileAssocs, ImageTheme;
@@ -197,9 +202,17 @@ begin
   end;
 end;
 
+function EnumFontFamilyProc(LogFont: PEnumLogFont; var TextMetric: PNewTextMetric;FontType: integer; LParam: integer): integer; stdcall;
+begin
+	// if LogFont.elfLogFont.lfPitchAndFamily and FF_MODERN = FF_MODERN then
+	TStrings(LParam).Add(LogFont.elfLogFont.lfFaceName); // Just add all fonts, SynEdit will monospace them
+	result:= -1;
+end;
+
 procedure TEnviroForm.FormShow(Sender: TObject);
 var
- idx: integer;
+	idx: integer;
+ 	DC: HDC;
 begin
 	with devData do begin
 		rgbAutoOpen.ItemIndex:= AutoOpen;
@@ -256,6 +269,14 @@ begin
 		edCVSExec.Text:= devCVSHandler.Executable;
 		spnCVSCompression.Value:= devCVSHandler.Compression;
 		chkCVSUseSSH.Checked:= devCVSHandler.UseSSH;
+
+		// Font opstellen
+		DC:= GetDC(application.handle);
+		EnumFontFamilies(DC, nil, @EnumFontFamilyProc, integer(cbUIfont.Items));
+		ReleaseDC(0, DC);
+		cbUIfont.Sorted:= TRUE;
+		cbUIfont.Text:=InterfaceFont;
+		cbUIfont.Font.Name:=cbUIfont.Text;
 	end;
 end;
 
@@ -301,6 +322,10 @@ begin
 		AutoCloseProgress := cbAutoCloseProgress.Checked;
 		WatchHint := cbWatchHint.Checked;
 		WatchError := cbWatchError.Checked;
+		InterfaceFont := cbUIFont.Text;
+
+		// Set the UI font
+		MainForm.UpdateFont;
 	end;
 
 	devDirs.Icons:= IncludeTrailingPathDelimiter(ExpandFileto(edIcoLib.Text, devDirs.Exec));
@@ -420,6 +445,7 @@ begin
   lblCVSExec.Caption:=       Lang[ID_ENV_CVSEXE];
   lblCVSCompression.Caption:=Lang[ID_ENV_CVSCOMPR];
   chkCVSUseSSH.Caption:=     Lang[ID_ENV_CVSUSESSH];
+  uifontlabel.Caption:=      Lang[ID_ENV_UIFONT];
 end;
 
 procedure TEnviroForm.btnHelpClick(Sender: TObject);
@@ -501,6 +527,16 @@ begin
   chkAltConfig.Enabled:=ConfigMode <> CFG_PARAM;
   edAltConfig.Enabled:= chkAltConfig.Enabled and chkAltConfig.Checked;
   btnAltConfig.Enabled:= chkAltConfig.Enabled and chkAltConfig.Checked;
+end;
+
+procedure TEnviroForm.cbUIfontChange(Sender: TObject);
+begin
+	(Sender as TComboBox).Font.Name := (Sender as TComboBox).Text;
+end;
+
+procedure TEnviroForm.cvsdownloadlabelClick(Sender: TObject);
+begin
+	ShellExecute(GetDesktopWindow(), 'open', PChar((Sender as TLabel).Caption), nil, nil, SW_SHOWNORMAL);
 end;
 
 end.
