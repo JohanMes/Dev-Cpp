@@ -250,6 +250,8 @@ begin
     devDirs.Exec + devFormatter.AStyleDir + 'DummyInput.txt');
 end;
 
+// copy of TdevFormatter.GetFullCommand
+
 function TFormatterOptionsForm.GetFullCommand: AnsiString;
 begin
   Result := '';

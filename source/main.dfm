@@ -61,7 +61,7 @@ object MainForm: TMainForm
         Left = 0
         Top = 0
         Width = 991
-        Height = 155
+        Height = 154
         Align = alClient
         BevelOuter = bvNone
         BorderStyle = bsNone
@@ -105,7 +105,7 @@ object MainForm: TMainForm
         Left = 0
         Top = 0
         Width = 991
-        Height = 155
+        Height = 154
         Align = alClient
         BevelOuter = bvNone
         BorderStyle = bsNone
@@ -174,11 +174,11 @@ object MainForm: TMainForm
         end
         object chkShortenPaths: TCheckBox
           Left = 4
-          Top = 150
+          Top = 69
           Width = 144
           Height = 17
           Action = actShortenCompPaths
-          Anchors = [akLeft, akBottom]
+          Anchors = [akLeft, akTop, akRight]
           TabOrder = 1
         end
       end
@@ -193,8 +193,8 @@ object MainForm: TMainForm
         object LogOutput: TMemo
           Left = 0
           Top = 0
-          Width = 836
-          Height = 154
+          Width = 835
+          Height = 155
           Align = alClient
           Font.Charset = DEFAULT_CHARSET
           Font.Color = clWindowText
@@ -245,7 +245,7 @@ object MainForm: TMainForm
           Left = 4
           Top = 30
           Width = 395
-          Height = 116
+          Height = 119
           Anchors = [akLeft, akTop, akRight, akBottom]
           ReadOnly = True
           ScrollBars = ssVertical
@@ -410,7 +410,7 @@ object MainForm: TMainForm
           Left = 4
           Top = 100
           Width = 578
-          Height = 46
+          Height = 48
           Anchors = [akLeft, akTop, akRight, akBottom]
           ReadOnly = True
           ScrollBars = ssBoth
@@ -449,11 +449,14 @@ object MainForm: TMainForm
         Left = 0
         Top = 0
         Width = 991
-        Height = 155
+        Height = 154
         Align = alClient
         BevelOuter = bvNone
         BorderStyle = bsNone
         Columns = <
+          item
+            Width = 15
+          end
           item
             Caption = 'Line'
             Width = 40
@@ -483,6 +486,7 @@ object MainForm: TMainForm
         OnDblClick = FindOutputDblClick
         OnDeletion = FindOutputDeletion
         OnKeyDown = FindOutputKeyDown
+        OnSelectItem = FindOutputSelectItem
       end
     end
     object CloseSheet: TTabSheet
@@ -1898,7 +1902,6 @@ object MainForm: TMainForm
       Category = 'File'
       Caption = 'Save &As'
       ImageIndex = 7
-      ShortCut = 49235
       OnExecute = actSaveAsExecute
       OnUpdate = actSaveAsUpdate
     end
@@ -1906,6 +1909,7 @@ object MainForm: TMainForm
       Category = 'File'
       Caption = 'Save project as...'
       ImageIndex = 7
+      ShortCut = 32851
       OnExecute = actSaveProjectAsExecute
       OnUpdate = actUpdateProject
     end
@@ -1941,7 +1945,7 @@ object MainForm: TMainForm
       Category = 'File'
       Caption = 'Close Project'
       ImageIndex = 11
-      ShortCut = 49239
+      ShortCut = 32855
       OnExecute = actCloseProjectExecute
       OnUpdate = actUpdateProject
     end
@@ -2816,7 +2820,7 @@ object MainForm: TMainForm
     object actFormatCurrentFile: TAction
       Category = 'AStyle'
       Caption = 'Format Current File'
-      ShortCut = 49222
+      ShortCut = 8262
       OnExecute = actFormatCurrentFileExecute
       OnUpdate = actUpdateEmptyEditor
     end

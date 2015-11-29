@@ -3,7 +3,7 @@
 
 !define COMPILERNAME "No Compiler"
 !define COMPILERFOLDER ""
-!define DEVCPP_VERSION "5.9.0"
+!define DEVCPP_VERSION "5.9.1"
 !define FINALNAME "Dev-Cpp ${DEVCPP_VERSION} ${COMPILERNAME} Setup.exe"
 !define DISPLAY_NAME "Dev-C++ ${DEVCPP_VERSION}"
 
@@ -118,6 +118,8 @@ Section "Dev-C++ program files (required)" SectionMain
   File /nonfatal /r "Templates\*"
   SetOutPath $INSTDIR\Help
   File /nonfatal /r "Help\*"
+  SetOutPath $INSTDIR\AStyle
+  File /nonfatal /r "AStyle\*"
 SectionEnd
 
 Section "Icon files" SectionIcons
@@ -460,6 +462,7 @@ Section "Uninstall"
   Delete "$INSTDIR\devcpp.map"
   Delete "$INSTDIR\devcpp.exe"
   Delete "$INSTDIR\devcpp.exe.manifest"
+  Delete "$INSTDIR\devcppPortable.exe"
   Delete "$INSTDIR\ConsolePauser.exe"
   Delete "$INSTDIR\copying.txt"
 
@@ -469,6 +472,7 @@ Section "Uninstall"
   RMDir /r "$INSTDIR\Icons"
   RMDir /r "$INSTDIR\Packages"
   RMDir /r "$INSTDIR\Templates"
+  RMDir /r "$INSTDIR\Astyle"
 
   StrCpy $0 "$INSTDIR"
   Call un.DeleteDirIfEmpty

@@ -1,3 +1,16 @@
+Version 5.9.1 - 31 Januari 2015
+
+- Updated Tools >> Edit Shortcuts.
+- Removed Ctrl+Alt combination in default shortcuts to ensure that the AltGr button keeps functioning:
+http://blogs.msdn.com/b/oldnewthing/archive/2004/03/29/101121.aspx
+
+- Fixed formatter options command line not showing up after first launch.
+- Added source LaTeX of testing document DevTest.pdf.
+- Widened the Menu >> Search >> Find window in order to accomodate longer translations.
+- Fixed a crash when launching for the first time with no compilers available.
+- Added last selection arrow to Find Results.
+- Fixed out of bounds error in TCppParser.HandleMethod.
+
 Version 5.9.0 - 5 Januari 2015
 
 - Added AStyle integration.
