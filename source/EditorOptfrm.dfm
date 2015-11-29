@@ -1,6 +1,6 @@
 object EditorOptForm: TEditorOptForm
-  Left = 1156
-  Top = 504
+  Left = 541
+  Top = 315
   BorderStyle = bsDialog
   Caption = 'Editor Options'
   ClientHeight = 452
@@ -682,7 +682,7 @@ object EditorOptForm: TEditorOptForm
           'Keyword'
           'Number'
           'Background'
-          'String'
+          'AnsiString'
           'Symbol'
           'WhiteSpace'
           'Directives')

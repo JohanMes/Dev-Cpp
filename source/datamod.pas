@@ -27,7 +27,7 @@ uses
   SynEditExport, SynExportHTML, SynExportRTF,
   SynEditHighlighter, SynHighlighterCpp, SynEditPrint,
   oysUtils, CodeInsFrm, SynHighlighterRC, SynCompletionProposal,
-  SynEditMiscClasses, SynEditSearch;
+  SynEditMiscClasses, SynEditSearch, SynExportTeX;
 {$ENDIF}
 {$IFDEF LINUX}
   SysUtils, Classes, QMenus, QDialogs, QImgList, QControls,
@@ -42,6 +42,7 @@ type
     Cpp: TSynCppSyn;
     SynExporterRTF: TSynExporterRTF;
     SynExporterHTML: TSynExporterHTML;
+    SynExporterTeX: TSynExporterTeX;
     PrinterSetupDialog: TPrinterSetupDialog;
     SynEditPrint: TSynEditPrint;
     OpenDialog: TOpenDialog;
@@ -93,13 +94,13 @@ type
     procedure LoadHistory;
     procedure SaveHistory;
     procedure RebuildMRU;
-    function GetMRU(index: integer): string;
+    function GetMRU(index: integer): AnsiString;
    public
     fProjectCount: integer;
-    procedure AddtoHistory(s: string);
-    procedure RemoveFromHistory(s: string);
+    procedure AddtoHistory(s: AnsiString);
+    procedure RemoveFromHistory(s: AnsiString);
     procedure ClearHistory;
-    property MRU[index: integer]: string read GetMRU;
+    property MRU[index: integer]: AnsiString read GetMRU;
     property MRUMenu: TMenuItem read fMRUMenu write fMRUMenu;
     property MRUOffset: integer read fMRUOffset write fMRUOffset;
     property MRUMax: byte read fMRUMax write fMRUMax;
@@ -111,10 +112,11 @@ type
     function GetNum: integer;
     procedure InitHighlighterFirstTime(index : integer);
     procedure UpdateHighlighter;
-    function GetHighlighter(const FileName: string): TSynCustomHighlighter;
+    function GetHighlighter(const FileName: AnsiString): TSynCustomHighlighter;
 
-    procedure ExportToHtml(FileLines: TStrings; ExportFilename: string);
-    procedure ExportToRtf(FileLines: TStrings; ExportFilename: string);
+    procedure ExportToHtml(FileLines: TStrings; ExportFilename: AnsiString);
+    procedure ExportToRtf(FileLines: TStrings; ExportFilename: AnsiString);
+    procedure ExportToTex(FileLines: TStrings; ExportFilename: AnsiString);
   end;
 
 var
@@ -143,7 +145,7 @@ begin
 end;
 
 procedure TdmMain.InitHighlighterFirstTime(index : integer);
-  procedure AddSpecial(AttrName: string; Offset: integer);
+  procedure AddSpecial(AttrName: AnsiString; Offset: integer);
   var
     a: integer;
   begin
@@ -184,7 +186,7 @@ end;
 procedure TdmMain.UpdateHighlighter;
 var
  Attr: TSynHighlighterAttributes;
- aName: string;
+ aName: AnsiString;
  a,
  idx: integer;
 begin
@@ -217,43 +219,39 @@ begin
    end;
 end;
 
-function TdmMain.GetHighlighter(const FileName: string): TSynCustomHighlighter;
+function TdmMain.GetHighlighter(const FileName: AnsiString): TSynCustomHighlighter;
 var
- ext: string;
- idx: integer;
- tmp: TStrings;
+	ext: AnsiString;
+	idx: integer;
+	tmp: TStrings;
 begin
-  UpdateHighlighter;
-  result:= nil;
-  if devEditor.UseSyntax then
-   begin
-     if (FileName = '') or (AnsiPos(Lang[ID_UNTITLED], FileName) = 1) then
-      result:= cpp
-     else
-      begin
-        ext:= ExtractFileExt(FileName);
-        if AnsiCompareText(ext, RC_EXT) = 0 then
-         result:= Res
-        else
-         begin
-           tmp:= TStringList.Create;
-           try
-            delete(ext, 1, 1);
-            tmp.Delimiter:= ';';
-            tmp.DelimitedText:= devEditor.SyntaxExt;
-            if tmp.Count> 0 then
-             for idx:= 0 to pred(tmp.Count) do
-              if AnsiCompareText(Ext, tmp[idx]) = 0 then
-                begin
-                  result:= cpp;
-                  Exit;
-                end;
-           finally
-            tmp.Free;
-           end;
-         end;
-      end;
-   end;
+	UpdateHighlighter;
+	result:= nil;
+	if devEditor.UseSyntax then begin
+		if (FileName = '') or (Pos(Lang[ID_UNTITLED], FileName) = 1) then
+			result:= cpp
+		else begin
+			ext:= ExtractFileExt(FileName);
+			if CompareText(ext, RC_EXT) = 0 then
+				result:= Res
+			else begin
+				tmp:= TStringList.Create;
+				try
+					delete(ext, 1, 1);
+					tmp.Delimiter:= ';';
+					tmp.DelimitedText:= devEditor.SyntaxExt;
+					if tmp.Count> 0 then
+						for idx:= 0 to pred(tmp.Count) do
+							if CompareText(Ext, tmp[idx]) = 0 then begin
+								result:= cpp;
+								Exit;
+							end;
+				finally
+					tmp.Free;
+				end;
+			end;
+		end;
+	end;
 end;
 
 function TdmMain.GetNum: integer;
@@ -277,7 +275,7 @@ end;
 
  { ---------- MRU ---------- }
 
-procedure TdmMain.AddtoHistory(s: string);
+procedure TdmMain.AddtoHistory(s: AnsiString);
 var
  idx: integer;
 begin
@@ -289,7 +287,7 @@ begin
   RebuildMRU;
 end;
 
-procedure TdmMain.RemoveFromHistory(s: string);
+procedure TdmMain.RemoveFromHistory(s: AnsiString);
 var
  idx: integer;
 begin
@@ -304,7 +302,7 @@ begin
   RebuildMRU;
 end;
 
-function TdmMain.GetMRU(index: integer): string;
+function TdmMain.GetMRU(index: integer): AnsiString;
 begin
   result:= fMRU.Values[index];
 end;
@@ -357,7 +355,7 @@ procedure TdmMain.RebuildMRU;
   function SortMRU: integer;
   var
     I, C: integer;
-    swp: string;
+    swp: AnsiString;
     Done: boolean;
   begin
     C:=0;
@@ -469,9 +467,6 @@ var
  idx: integer;
  Item: TMenuItem;
 begin
-
-
-
   if not assigned(fCodeMenu) then exit;
   fCodeList.LoadCode;
 
@@ -504,25 +499,36 @@ end;
 
 { ---------- Exports ---------- }
 
-procedure TdmMain.ExportToHtml(FileLines: TStrings; ExportFilename: string);
+procedure TdmMain.ExportToHtml(FileLines: TStrings; ExportFilename: AnsiString);
 begin
   if (not Assigned(FileLines)) or (FileLines.Count=0) or (ExportFilename='') then
     Exit;
+
   SynExporterHTML.Title := ExtractFileName(ExportFileName);
   SynExporterHTML.CreateHTMLFragment := False;
   SynExporterHTML.ExportAsText := True;
   SynExporterHTML.Color:=Cpp.SpaceAttri.Background;
+
   SynExporterHTML.ExportAll(FileLines);
   SynExporterHTML.SavetoFile(ExportFileName);
 end;
 
-procedure TdmMain.ExportToRtf(FileLines: TStrings; ExportFilename: string);
+procedure TdmMain.ExportToRtf(FileLines: TStrings; ExportFilename: AnsiString);
 begin
   if (not Assigned(FileLines)) or (FileLines.Count=0) or (ExportFilename='') then
     Exit;
 
   SynExporterRTF.ExportAll(FileLines);
   SynExporterRTF.SavetoFile(ExportFileName);
+end;
+
+procedure TdmMain.ExportToTex(FileLines: TStrings; ExportFilename: AnsiString);
+begin
+  if (not Assigned(FileLines)) or (FileLines.Count=0) or (ExportFilename='') then
+    Exit;
+
+  SynExporterTex.ExportAll(FileLines);
+  SynExporterTex.SaveToFile(ExportFileName);
 end;
 
 end.

@@ -56,7 +56,6 @@ type
     editCustom: TEdit;
     procedure FormShow(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
-    procedure FormPaint(Sender: TObject);
     procedure lvGraphCustomDrawItem(Sender: TCustomListView;Item: TListItem; State: TCustomDrawState; var DefaultDraw: Boolean);
     procedure lvFlatCustomDrawItem(Sender: TCustomListView;Item: TListItem; State: TCustomDrawState; var DefaultDraw: Boolean);
     procedure lvFlatMouseMove(Sender: TObject; Shift: TShiftState; X,Y: Integer);
@@ -66,6 +65,8 @@ type
     procedure chkCustomClick(Sender: TObject);
     procedure commandUpdate(Sender: TObject);
   private
+    FlatLoaded : boolean;
+    GraphLoaded : boolean;
     { Private declarations }
     procedure LoadText;
     procedure DoFlat;
@@ -93,22 +94,25 @@ uses
 
 procedure TProfileAnalysisForm.FormShow(Sender: TObject);
 begin
-  LoadText;
-  PageControl1.Visible := False;
+	LoadText;
+
+	DoFlat;
+	lvFlat.SetFocus;
 end;
 
 procedure TProfileAnalysisForm.FormClose(Sender: TObject;var Action: TCloseAction);
 begin
-  Action := caFree;
+	Action := caFree;
+	ProfileAnalysisForm := nil;
 end;
 
 procedure TProfileAnalysisForm.DoFlat;
 var
-  Cmd: string;
-  Params: string;
-  Dir: string;
+  Cmd: AnsiString;
+  Params: AnsiString;
+  Dir: AnsiString;
   I,J: integer;
-  Line: string;
+  Line: AnsiString;
   Parsing: boolean;
   Done: boolean;
   BreakLine: integer;
@@ -166,8 +170,8 @@ begin
         Caption := Trim(Copy(Line, 55, Length(Line) - 54));
 
         // remove arguments - if exists
-        if AnsiPos('(', Caption) > 0 then
-          Data := MainForm.CppParser.Locate(Copy(Caption, 1, AnsiPos('(', Caption) - 1), True)
+        if Pos('(', Caption) > 0 then
+          Data := MainForm.CppParser.Locate(Copy(Caption, 1, Pos('(', Caption) - 1), True)
         else
           Data := MainForm.CppParser.Locate(Caption, True);
 
@@ -180,7 +184,7 @@ begin
         end;
       end;
     end else begin
-      Parsing := AnsiStartsText('%', Trim(Line));
+      Parsing := StartsText('%', Trim(Line));
       if Parsing then
         Inc(I); // skip over next line too
     end;
@@ -188,15 +192,17 @@ begin
   end;
   for I := 0 to BreakLine do
     TStringList(memFlat.Lines).Delete(0);
+
+	FlatLoaded := true;
 end;
 
 procedure TProfileAnalysisForm.DoGraph;
 var
-  Cmd: string;
-  Params: string;
-  Dir: string;
+  Cmd: AnsiString;
+  Params: AnsiString;
+  Dir: AnsiString;
   I,J: integer;
-  Line: string;
+  Line: AnsiString;
   Parsing: boolean;
   Done: boolean;
   BreakLine: integer;
@@ -250,13 +256,13 @@ begin
         Break;
       end;
 
-      if not AnsiStartsText('---', Line) then begin
+      if not StartsText('---', Line) then begin
         with lvGraph.Items.Add do begin
           Caption := Trim(Copy(Line, 46, Length(Line) - 45));
 
           // remove arguments - if exists
-          if AnsiPos('(', Caption) > 0 then
-            Data := MainForm.CppParser.Locate(Copy(Caption, 1, AnsiPos('(', Caption) - 1), True)
+          if Pos('(', Caption) > 0 then
+            Data := MainForm.CppParser.Locate(Copy(Caption, 1, Pos('(', Caption) - 1), True)
           else
             Data := MainForm.CppParser.Locate(Caption, True);
 
@@ -272,37 +278,13 @@ begin
         lvGraph.Items.Add;
     end
     else
-      Parsing := AnsiStartsText('index %', Trim(Line));
+      Parsing := StartsText('index %', Trim(Line));
     Inc(I);
   end;
   for I := 0 to BreakLine do
     TStringList(memGraph.Lines).Delete(0);
-end;
 
-procedure TProfileAnalysisForm.FormPaint(Sender: TObject);
-begin
-  inherited;
-  OnPaint := nil;
-
-  Screen.Cursor := crHourglass;
-  Application.ProcessMessages;
-  try
-    DoFlat;
-  except
-    lvFlat.Items.Add.Caption := '<Error parsing output>';
-  end;
-
-  Application.ProcessMessages;
-  try
-    DoGraph;
-  except
-    lvGraph.Items.Add.Caption := '<Error parsing output>';
-  end;
-
-  Screen.Cursor := crDefault;
-  PageControl1.ActivePage := tabFlat;
-  PageControl1.Visible := True;
-  lvFlat.SetFocus;
+  GraphLoaded := true;
 end;
 
 procedure TProfileAnalysisForm.lvFlatCustomDrawItem(Sender: TCustomListView; Item: TListItem; State: TCustomDrawState;var DefaultDraw: Boolean);
@@ -384,19 +366,27 @@ end;
 
 procedure TProfileAnalysisForm.PageControl1Change(Sender: TObject);
 begin
-	if PageControl1.ActivePage = tabFlat then
-		lvFlat.SetFocus
-	else if PageControl1.ActivePage = tabGraph then
-		lvGraph.SetFocus
-	else
+	if PageControl1.ActivePage = tabFlat then begin
+		if not FlatLoaded then begin
+			DoFlat;
+			lvFlat.SetFocus;
+		end;
+	end else if PageControl1.ActivePage = tabGraph then begin
+		if not GraphLoaded then begin
+			DoGraph;
+			lvGraph.SetFocus;
+		end;
+	end else
 		commandUpdate(nil);
 end;
 
 procedure TProfileAnalysisForm.btnApplyClick(Sender: TObject);
 begin
+	FlatLoaded := false;
+	GraphLoaded := false;
+
+	// Respawn DoFlat
 	PageControl1.ActivePage := tabFlat;
-	lvFlat.Clear;
-	DoFlat;
 end;
 
 procedure TProfileAnalysisForm.chkCustomClick(Sender: TObject);
@@ -410,7 +400,7 @@ end;
 
 procedure TProfileAnalysisForm.commandUpdate(Sender: TObject);
 var
-	assembly : string;
+	assembly : AnsiString;
 begin
 	if not chkCustom.Checked then begin
 		if (devCompiler.gprofName <> '') then

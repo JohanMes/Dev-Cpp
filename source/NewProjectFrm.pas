@@ -37,7 +37,6 @@ type
     btnOk: TBitBtn;
     btnCancel: TBitBtn;
     ImageList1: TImageList;
-    grpPrjOpts: TGroupBox;
     rbC: TRadioButton;
     rbCpp: TRadioButton;
     cbDefault: TCheckBox;
@@ -46,8 +45,6 @@ type
     edProjectName: TEdit;
     TabsMain: TTabControl;
     ProjView: TListView;
-    pnlDesc: TPanel;
-    lblDesc: TLabel;
     TemplateLabel: TLabel;
     btnHelp: TBitBtn;
     procedure ProjViewChange(Sender: TObject; Item: TListItem;Change: TItemChange);
@@ -59,7 +56,7 @@ type
     procedure btnCancelClick(Sender: TObject);
     procedure btnHelpClick(Sender: TObject);
    private
-    procedure AddTemplate(FileName: string);
+    procedure AddTemplate(FileName: AnsiString);
     procedure ReadTemplateIndex;
    private
     fTemplates: TList;
@@ -99,7 +96,7 @@ begin
 	fTemplates.Free;
 end;
 
-procedure TNewProjectForm.AddTemplate(FileName: string);
+procedure TNewProjectForm.AddTemplate(FileName: AnsiString);
 var
 	Template: TTemplate;
 begin
@@ -113,7 +110,7 @@ procedure TNewProjectForm.ReadTemplateIndex;
 var
   i: Integer;
   LTemplates: TStringList;
-  sDir: string;
+  sDir: AnsiString;
 begin
   sDir:=devDirs.Templates;
   if not CheckChangeDir(sDir) then begin
@@ -174,27 +171,32 @@ end;
 
 procedure TNewProjectForm.LoadText;
 begin
-  Caption :=              Lang[ID_NP];
-  lblDesc.Caption :=      Lang[ID_NP_DESC];
-  lblPrjName.Caption:=    Lang[ID_NP_PRJNAME];
-  rbC.Caption :=          Lang[ID_NP_DEFAULTC];
-  rbCpp.Caption :=        Lang[ID_NP_DEFAULTCPP];
-  cbDefault.Caption :=    Lang[ID_NP_MAKEDEFAULT];
+	// Set interface font
+	Font.Name := devData.InterfaceFont;
+	Font.Size := devData.InterfaceFontSize;
 
-  grpPrjOpts.Caption :=   '  '+Lang[ID_NP_PRJOPTIONS]+'  ';
-  btnOk.Caption :=        Lang[ID_BTN_OK];
-  btnCancel.Caption :=    Lang[ID_BTN_CANCEL];
-  btnHelp.Caption:=       Lang[ID_BTN_HELP];
+	TemplateLabel.Font.Name := devData.InterfaceFont;
+	TemplateLabel.Font.Size := devData.InterfaceFontSize;
+
+	Caption :=              Lang[ID_NP];
+	lblPrjName.Caption:=    Lang[ID_NP_PRJNAME];
+	rbC.Caption :=          Lang[ID_NP_DEFAULTC];
+	rbCpp.Caption :=        Lang[ID_NP_DEFAULTCPP];
+	cbDefault.Caption :=    Lang[ID_NP_MAKEDEFAULT];
+
+	btnOk.Caption :=        Lang[ID_BTN_OK];
+	btnCancel.Caption :=    Lang[ID_BTN_CANCEL];
+	btnHelp.Caption:=       Lang[ID_BTN_HELP];
 end;
 
 procedure TNewProjectForm.UpdateView;
- function HasPage(const value: string): boolean;
+ function HasPage(const value: AnsiString): boolean;
   var
    idx: integer;
   begin
     result:= TRUE;
     for idx:= 0 to pred(TabsMain.Tabs.Count) do
-     if AnsiCompareText(TabsMain.Tabs[idx], Value) = 0 then exit;
+     if CompareText(TabsMain.Tabs[idx], Value) = 0 then exit;
     result:= FALSE;
   end;
 var
@@ -202,7 +204,7 @@ var
  LTemplate: TTemplate;
  Item: TListItem;
  LIcon: TIcon;
- fName: string;
+ fName: AnsiString;
 begin
 	for idx:= 0 to pred(fTemplates.Count) do begin
 		LTemplate:= TTemplate(fTemplates[idx]);
@@ -224,7 +226,7 @@ begin
 		LTemplate:= TTemplate(fTemplates[idx]);
 		if LTemplate.Catagory = '' then
 			LTemplate.Catagory:= Lang[ID_NP_PRJSHEET];
-		if AnsiCompareText(LTemplate.Catagory, TabsMain.Tabs[TabsMain.TabIndex]) = 0 then begin
+		if CompareText(LTemplate.Catagory, TabsMain.Tabs[TabsMain.TabIndex]) = 0 then begin
 			Item:= ProjView.Items.Add;
 			Item.Caption:= LTemplate.Name;
 			Item.Data:= pointer(idx);

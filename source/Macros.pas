@@ -24,7 +24,7 @@ interface
 uses
   SysUtils, devCfg, Version;
 
-function ParseMacros(Str: String): String;
+function ParseMacros(Str: AnsiString): AnsiString;
 
 implementation
 
@@ -36,15 +36,15 @@ uses
   Main, editor, QDialogs, Utils, Classes;
 {$ENDIF}
 
-procedure Replace(var Str: String; Old, New: String);
+procedure Replace(var Str: AnsiString; Old, New: AnsiString);
 begin
   Str := StringReplace(Str, Old, New, [rfReplaceAll]);
 end;
 
-function ParseMacros(Str: String): String;
+function ParseMacros(Str: AnsiString): AnsiString;
 var
   e: TEditor;
-  Dir: String;
+  Dir: AnsiString;
   StrList: TStringList;
 begin
   Result := Str;
@@ -117,7 +117,7 @@ begin
       else
           Replace(Result, '<SOURCENAME>', ExtractFilePath(e.FileName));
 
-      Replace(Result, '<WORDXY>', e.GetWordAtCursor);
+      Replace(Result, '<WORDXY>', e.Text.WordAtCursor);
   end else
   begin
       // clear unchanged macros

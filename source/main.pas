@@ -44,7 +44,7 @@ uses
 type
 	{ *** RNC make the breakpoints global ***}
 	TBreakPointEntry = record
-		file_name		: String;
+		file_name		: AnsiString;
 		line			: integer;
 		editor			: TEditor;
 		breakPointIndex	:integer;
@@ -593,6 +593,8 @@ type
 		actInsert: TAction;
 		actToggle: TAction;
 		actGoto: TAction;
+		TEXItem: TMenuItem;
+		actXTex: TAction;
 
 		procedure FormShow(Sender: TObject);
 		procedure FormClose(Sender: TObject; var Action: TCloseAction);
@@ -600,7 +602,7 @@ type
 
 		// Orwel 2011
 		procedure SetStatusbarLineCol;
-		procedure SetStatusbarMessage(const msg:string);
+		procedure SetStatusbarMessage(const msg:AnsiString);
 
 		procedure ToggleBookmarkClick(Sender: TObject);
 		procedure GotoBookmarkClick(Sender: TObject);
@@ -627,6 +629,7 @@ type
 		procedure actCloseProjectExecute(Sender: TObject);
 		procedure actXHTMLExecute(Sender: TObject);
 		procedure actXRTFExecute(Sender: TObject);
+		procedure actXTexExecute(Sender: TObject);
 		procedure actXProjectExecute(Sender: TObject);
 		procedure actPrintExecute(Sender: TObject);
 		procedure actPrintSUExecute(Sender: TObject);
@@ -708,7 +711,7 @@ type
 		procedure actToolsMenuExecute(Sender: TObject);
 		procedure actDeleteExecute(Sender: TObject);
 		procedure ClassBrowser1Select(Sender: TObject; Filename: TFileName;Line: Integer);
-		procedure CppParserTotalProgress(Sender: TObject;const FileName: String;Total, Current: Integer);
+		procedure CppParserTotalProgress(Sender: TObject;const FileName: string;Total, Current: Integer);
 		procedure CodeCompletionResize(Sender: TObject);
 		procedure actSwapHeaderSourceUpdate(Sender: TObject);
 		procedure actSwapHeaderSourceExecute(Sender: TObject);
@@ -759,7 +762,7 @@ type
 		procedure lvBacktraceMouseMove(Sender: TObject; Shift: TShiftState; X,Y: Integer);
 		procedure actRunUpdate(Sender: TObject);
 		procedure actCompileUpdate(Sender: TObject);
-		procedure devFileMonitorNotifyChange(Sender: TObject;ChangeType: TdevMonitorChangeType; Filename: String);
+		procedure devFileMonitorNotifyChange(Sender: TObject;ChangeType: TdevMonitorChangeType; Filename: string);
 		procedure actFilePropertiesExecute(Sender: TObject);
 		procedure actViewToDoListExecute(Sender: TObject);
 		procedure actAddToDoExecute(Sender: TObject);
@@ -774,7 +777,7 @@ type
 		procedure GdbCommandBtnClick(Sender: TObject);
 
 		// Orwell 2011
-		procedure SendCommand(const cmd,args:string);
+		procedure SendCommand(const cmd,args:AnsiString);
 
 		procedure ViewCPUItemClick(Sender: TObject);
 		procedure edGdbCommandKeyPress(Sender: TObject; var Key: Char);
@@ -840,8 +843,8 @@ type
 		procedure actDeleteProfileProjectExecute(Sender: TObject);
 		procedure actGotoImplDeclEditorExecute(Sender: TObject);
 		procedure actHideFSBarExecute(Sender: TObject);
-		procedure UpdateSplash(const text : string);
-		function FindStatement(const statement : string;cursorpos : TBufferCoord;var localfind : string;var localfindpoint : TPoint) : PStatement;
+		procedure UpdateSplash(const text : AnsiString);
+		function FindStatement(const statement : AnsiString;cursorpos : TBufferCoord;var localfind : AnsiString;var localfindpoint : TBufferCoord) : PStatement;
 		procedure FormMouseWheel(Sender: TObject; Shift: TShiftState;WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
 		procedure ImportCBCprojectClick(Sender: TObject);
 		procedure CompilerOutputAdvancedCustomDrawItem(Sender: TCustomListView;Item: TListItem; State: TCustomDrawState; Stage: TCustomDrawStage;var DefaultDraw: Boolean);
@@ -852,7 +855,7 @@ type
 		procedure actInsertExecute(Sender: TObject);
 		procedure actToggleExecute(Sender: TObject);
 		procedure actGotoExecute(Sender: TObject);
-    procedure actEditMenuUpdate(Sender: TObject);
+		procedure actEditMenuUpdate(Sender: TObject);
 
 	private
 		fmsgHeight			: integer;
@@ -866,12 +869,12 @@ type
 		OldTop				: integer;
 		OldWidth			: integer;
 		OldHeight			: integer;
-		ReloadFilename		: string;
+		ReloadFilename		: AnsiString;
 		WindowPlacement		: TWindowPlacement;
 
 		function  AskBeforeClose(e : TEditor; Rem : boolean) : boolean;
-		procedure AddFindOutputItem(line, col, unit_, message : string);
-		function  ParseParams(s : string) : string;
+		procedure AddFindOutputItem(line, col, unit_, message : AnsiString);
+		function  ParseParams(s : AnsiString) : AnsiString;
 		procedure ParseCmdLine;
 		procedure BuildBookMarkMenus;
 		procedure SetHints;
@@ -879,10 +882,10 @@ type
 		procedure CodeInsClick(Sender: TObjecT);
 		procedure ToolItemClick(Sender: TObject);
 		procedure WMDropFiles(var msg: TMessage); message WM_DROPFILES;
-		procedure LogEntryProc(const msg: string);
-		procedure CompOutputProc(const _Line, _Col, _Unit, _Message: string);
-		procedure CompResOutputProc(const _Line, _Unit, _Message: string);
-		procedure CompSuccessProc(messages : integer);
+		procedure LogEntryProc(const msg: AnsiString);
+		procedure CompOutputProc(const _Line, _Col, _Unit, _Message: AnsiString);
+		procedure CompResOutputProc(const _Line, _Unit, _Message: AnsiString);
+		procedure CompSuccessProc;
 		procedure MainSearchProc(const SR: TdevSearchResult);
 		procedure LoadText;
 		function SaveFileAs(e : TEditor): Boolean;
@@ -905,21 +908,21 @@ type
 	public
 		procedure DoCreateEverything; // added by peter
 		function SaveFile(e : TEditor): Boolean;
-		procedure OpenFile(const s : string);
-		procedure OpenProject(const s: string);
-		function FileIsOpen(const s: string; inprj: boolean = false): integer;
+		procedure OpenFile(const s : AnsiString);
+		procedure OpenProject(const s: AnsiString);
+		function FileIsOpen(const s: AnsiString; inprj: boolean = false): integer;
 		function GetEditor(index: integer = -1): TEditor;
-		function GetEditorFromFileName(const ffile : string) : TEditor;
-		procedure GotoBreakpoint(bfile: string; bline: integer);
+		function GetEditorFromFileName(const ffile : AnsiString) : TEditor;
+		procedure GotoBreakpoint(bfile: AnsiString; bline: integer);
 		procedure RemoveActiveBreakpoints;
-		procedure AddDebugVar(const s : string);
+		procedure AddDebugVar(const s : AnsiString);
 		procedure OnBreakpointToggle(index: integer; BreakExists: boolean);
 		procedure SetProjCompOpt(idx: integer; Value: boolean); // set project's compiler option indexed 'idx' to value 'Value'
 		function CloseEditor(index : integer; Rem : boolean): Boolean;
 		procedure RefreshContext;
 
 		{ *** RNC Global Breakpoint Declarations *** }
-		procedure AddBreakPointToList(line_number: integer; e : TEditor; filename:string);
+		procedure AddBreakPointToList(line_number: integer; e : TEditor; filename:AnsiString);
 		function RemoveBreakPointFromList(line_number: integer; e:TEditor): integer;
 		procedure RemoveAllBreakPointFromList();
 		function GetBreakPointIndex(line_number: integer; e:TEditor) : integer;
@@ -945,7 +948,7 @@ uses
 	devcfg, datamod, NewProjectFrm, AboutFrm, PrintFrm,
 	CompOptionsFrm, EditorOptFrm, IncrementalFrm, Search_Center, EnviroFrm,
 	SynEdit, Math, ImageTheme,
-	DebugFrm, Types, Prjtypes, devExec,
+	DebugFrm, Types, FindFrm, ReplaceFrm, Prjtypes, devExec,
 	NewTemplateFrm, FunctionSearchFrm, NewMemberFrm, NewVarFrm, NewClassFrm,
 	ProfileAnalysisFrm, debugwait, FilePropertiesFrm, AddToDoFrm, ViewToDoFrm,
 	ImportMSVCFrm, ImportCBFrm, CPUFrm, FileAssocs, TipOfTheDayFrm, SplashFrm,
@@ -985,7 +988,8 @@ procedure TMainForm.DoCreateEverything;
 // without 'lag' and it's immediately ready to use ...
 //
 begin
-	UpdateSplash('Applying Settings...');
+	if not devData.NoSplashScreen then
+		UpdateSplash('Applying Settings...');
 	Caption := DEVCPP + ' ' + DEVCPP_VERSION;
 	fFirstShow:= TRUE;
 	DDETopic:=DevCppDDEServer.Name;
@@ -1097,9 +1101,6 @@ begin
 	// Multiline tab
 	PageControl.MultiLine:= devData.MultiLineTab;
 
-	// Mouseover time
-	Application.HintHidePause:=5000;
-
 	// Some more compiler settings
 	fCompiler.RunParams:='';
 	devCompiler.UseExecParams:=True;
@@ -1114,12 +1115,13 @@ begin
 	AutoSaveTimer.Enabled := devEditor.EnableAutoSave;
 
 	// Initialize class browser (takes much longer than all the other stuff above)
-	UpdateSplash('Initializing class browser...');
+	if not devData.NoSplashScreen then
+		UpdateSplash('Initializing class browser...');
 	InitClassBrowser(true);
 end;
 
 { *** RNC add global breakpoint *** }
-procedure TMainForm.AddBreakPointToList(line_number: integer; e: TEditor; filename:string);
+procedure TMainForm.AddBreakPointToList(line_number: integer; e: TEditor; filename:AnsiString);
 var
 	APBreakPoint : PBreakPointEntry;
 begin
@@ -1176,7 +1178,7 @@ begin
 	end;
 end;
 
-{function TMainForm.BreakPointForFile(filename : string) : integer;
+{function TMainForm.BreakPointForFile(filename : AnsiString) : integer;
 var
 	i : integer;
 begin
@@ -1329,7 +1331,10 @@ begin
 
 	// Save and free options
 	SaveOptions;
+	fTools.Free; // This one needs devDirs!
 	FinalizeOptions;
+
+	Action := caFree;
 end;
 
 procedure TMainForm.FormDestroy(Sender: TObject);
@@ -1353,7 +1358,6 @@ begin
 	devTheme.Free;
 	fCompiler.Free;
 	fDebugger.Free;
-	fTools.Free;
 	devExecutor.Free;
 	dmMain.Free;
 
@@ -1384,7 +1388,7 @@ end;
 procedure TMainForm.BuildBookMarkMenus;
 var
 	idx: integer;
-	Text: string;
+	Text: AnsiString;
 	Shortcutnumber : Word;
 	GItem,TItem: TMenuItem;
 begin
@@ -1430,7 +1434,7 @@ var
  szFileName: array[0..260] of char;
  pt: TPoint;
  hdl: THandle;
- ProjectFN: String;
+ ProjectFN: AnsiString;
 begin
 	try
 		 ProjectFN := '';
@@ -1443,7 +1447,7 @@ begin
 				DragQueryFile(hdl, idx, szFileName, sizeof(szFileName));
 
 				// Is there a project?
-				if AnsiCompareText(ExtractFileExt(szFileName), DEV_EXT) = 0 then
+				if CompareText(ExtractFileExt(szFileName), DEV_EXT) = 0 then
 				begin
 						ProjectFN := szFileName;
 						Break;
@@ -1463,14 +1467,13 @@ begin
 							OpenFile(szFileName)
 				end;
 	finally
-	 msg.Result:= 0;
-	 DragFinish(THandle(msg.WParam));
+		msg.Result:= 0;
+		DragFinish(THandle(msg.WParam));
 	end;
 end;
 
 procedure TMainForm.LoadText;
 begin
-
 	// Set interface font
 	Font.Name := devData.InterfaceFont;
 	Font.Size := devData.InterfaceFontSize;
@@ -1514,6 +1517,7 @@ begin
 	ExportItem.Caption:=				Lang[ID_SUB_EXPORT];
 	actXHTML.Caption:=					Lang[ID_ITEM_EXPORTHTML];
 	actXRTF.Caption:=					Lang[ID_ITEM_EXPORTRTF];
+	actXTex.Caption:=					Lang[ID_ITEM_EXPORTTEX];
 	actXProject.Caption:=				Lang[ID_ITEM_EXPORTPROJECT];
 
 	actPrint.Caption:=					Lang[ID_ITEM_PRINT];
@@ -1694,6 +1698,9 @@ begin
 	actBrowserUseColors.Caption:=		Lang[ID_POP_USECOLORS];
 	actBrowserShowInherited.Caption:=	Lang[ID_POP_SHOWINHERITED];
 
+	actGotoDeclEditor.Caption:=			Lang[ID_POP_GOTODECL];
+	actGotoImplEditor.Caption:=			Lang[ID_POP_GOTOIMPL];
+
 	// Message Control tabs
 	CompSheet.Caption :=				Lang[ID_SHEET_COMP];
 	CloseSheet.Caption :=				Lang[ID_SHEET_CLOSE];
@@ -1738,18 +1745,18 @@ begin
 	devCompiler.ChangeOptionsLang;
 end;
 
-function TMainForm.FileIsOpen(const s: string; inPrj: boolean = FALSE): integer;
+function TMainForm.FileIsOpen(const s: AnsiString; inPrj: boolean = FALSE): integer;
 var
 	e: TEditor;
 begin
 	for result:= 0 to pred(PageControl.PageCount) do begin
 		e:= GetEditor(result);
 		if e.filename <> '' then begin
-			if (AnsiCompareText(e.FileName, s) = 0) then
+			if (CompareText(e.FileName, s) = 0) then
 				if (not inprj) or (e.InProject) then exit;
 			end
 		else
-			if AnsiCompareText(e.TabSheet.Caption, ExtractfileName(s)) = 0 then
+			if CompareText(e.TabSheet.Caption, ExtractfileName(s)) = 0 then
 				if (not inprj) or (e.InProject) then exit;
 	end;
 	result:= -1;
@@ -1759,7 +1766,7 @@ function TMainForm.SaveFileAs(e : TEditor): Boolean;
 var
  dext,
  flt,
- s: string;
+ s: AnsiString;
  idx: integer;
  CFilter, CppFilter, HFilter: Integer;
 begin
@@ -1840,7 +1847,7 @@ begin
 
 				try
 					e.Text.UnCollapsedLines.SaveToFile(s);
-					e.Modified := FALSE;
+					e.Text.Modified := FALSE;
 					e.New:= FALSE;
 				except
 					MessageDlg(Lang[ID_ERR_SAVEFILE] +' "' +s +'"', mtError, [mbOk], 0);
@@ -1864,13 +1871,13 @@ end;
 
 function TMainForm.SaveFile(e : TEditor): Boolean;
 var
- idx: Integer;
- wa: boolean;
+	idx: Integer;
+	wa: boolean;
 begin
 	Result := True;
 	if FileExists(e.FileName) and (FileGetAttr(e.FileName) and faReadOnly <> 0) then begin
 		// file is read-only
-		if MessageDlg(Format(Lang[ID_MSG_FILEISREADONLY], [e.FileName]), mtConfirmation, [mbYes, mbNo], 0)=mrNo then
+		if MessageDlg(Format(Lang[ID_MSG_FILEISREADONLY], [e.FileName]), mtConfirmation, [mbYes, mbNo], 0) = mrNo then
 			Exit;
 		if FileSetAttr(e.FileName, FileGetAttr(e.FileName)-faReadOnly) <> 0 then begin
 			MessageDlg(Format(Lang[ID_MSG_FILEREADONLYERROR], [e.FileName]), mtError, [mbOk], 0);
@@ -1881,7 +1888,7 @@ begin
 	wa:=devFileMonitor.Active;
 	devFileMonitor.Deactivate;
 
-	if (not e.new) and e.Modified then begin // not new but in project (relative path in e.filename)
+	if (not e.new) and e.Text.Modified then begin // not new but in project (relative path in e.filename)
 		if Assigned(fProject) and (e.InProject) then begin
 			try
 				idx:= fProject.GetUnitFromEditor(e);
@@ -1907,7 +1914,7 @@ begin
 		end else // stand alone file (should have fullpath in e.filename)
 			try
 				e.Text.UnCollapsedLines.SaveToFile(e.FileName);
-				e.Modified := false;
+				e.Text.Modified := false;
 				if ClassBrowser1.Enabled then begin
 					CppParser.ReParseFile(e.FileName, False); //new cc
 					if e.TabSheet=PageControl.ActivePage then
@@ -1927,10 +1934,10 @@ end;
 
 function TMainForm.AskBeforeClose(e : TEditor; Rem : boolean) : boolean;
 var
- s: string;
+ s: AnsiString;
 begin
 	result:= TRUE;
-	if not e.Modified then exit;
+	if not e.Text.Modified then exit;
 
 	if e.FileName = '' then
 	 s:= e.TabSheet.Caption
@@ -1998,7 +2005,7 @@ begin
 																	e.Text.UnCollapsedLinesLength]);
 end;
 
-procedure TMainForm.SetStatusbarMessage(const msg:string);
+procedure TMainForm.SetStatusbarMessage(const msg:AnsiString);
 begin
 	Statusbar.Panels[2].Text:= msg;
 end;
@@ -2062,7 +2069,7 @@ end;
 
 procedure TMainForm.MRUClick(Sender: TObject);
 var
-	s : string;
+	s : AnsiString;
 begin
 	s:= dmMain.MRU[(Sender as TMenuItem).Tag];
 	if GetFileTyp(s) = utPrj then
@@ -2094,9 +2101,9 @@ begin
 		ExecuteFile(ParseParams(Exec), ParseParams(Params), ParseParams(WorkDir), SW_SHOW);
 end;
 
-procedure TMainForm.OpenProject(const s: string);
+procedure TMainForm.OpenProject(const s: AnsiString);
 var
-	s2: string;
+	s2: AnsiString;
 begin
 	if Assigned(fProject) then begin
 		if fProject.Name = '' then
@@ -2136,7 +2143,7 @@ begin
 	end;
 end;
 
-procedure TMainForm.OpenFile(const s : string);
+procedure TMainForm.OpenFile(const s : AnsiString);
 var
 	e: TEditor;
 	idx : integer;
@@ -2148,7 +2155,7 @@ begin
 	end;
 
 	if not FileExists(s) then begin
-		Application.MessageBox(PChar(Format(Lang[ID_ERR_FILENOTFOUND],[s])), 'Error', MB_ICONHAND);
+		Application.MessageBox(PAnsiChar(Format(Lang[ID_ERR_FILENOTFOUND],[s])), 'Error', MB_ICONHAND);
 		Exit;
 	end;
 
@@ -2165,7 +2172,7 @@ begin
 		CppParser.ReParseFile(e.FileName, e.InProject, True);
 end;
 
-procedure TMainForm.AddFindOutputItem(line, col, unit_, message: string);
+procedure TMainForm.AddFindOutputItem(line, col, unit_, message: AnsiString);
 var
 	ListItem : TListItem;
 begin
@@ -2176,7 +2183,7 @@ begin
 	ListItem.SubItems.Add(message);
 end;
 
-function TMainForm.ParseParams(s : string) : string;
+function TMainForm.ParseParams(s : AnsiString) : AnsiString;
 resourcestring
  cEXEName = '<EXENAME>';
  cPrjName = '<PROJECTNAME>';
@@ -2255,7 +2262,7 @@ begin
 			s:= StringReplace(s, cSrcPath, ExtractFilePath(e.FileName), [rfReplaceAll]);
 
 			// <WORDXY>
-			s:= StringReplace(s, cWordXY, e.GetWordAtCursor, [rfReplaceAll]);
+			s:= StringReplace(s, cWordXY, e.Text.WordAtCursor, [rfReplaceAll]);
 		end;
 
 	// clear unchanged macros
@@ -2280,7 +2287,7 @@ begin
 	Result := s;
 end;
 
-procedure TMainForm.CompOutputProc(const _Line, _Col, _Unit, _Message: string);
+procedure TMainForm.CompOutputProc(const _Line, _Col, _Unit, _Message: AnsiString);
 begin
 	with CompilerOutput.Items.Add do begin
 		Caption:= _Line;
@@ -2288,25 +2295,17 @@ begin
 		SubItems.Add(GetRealPath(_Unit));
 		SubItems.Add(_Message);
 	end;
-	TotalErrors.Text := IntToStr(fCompiler.ErrorCount);
-
-	if MessageControl.ActivePage <> CompSheet then
-		MessageControl.ActivePage := CompSheet;
-
-	if actCompOnNeed.Checked then
-		OpenCloseMessageSheet(TRUE);
 end;
 
-procedure TMainForm.CompResOutputProc(const _Line, _Unit, _Message: string);
+procedure TMainForm.CompResOutputProc(const _Line, _Unit, _Message: AnsiString);
 begin
 	if (_Line <> '') and (_Unit <> '') then
 		ResourceOutput.Items.Add('Line ' + _Line + ' in file ' + _Unit + ' : ' + _Message)
 	else
 		ResourceOutput.Items.Add(_Message);
-	ResSheet.Highlighted := true;
 end;
 
-procedure TMainForm.CompSuccessProc(messages : integer);
+procedure TMainForm.CompSuccessProc;
 var
 	F: TSearchRec;
 	HasSize : boolean;
@@ -2339,18 +2338,23 @@ begin
 			end;
 		end;
 
-	if (messages = 0) and actCompOnNeed.Checked then
-		OpenCloseMessageSheet(FALSE);
+	if (CompilerOutput.Items.Count = 0) and actCompOnNeed.Checked then
+		OpenCloseMessageSheet(FALSE)
+	else begin
+		if MessageControl.ActivePage <> CompSheet then
+			MessageControl.ActivePage := CompSheet;
+		OpenCloseMessageSheet(TRUE);
+	end;
 end;
 
-procedure TMainForm.LogEntryProc(const msg: string);
+procedure TMainForm.LogEntryProc(const msg: AnsiString);
 begin
 	LogOutput.Lines.Add(msg);
 end;
 
 procedure TMainform.MainSearchProc(const SR: TdevSearchResult);
 var
-	s: string;
+	s: AnsiString;
 	I: integer;
 begin
 	// change all chars below #32 to #32 (non-printable to printable)
@@ -2390,32 +2394,29 @@ end;
 
 procedure TMainForm.OpenUnit;
 var
- Node: TTreeNode;
- i, idx: integer;
- pt: TPoint;
- e: TEditor;
+	Node: TTreeNode;
+	i, idx: integer;
+	pt: TPoint;
+	e: TEditor;
 begin
 	if assigned(ProjectView.Selected) then
-	 Node:= ProjectView.Selected
-	else
-	 begin
-		 pt:= ProjectView.ScreenToClient(Mouse.CursorPos);
-		 Node:= ProjectView.GetNodeAt(pt.x, pt.y);
-	 end;
+		Node:= ProjectView.Selected
+	else begin
+		pt:= ProjectView.ScreenToClient(Mouse.CursorPos);
+		Node:= ProjectView.GetNodeAt(pt.x, pt.y);
+	end;
 	if assigned(Node) { begin XXXKF } and (integer(Node.Data)<>-1) { end XXXKF } then
-	 if (Node.Level >= 1) then
-		begin
+		if (Node.Level >= 1) then begin
 			i:= integer(Node.Data);
 			idx:= FileIsOpen(fProject.Units[i].FileName, TRUE);
 			if idx> -1 then
-			 e:= GetEditor(idx)
+				e:= GetEditor(idx)
 			else
-			 e:= fProject.OpenUnit(i);
-			if assigned(e) then
-			 begin
+				e:= fProject.OpenUnit(i);
+			if assigned(e) then begin
 				e.Activate;
 //				ClassBrowser1.CurrentFile:=e.FileName;
-			 end;
+			end;
 		end;
 end;
 
@@ -2436,8 +2437,8 @@ end;
 
 procedure TMainForm.ProjectViewDblClick(Sender: TObject);
 begin
-	if not devData.dblFiles then exit;
-	OpenUnit;
+	if devData.dblFiles then
+		OpenUnit;
 end;
 
 procedure TMainForm.actNewSourceExecute(Sender: TObject);
@@ -2459,7 +2460,7 @@ end;
 
 procedure TMainForm.actNewProjectExecute(Sender: TObject);
 var
-	s: string;
+	s: AnsiString;
 begin
 	with TNewProjectForm.Create(Self) do
 	try
@@ -2502,7 +2503,7 @@ begin
 			fProject:= TProject.Create(s, edProjectName.Text);
 			if not fProject.AssignTemplate(s, GetTemplate) then begin
 				fProject.Free;
-				MessageBox(Application.Handle, PChar(Lang[ID_ERR_TEMPLATE]), PChar(Lang[ID_ERROR]), MB_OK or MB_ICONERROR);
+				MessageBox(Application.Handle, PAnsiChar(Lang[ID_ERR_TEMPLATE]), PAnsiChar(Lang[ID_ERROR]), MB_OK or MB_ICONERROR);
 				Exit;
 			end;
 			fCompiler.Project:= fProject;
@@ -2520,12 +2521,12 @@ procedure TMainForm.actNewResExecute(Sender: TObject);
 var
 	NewEditor: TEditor;
 	InProject: Boolean;
-	fname: string;
+	fname: AnsiString;
 	res: TTreeNode;
 	NewUnit : TProjUnit;
 begin
 	if Assigned(fProject) then
-		InProject := Application.MessageBox(PChar(Lang[ID_MSG_NEWRES]), 'New Resource', MB_ICONQUESTION + MB_YESNO) = mrYes
+		InProject := Application.MessageBox(PAnsiChar(Lang[ID_MSG_NEWRES]), 'New Resource', MB_ICONQUESTION + MB_YESNO) = mrYes
 	else
 		InProject := False;
 
@@ -2554,7 +2555,7 @@ end;
 procedure TMainForm.actOpenExecute(Sender: TObject);
 var
 	idx,prj: integer;
-	flt: string;
+	flt: AnsiString;
 begin
 	prj:= -1;
 	if not BuildFilter(flt, ftOpen) then
@@ -2566,7 +2567,7 @@ begin
 		Title:= Lang[ID_NV_OPENFILE];
 		if Execute and (Files.Count > 0) then begin
 			for idx:= 0 to pred(Files.Count) do
-				if AnsiCompareText(ExtractFileExt(Files[idx]), DEV_EXT) = 0 then begin
+				if CompareText(ExtractFileExt(Files[idx]), DEV_EXT) = 0 then begin
 					prj:= idx;
 					break;
 				end;
@@ -2611,7 +2612,7 @@ begin
 
 	for idx:= 0 to pred(PageControl.PageCount) do begin
 		e := GetEditor(idx);
-		if e.Modified and ((not e.InProject) or e.IsRes) then
+		if e.Text.Modified and ((not e.InProject) or e.IsRes) then
 			if not SaveFile(GetEditor(idx)) then
 				Break;
 	end;
@@ -2642,7 +2643,7 @@ end;
 
 procedure TMainForm.actCloseProjectExecute(Sender: TObject);
 var
-	s: string;
+	s: AnsiString;
 	wa: boolean;
 begin
 	actStopExecute.Execute;
@@ -2694,16 +2695,25 @@ var
 begin
 	e:= GetEditor;
 	if assigned(e) then
-		e.Exportto(TRUE);
+		e.Exportto(0);
 end;
 
 procedure TMainForm.actXRTFExecute(Sender: TObject);
 var
- e: TEditor;
+	e: TEditor;
 begin
 	e:= GetEditor;
 	if assigned(e) then
-		e.Exportto(FALSE);
+		e.Exportto(1);
+end;
+
+procedure TMainForm.actXTexExecute(Sender: TObject);
+var
+	e: TEditor;
+begin
+	e:= GetEditor;
+	if assigned(e) then
+		e.Exportto(2);
 end;
 
 procedure TMainForm.actXProjectExecute(Sender: TObject);
@@ -2991,7 +3001,7 @@ procedure TMainForm.actUnitRenameExecute(Sender: TObject);
 var
  idx: integer;
  oldName,
- NewName: string;
+ NewName: AnsiString;
 begin
 	if not assigned(fProject) then exit;
 	if not assigned(ProjectView.Selected) or
@@ -3072,7 +3082,7 @@ begin
 	if idx > -1 then
 		with fProject.OpenUnit(idx) do begin
 			Activate;
-			Modified:=True;
+			Text.Modified:=True;
 		end;
 end;
 
@@ -3080,7 +3090,7 @@ end;
 
 procedure TMainForm.actProjectAddExecute(Sender: TObject);
 var
- flt: string;
+ flt: AnsiString;
  idx: integer;
  FolderNode : TTreeNode;
 begin
@@ -3122,7 +3132,7 @@ end;
 procedure TMainForm.actProjectOptionsExecute(Sender: TObject);
 begin
 	if assigned(fProject) then
-	 fProject.ShowOptions;
+		fProject.ShowOptions;
 	// set again the window's and application's captions
 	// in case they have been changed...
 	UpdateAppTitle;
@@ -3140,16 +3150,26 @@ var
 begin
 	e:= GetEditor;
 	SearchCenter.Project:= fProject;
-	if assigned(e) then
+	if assigned(e) then begin
+
+		// Create it when needed!
+		if not Assigned(frmFind) then
+			frmFind := TfrmFind.Create(Application);
+
 		if e.Search(FALSE) then begin
 			OpenCloseMessageSheet(TRUE);
 			MessageControl.ActivePage:= FindSheet;
 		end;
+	end;
 	SearchCenter.Project:= nil;
 end;
 
 procedure TMainForm.actFindAllExecute(Sender: TObject);
 begin
+	// Create it when needed!
+	if not Assigned(frmFind) then
+		frmFind := TfrmFind.Create(Application);
+
 	SearchCenter.SingleFile:= FALSE;
 	SearchCenter.Project:= fProject;
 	SearchCenter.Replace := false;
@@ -3166,16 +3186,29 @@ var
 	e: TEditor;
 begin
 	e:= GetEditor;
-	if assigned(e) then
+	if assigned(e) then begin
+
+		// Create it when needed!
+		if not Assigned(frmReplace) then
+			frmReplace := TfrmReplace.Create(Application);
+
 		e.Search(TRUE);
+	end;
 end;
 
 procedure TMainForm.actFindNextExecute(Sender: TObject);
 var
- e: TEditor;
+	e : TEditor;
 begin
 	e:= GetEditor;
-	if Assigned(e) then e.SearchAgain;
+	if Assigned(e) then begin
+
+		// Create it when needed!
+		if not Assigned(frmFind) then
+			frmFind := TfrmFind.Create(Application);
+
+		e.SearchAgain;
+	end;
 end;
 
 procedure TMainForm.actGotoLineExecute(Sender: TObject);
@@ -3217,7 +3250,7 @@ begin
 		// no matter if the editor file is not in project,
 		// the target is ctProject since we have a project open...
 		fCompiler.Target:= ctProject
-	else if Assigned(e) and (GetFiletyp(e.Filename) in [utSrc, utRes]) or e.new then
+	else if Assigned(e) and (GetFileTyp(e.Filename) in [utcSrc, utcppSrc, utResSrc]) or e.new then
 		fCompiler.Target:= ctFile;
 
 	if fCompiler.Target in [ctFile,ctNone] then begin
@@ -3228,7 +3261,7 @@ begin
 		actSaveAllExecute(Self);
 		for i := 0 to pred(PageControl.PageCount) do begin
 			e := GetEditor(i);
-			if (e.InProject) and (e.Modified) then
+			if (e.InProject) and (e.Text.Modified) then
 				Exit;
 		end;
 	end;
@@ -3255,7 +3288,7 @@ begin
 	if fCompiler.Target = ctProject then
 		DeleteFile(fProject.Executable);
 	fCompiler.Compile;
-	Application.ProcessMessages;
+	//Application.ProcessMessages;
 end;
 
 procedure TMainForm.actRunExecute(Sender: TObject);
@@ -3299,7 +3332,7 @@ begin
 	if not PrepareForCompile then
 		Exit;
 	fCompiler.RebuildAll;
-	Application.ProcessMessages;
+	//Application.ProcessMessages;
 end;
 
 procedure TMainForm.actCleanExecute(Sender: TObject);
@@ -3310,7 +3343,7 @@ begin
 		Exit;
 	end;
 	fCompiler.Clean;
-	Application.ProcessMessages;
+	//Application.ProcessMessages;
 end;
 
 procedure TMainForm.PrepareDebugger;
@@ -3329,10 +3362,10 @@ begin
 	// add to the debugger the global include dirs
 	sl:=TStringList.Create;
 	try
-		ExtractStrings([';'], [' '], PChar(devDirs.C), sl);
+		ExtractStrings([';'], [' '], PAnsiChar(devDirs.C), sl);
 		for idx:=0 to sl.Count-1 do
 			fDebugger.AddIncludeDir(sl[idx]);
-		ExtractStrings([';'], [' '], PChar(devDirs.Cpp), sl);
+		ExtractStrings([';'], [' '], PAnsiChar(devDirs.Cpp), sl);
 		for idx:=0 to sl.Count-1 do
 			fDebugger.AddIncludeDir(sl[idx]);
 	finally
@@ -3344,7 +3377,7 @@ procedure TMainForm.actDebugExecute(Sender: TObject);
 var
 	e: TEditor;
 	i, j: integer;
-	s : string;
+	s : AnsiString;
 	optD,optS : TCompilerOption;
 	debug,strip : boolean;
 	idxD,idxS : integer;
@@ -3434,7 +3467,7 @@ begin
 					MessageDlg(Lang[ID_ERR_SRCNOTCOMPILED], mtWarning, [mbOK], 0);
 					exit;
 				end;
-				if e.Modified then // if file is modified
+				if e.Text.Modified then // if file is modified
 					if not SaveFile(e) then // save it first
 						Abort; // if it's not saved, abort
 				chdir(ExtractFilePath(e.FileName));
@@ -3449,7 +3482,7 @@ begin
 		//DebugTree.Items.Clear;
 
 		for i := 0 to pred(DebugTree.Items.Count) do begin
-			j := AnsiPos('=', DebugTree.Items[i].Text);
+			j := Pos('=', DebugTree.Items[i].Text);
 			if (j > 0) then begin
 				s := DebugTree.Items[i].Text;
 				Delete(s, j + 1, length(s) - j);
@@ -3636,7 +3669,7 @@ end;
 procedure TMainForm.actMsgSaveAllExecute(Sender: TObject);
 var
 	i:integer;
-	temp,temp2:string;
+	temp,temp2:AnsiString;
 	Stream: TFileStream;
 	savedialog : TSaveDialog;
 	e : TEditor;
@@ -3649,9 +3682,9 @@ begin
 				savedialog.FileName:= 'Formatted Compiler Output';
 				for i:=0 to pred(CompilerOutput.Items.Count) do begin
 					temp2 := CompilerOutput.Items[i].Caption + #10 + CompilerOutput.Items[i].SubItems.Text;
-					temp2 := StringReplace(temp2,#10,#9,[]);
-					temp2 := StringReplace(temp2,#13#10,#9,[]);
-					temp2 := StringReplace(temp2,#13#10,#9,[]);
+					temp2 := ReplaceFirstStr(temp2,#10,#9);
+					temp2 := ReplaceFirstStr(temp2,#13#10,#9);
+					temp2 := ReplaceFirstStr(temp2,#13#10,#9);
 					temp := temp + temp2;
 				end;
 			end;
@@ -3673,9 +3706,9 @@ begin
 				ClipBoard.AsText := '';
 				for i:=0 to pred(FindOutput.Items.Count) do begin
 					temp2 := FindOutput.Items[i].Caption + #10 + FindOutput.Items[i].SubItems.Text;
-					temp2 := StringReplace(temp2,#10,#9,[]);
-					temp2 := StringReplace(temp2,#13#10,#9,[]);
-					temp2 := StringReplace(temp2,#13#10,#9,[]);
+					temp2 := ReplaceFirstStr(temp2,#10,#9);
+					temp2 := ReplaceFirstStr(temp2,#13#10,#9);
+					temp2 := ReplaceFirstStr(temp2,#13#10,#9);
 					temp := temp + temp2;
 				end;
 			end;
@@ -3765,7 +3798,7 @@ end;
 procedure TMainForm.CompilerOutputDblClick(Sender: TObject);
 var
 	Col, Line: integer;
-	errorfile: string;
+	errorfile: AnsiString;
 	errorfiletab: TEditor;
 begin
 	Col := 0;
@@ -3787,7 +3820,7 @@ begin
 		errorfile:= SubItems[1];
 		errorfiletab := GetEditorFromFileName(errorfile);
 	end;
-	Application.ProcessMessages;
+	//Application.ProcessMessages;
 	if assigned(errorfiletab) then begin
 		errorfiletab.SetErrorFocus(Col, Line);
 		errorfiletab.Activate;
@@ -3879,7 +3912,7 @@ end;
 
 procedure TMainForm.actAddWatchExecute(Sender: TObject);
 var
-	s: string;
+	s: AnsiString;
 	e: TEditor;
 begin
 	s:='';
@@ -3888,7 +3921,7 @@ begin
 		if e.Text.SelAvail then
 			s:=e.Text.SelText
 		else begin
-			s:=e.GetWordAtCursor;
+			s:=e.Text.WordAtCursor;
 			InputQuery(Lang[ID_NV_ADDWATCH], Lang[ID_NV_ENTERVAR], s);
 		end;
 		if s<>'' then
@@ -3896,7 +3929,7 @@ begin
 	end;
 end;
 
-procedure TMainForm.AddDebugVar(const s : string);
+procedure TMainForm.AddDebugVar(const s : AnsiString);
 begin
 	if Trim(s)='' then
 		Exit;
@@ -3932,13 +3965,11 @@ begin
 end;
 
 procedure TMainForm.actRemoveWatchExecute(Sender: TObject);
-var node : TTreeNode;
+var
+	node : TTreeNode;
 begin
 	node := DebugTree.Selected;
-	while Assigned(Node) and (Assigned(node.Parent)) do begin
-		node := node.Parent;
-	end;
-	if (Assigned(node)) then begin
+	if Assigned(node) then begin
 		try
 			fDebugger.SendCommand(GDB_UNDISPLAY, IntToStr(integer(node.Data)));
 		except
@@ -3954,7 +3985,7 @@ begin
 		GetEditor(i).RemoveBreakpointFocus;
 end;
 
-procedure TMainForm.GotoBreakpoint(bfile : string; bline : integer);
+procedure TMainForm.GotoBreakpoint(bfile : AnsiString; bline : integer);
 var
 	e : TEditor;
 begin
@@ -3962,7 +3993,7 @@ begin
 	bfile:= StringReplace(bfile, '/', '\', [rfReplaceAll]);
 
 	e := GetEditorFromFileName(bfile);
-	Application.ProcessMessages;
+	//Application.ProcessMessages;
 	if assigned(e) then begin
 		e.SetActiveBreakpointFocus(bline);
 		e.Activate;
@@ -4033,7 +4064,7 @@ var
  e: TEditor;
 begin
 	e:= GetEditor;
-	actSave.Enabled:= assigned(e) and (e.Modified or e.Text.Modified or (e.FileName = ''));
+	actSave.Enabled:= assigned(e) and (e.Text.Modified or e.Text.Modified or (e.FileName = ''));
 end;
 
 procedure TMainForm.actSaveAsUpdate(Sender: TObject);
@@ -4077,7 +4108,7 @@ begin
 	end;
 end;
 
-function TMainForm.GetEditorFromFileName(const ffile: string) : TEditor;
+function TMainForm.GetEditorFromFileName(const ffile: AnsiString) : TEditor;
 var
 	index, index2 : integer; //mandrav
 	e: TEditor;
@@ -4124,10 +4155,9 @@ begin
 	end;
 end;
 
-procedure TMainForm.UpdateSplash(const text : string);
+procedure TMainForm.UpdateSplash(const text : AnsiString);
 begin
-	if not devData.NoSplashScreen then
-		SplashForm.Statusbar.SimpleText := 'Bloodshed Dev-C++ 4.9.9.2 (Orwell update '+ DEVCPP_VERSION + ') ' + text;
+	SplashForm.Statusbar.SimpleText := 'Bloodshed Dev-C++ 4.9.9.2 (Orwell update '+ DEVCPP_VERSION + ') ' + text;
 end;
 
 procedure TMainForm.InitClassBrowser(Full: boolean);
@@ -4180,10 +4210,10 @@ begin
 
 			// Add the include dirs to the parser
 			sl:=TStringList.Create;
-			ExtractStrings([';'], [' '], PChar(devDirs.C), sl);
+			ExtractStrings([';'], [' '], PAnsiChar(devDirs.C), sl);
 			for I:=0 to sl.Count-1 do
 				AddIncludePath(sl[I]);
-			ExtractStrings([';'], [' '], PChar(devDirs.Cpp), sl);
+			ExtractStrings([';'], [' '], PAnsiChar(devDirs.Cpp), sl);
 			for I:=0 to sl.Count-1 do
 				AddIncludePath(sl[I]);
 			sl.Free;
@@ -4192,7 +4222,7 @@ begin
 			for I := 0 to PageControl.PageCount - 1 do
 				GetEditor(I).UpdateParser;
 			if devCodeCompletion.UseCacheFiles then
-				Load(devDirs.Config+DEV_COMPLETION_CACHE);
+				Load(devDirs.Config+DEV_COMPLETION_CACHE,devDirs.Exec);
 			if Assigned(fProject) then
 				ScanActiveProject;
 		end;
@@ -4244,8 +4274,7 @@ begin
 	SetStatusbarMessage(Lang[ID_DONEPARSING] + ' in ' + FormatFloat('#,###,##0.00', (GetTickCount-I1)/1000)+' seconds');
 end;
 
-procedure TMainForm.ClassBrowser1Select(Sender: TObject;
-	Filename: TFileName; Line: Integer);
+procedure TMainForm.ClassBrowser1Select(Sender: TObject;Filename: TFileName; Line: Integer);
 var
 	E: TEditor;
 begin
@@ -4255,13 +4284,13 @@ begin
 		E.GotoLineNr(Line);
 end;
 
-procedure TMainForm.CppParserTotalProgress(Sender: TObject;const FileName: String; Total, Current: Integer);
+procedure TMainForm.CppParserTotalProgress(Sender: TObject;const FileName: string; Total, Current: Integer);
 begin
 	if FileName<>'' then
 		SetStatusBarMessage('Parsing '+ Filename)
 	else
 		SetStatusBarMessage(Lang[ID_DONEPARSING]);
-	//Statusbar.Refresh;
+	Statusbar.Repaint;
 end;
 
 procedure TMainForm.CodeCompletionResize(Sender: TObject);
@@ -4277,118 +4306,65 @@ end;
 
 procedure TMainForm.actSwapHeaderSourceExecute(Sender: TObject);
 var
- e: TEditor;
- Ext: String;
- FileName: String;
- i : integer;
+	e: TEditor;
+	FromFile,ToFile: AnsiString;
+	i : integer;
+	toheader,tosource : boolean;
 begin
 	e:= GetEditor;
 	if not Assigned(e) then
 		Exit;
 
-	Ext := ExtractFileExt(e.FileName);
-	FileName := '';
+	FromFile := e.FileName;
+
+	if GetFileTyp(FromFile) in [utcSrc,utcppSrc] then begin
+		toheader := true;
+		tosource := false;
+	end else if GetFileTyp(e.FileName) in [utcHead,utcppHead] then begin
+		tosource := true;
+		toheader := false;
+	end else
+		Exit;
 
 	if Assigned(fProject) then begin
-		FileName := e.FileName;
-		if GetFileTyp(e.FileName) = utSrc then
-			for i := 0 to fProject.Units.Count - 1 do begin
-				FileName := ChangeFileExt(e.FileName, HPP_EXT);
-				if AnsiCompareFileName(ExtractFileName(FileName), ExtractFileName(fProject.Units[i].FileName)) = 0 then begin
-					FileName := fProject.Units[i].FileName;
+
+		// Check project list
+		for i := 0 to fProject.Units.Count - 1 do begin
+			if ((GetFileTyp(fProject.Units[i].FileName) in [utcHead,utcppHead]) and toheader) or
+               ((GetFileTyp(fProject.Units[i].FileName) in [utcSrc,utcppSrc])   and tosource) then begin
+
+				// Compare name without extension...
+				if AnsiCompareFileName(ChangeFileExt(ExtractFileName(FromFile),''),ChangeFileExt(ExtractFileName(fProject.Units[i].FileName),'')) = 0 then begin
+					ToFile := fProject.Units[i].FileName;
 					break;
 				end;
-				FileName := ChangeFileExt(e.FileName, H_EXT);
-				if AnsiCompareFileName(ExtractFileName(FileName), ExtractFileName(fProject.Units[i].FileName)) = 0 then begin
-					FileName := fProject.Units[i].FileName;
-					break;
-				end;
-			end
-		else if GetFileTyp(e.FileName) = utHead then
-			for i := 0 to fProject.Units.Count - 1 do begin
-				FileName := ChangeFileExt(e.FileName, CPP_EXT);
-				if AnsiCompareFileName(ExtractFileName(FileName), ExtractFileName(fProject.Units[i].FileName)) = 0 then begin
-					FileName := fProject.Units[i].FileName;
-					break;
-				end;
-				FileName := ChangeFileExt(e.FileName, C_EXT);
-				if AnsiCompareFileName(ExtractFileName(FileName), ExtractFileName(fProject.Units[i].FileName)) = 0 then begin
-					FileName := fProject.Units[i].FileName;
-					break;
-				end;
-				FileName := ChangeFileExt(e.FileName, CC_EXT);
-				if AnsiCompareFileName(ExtractFileName(FileName), ExtractFileName(fProject.Units[i].FileName)) = 0 then begin
-					FileName := fProject.Units[i].FileName;
-					break;
-				end;
-				FileName := ChangeFileExt(e.FileName, CXX_EXT);
-				if AnsiCompareFileName(ExtractFileName(FileName), ExtractFileName(fProject.Units[i].FileName)) = 0 then begin
-					FileName := fProject.Units[i].FileName;
-					break;
-				end;
-				FileName := ChangeFileExt(e.FileName, CP2_EXT);
-				if AnsiCompareFileName(ExtractFileName(FileName), ExtractFileName(fProject.Units[i].FileName)) = 0 then begin
-					FileName := fProject.Units[i].FileName;
-					break;
-				end;
-				FileName := ChangeFileExt(e.FileName, CP_EXT);
-				if AnsiCompareFileName(ExtractFileName(FileName), ExtractFileName(fProject.Units[i].FileName)) = 0 then begin
-					FileName := fProject.Units[i].FileName;
-					break;
-				end;
-			end
-	end;
-	if not FileExists(FileName) then begin
-		if GetFileTyp(e.FileName) = utSrc then
-		begin
-				if (CompareText(Ext, CPP_EXT) = 0) or (CompareText(Ext, CC_EXT) = 0) or
-					 (CompareText(Ext, CXX_EXT) = 0) or (CompareText(Ext, CP2_EXT) = 0) or
-					 (CompareText(Ext, CP_EXT) = 0) then
-				begin
-						FileName := ChangeFileExt(e.FileName, HPP_EXT);
-						if not FileExists(FileName) then
-								FileName := ChangeFileExt(e.FileName, H_EXT);
-				end else
-						FileName := ChangeFileExt(e.FileName, H_EXT);
-		end else if GetFileTyp(e.FileName) = utHead then
-		begin
-				FileName := ChangeFileExt(e.FileName, CPP_EXT);
-				if not FileExists(FileName) then
-				begin
-						FileName := ChangeFileExt(e.FileName, CC_EXT);
-						if not FileExists(FileName) then
-						begin
-								FileName := ChangeFileExt(e.FileName, CXX_EXT);
-								if not FileExists(FileName) then
-								begin
-										FileName := ChangeFileExt(e.FileName, CP2_EXT);
-										if not FileExists(FileName) then
-										begin
-												FileName := ChangeFileExt(e.FileName, CP_EXT);
-												if not FileExists(FileName) then
-													FileName := ChangeFileExt(e.FileName, C_EXT);
-										end;
-								end;
-						end;
 			end;
 		end;
-	end; //else
+	end else begin
 
-	if not FileExists(FileName) then begin
-		Application.MessageBox('No corresponding header or source file found.',
-{$IFDEF WIN32}
-				'Error', MB_ICONINFORMATION);
-{$ENDIF}
-{$IFDEF LINUX}
-				'Error', [smbOK], smsInformation);
-{$ENDIF}
-		exit;
+		// Check opened files
+		for i := 0 to PageControl.PageCount - 1 do begin
+			e := GetEditor(i);
+			if Assigned(e) then begin
+
+				if ((GetFileTyp(e.FileName) in [utcHead,utcppHead]) and toheader) or
+                   ((GetFileTyp(e.FileName) in [utcSrc,utcppSrc])   and tosource) then begin
+
+					// Compare name without extension...
+					if AnsiCompareFileName(ChangeFileExt(ExtractFileName(FromFile),''),ChangeFileExt(ExtractFileName(e.FileName),'')) = 0 then begin
+						ToFile := e.FileName;
+						break;
+					end;
+				end;
+			end;
+		end;
 	end;
-	e := GetEditorFromFileName(FileName);
+
+	e := GetEditorFromFileName(ToFile);
 	if Assigned(e) then
 		e.Activate
 	else
-		OpenFile(FileName);
+		SetStatusBarMessage('Could not find corresponding header/source file!');
 end;
 
 procedure TMainForm.actSyntaxCheckExecute(Sender: TObject);
@@ -4671,7 +4647,7 @@ procedure TMainForm.actBrowserGotoDeclExecute(Sender: TObject);
 var
 	e: TEditor;
 	Node: TTreeNode;
-	fname: string;
+	fname: AnsiString;
 	line: integer;
 begin
 	Node:=ClassBrowser1.Selected;
@@ -4686,7 +4662,7 @@ procedure TMainForm.actBrowserGotoImplExecute(Sender: TObject);
 var
 	e: TEditor;
 	Node: TTreeNode;
-	fname: string;
+	fname: AnsiString;
 	line: integer;
 begin
 	Node:=ClassBrowser1.Selected;
@@ -4751,7 +4727,7 @@ var
 	optP, optS: TCompilerOption;
 	idxP, idxS: integer;
 	prof, strp: boolean;
-	path : string;
+	path : AnsiString;
 	e : TEditor;
 begin
 	// search for the item and let it supply the option index
@@ -4780,8 +4756,8 @@ begin
 			strp := optS.optValue > 0;
 	end;
 
-	if (not prof) or (strp) then
-		if MessageDlg(Lang[ID_MSG_NOPROFILE], mtConfirmation, [mbYes, mbNo], 0)=mrYes then begin
+	if not prof or strp then begin
+		if MessageDlg(Lang[ID_MSG_NOPROFILE], mtConfirmation, [mbYes, mbNo], 0) = mrYes then begin
 
 			// ENABLE profiling
 			optP.optValue:=1;
@@ -4798,9 +4774,9 @@ begin
 				devCompiler.Options[idxS]:=optS;
 
 			actRebuildExecute(nil);
-			Exit
-		end else
-			Exit;
+		end;
+		Exit;
+	end;
 
 	// If we're done setting up options, check if there's data already
 	path := '';
@@ -4816,20 +4792,20 @@ begin
 	if not FileExists(path) then begin
 		if MessageDlg(Lang[ID_MSG_NORUNPROFILE], mtInformation, [mbYes, mbNo], 0)=mrYes then begin
 			actRunExecute(nil);
-			Exit;
-		end else
-			Exit;
+		end;
+		Exit;
 	end;
 
 	// If the data is there, open up the form
 	if not Assigned(ProfileAnalysisForm) then
 		ProfileAnalysisForm:=TProfileAnalysisForm.Create(Self);
+
 	ProfileAnalysisForm.Show;
 end;
 
 procedure TMainForm.actBrowserAddFolderExecute(Sender: TObject);
 var
-	S: string;
+	S: AnsiString;
 	Node: TTreeNode;
 begin
 	if ClassBrowser1.FolderCount>=MAX_CUSTOM_FOLDERS then begin
@@ -4852,7 +4828,7 @@ end;
 
 procedure TMainForm.actBrowserRenameFolderExecute(Sender: TObject);
 var
-	S: string;
+	S: AnsiString;
 begin
 	if Assigned(ClassBrowser1.Selected) and (ClassBrowser1.Selected.ImageIndex=ClassBrowser1.ItemImages.Globals) then begin
 		S:=ClassBrowser1.Selected.Text;
@@ -4983,7 +4959,7 @@ begin
 	end;
 end;
 
-procedure TMainForm.devFileMonitorNotifyChange(Sender: TObject;ChangeType: TdevMonitorChangeType; Filename: String);
+procedure TMainForm.devFileMonitorNotifyChange(Sender: TObject;ChangeType: TdevMonitorChangeType; Filename: string);
 var
 	e: TEditor;
 	p : TBufferCoord;
@@ -5043,7 +5019,7 @@ end;
 
 procedure TMainForm.actProjectNewFolderExecute(Sender: TObject);
 var
-	fp, S: string;
+	fp, S: AnsiString;
 begin
 	S:='New folder';
 	if InputQuery(Lang[ID_POP_ADDFOLDER], Lang[ID_MSG_ADDBROWSERFOLDER], S) and (S<>'') then begin
@@ -5083,7 +5059,7 @@ end;
 
 procedure TMainForm.actProjectRenameFolderExecute(Sender: TObject);
 var
-	S: string;
+	S: AnsiString;
 begin
 	if Assigned(ProjectView.Selected) and (ProjectView.Selected.Data=Pointer(-1)) then begin
 		S:=ProjectView.Selected.Text;
@@ -5162,7 +5138,7 @@ begin
 end;
 
 procedure TMainForm.AddWatchPopupItemClick(Sender: TObject);
-var s : string;
+var s : AnsiString;
 		e: TEditor;
 begin
 	e:= GetEditor;
@@ -5208,7 +5184,7 @@ begin
 	if fDebugger.Executing then
 		fDebugger.SendCommand(edGdbCommand.Text, '');
 end;
-procedure TMainForm.SendCommand(const cmd,args:string);
+procedure TMainForm.SendCommand(const cmd,args:AnsiString);
 begin
 	if fDebugger.Executing then
 		fDebugger.SendCommand(cmd,args);
@@ -5246,7 +5222,7 @@ begin
 	if (fProject.Options.typ in [dptDyn, dptStat]) and (opt.optValue > 0) then begin
 		// project is a lib or a dll, and profiling is enabled
 		// check for the existence of "-lgmon" in project's linker options
-		if AnsiPos('-lgmon', fProject.Options.cmdLines.Linker)=0 then
+		if Pos('-lgmon', fProject.Options.cmdLines.Linker)=0 then
 			// does not have -lgmon
 			// warn the user that we should update its project options and include
 			// -lgmon in linker options, or else the compilation will fail
@@ -5284,7 +5260,7 @@ end;
 procedure TMainForm.DevCppDDEServerExecuteMacro(Sender: TObject;
 	Msg: TStrings);
 var
-	filename: string;
+	filename: AnsiString;
 	i, n: Integer;
 begin
 	if Msg.Count > 0 then begin
@@ -5365,7 +5341,7 @@ end;
 
 procedure TMainForm.PackageManagerItemClick(Sender: TObject);
 var
-	s : string;
+	s : AnsiString;
 begin
 	s := IncludeTrailingBackslash(devDirs.Exec) + PACKMAN_PROGRAM;
 	ExecuteFile(s, '', IncludeTrailingBackslash(devDirs.Exec), SW_SHOW)
@@ -5409,7 +5385,7 @@ begin
 			Item.Caption:='&'+chr(49+i)+' Unnamed'
 		else
 			Item.Caption:='&'+chr(49+i)+' '+e.FileName;
-		if e.Modified then
+		if e.Text.Modified then
 			Item.Caption:=Item.Caption+' *';
 		WindowMenu.Insert(WindowMenu.Count - 1,Item);
 	end;
@@ -5417,13 +5393,12 @@ end;
 
 procedure TMainForm.RemoveItem(Node: TTreeNode);
 begin
-	if Assigned(Node) and (Node.Level >= 1) then
-	begin
+	if Assigned(Node) and (Node.Level >= 1) then begin
 		if Node.Data=Pointer(-1) then
 			actProjectRemoveFolderExecute(nil)
 		else
 			fProject.Remove(integer(Node.Data), true);
-	end
+	end;
 end;
 
 procedure TMainForm.ProjectViewKeyDown(Sender: TObject; var Key: Word;
@@ -5431,22 +5406,16 @@ procedure TMainForm.ProjectViewKeyDown(Sender: TObject; var Key: Word;
 begin
 	if (Key=VK_DELETE) and Assigned(ProjectView.Selected) then
 		RemoveItem(ProjectView.Selected)
-	else if (Key=VK_ESCAPE) and (Shift=[]) then
-	begin
+	else if (Key=VK_ESCAPE) and (Shift=[]) then begin
 		if PageControl.Visible And PageControl.Enabled And (PageControl.ActivePage<>nil) then
 			 GetEditor(-1).Activate;
-	end
-	else if (Key=VK_ESCAPE) and (Shift=[ssShift]) then
-	begin
+	end else if (Key=VK_ESCAPE) and (Shift=[ssShift]) then begin
 		actProjectManager.Checked:=False;
 		actProjectManagerExecute(nil);
 		if PageControl.Visible And PageControl.Enabled And (PageControl.ActivePage<>nil) then
 			 GetEditor(-1).Activate;
-	end
-	else if (Key=VK_RETURN) and Assigned(ProjectView.Selected) then
-	begin
-		if ProjectView.Selected.Data<>Pointer(-1) then { if not a directory }
-		begin
+	end else if (Key=VK_RETURN) and Assigned(ProjectView.Selected) then begin
+		if ProjectView.Selected.Data<>Pointer(-1) then begin{ if not a directory }
 			OpenUnit;
 			if Shift=[ssShift] then begin
 				{
@@ -5564,8 +5533,8 @@ procedure TMainForm.DoCVSAction(Sender: TObject; whichAction: TCVSAction);
 var
 	e: TEditor;
 	idx: integer;
-	all: string;
-	S: string;
+	all: AnsiString;
+	S: AnsiString;
 begin
 	S:='';
 	if not FileExists(devCVSHandler.Executable) then begin
@@ -5579,15 +5548,13 @@ begin
 		S:='';
 		if ProjectView.Selected.Data=Pointer(-1) then begin // folder
 			for idx:=0 to fProject.Units.Count-1 do
-				if AnsiStartsStr(fProject.GetFolderPath(ProjectView.Selected), fProject.Units[idx].Folder) then
+				if StartsStr(fProject.GetFolderPath(ProjectView.Selected), fProject.Units[idx].Folder) then
 					S:=S+IncludeQuoteIfSpaces(fProject.Units[idx].FileName)+',';
 			if S='' then
 				S:='ERR';
-		end
-		else
+		end else
 			S:=IncludeQuoteIfSpaces(fProject.Units[Integer(ProjectView.Selected.Data)].FileName);
-	end
-	else if TAction(Sender).ActionComponent.Tag = 3 then // editor popup or [CVS menu - current file]
+	end else if TAction(Sender).ActionComponent.Tag = 3 then // editor popup or [CVS menu - current file]
 		S:=IncludeQuoteIfSpaces(e.FileName)
 	else if TAction(Sender).ActionComponent.Tag = 4 then begin // CVS menu - whole project
 		if Assigned(fProject) then
@@ -5639,13 +5606,13 @@ procedure TMainForm.ProjectViewCompare(Sender: TObject; Node1,
 	Node2: TTreeNode; Data: Integer; var Compare: Integer);
 begin
 	if (Node1.Data=pointer(-1)) and (Node2.Data=pointer(-1)) then
-		Compare:=AnsiCompareStr(Node1.Text,Node2.Text)
+		Compare:=CompareStr(Node1.Text,Node2.Text)
 	else
 	if Node1.Data=pointer(-1) then Compare:=-1
 	else
 	if Node2.Data=pointer(-1) then Compare:=+1
 	else
-		Compare:=AnsiCompareStr(Node1.Text,Node2.Text);
+		Compare:=CompareStr(Node1.Text,Node2.Text);
 end;
 { end XXXKF }
 
@@ -5720,7 +5687,7 @@ begin
 end;
 
 procedure TMainForm.AddWatchBtnClick(Sender: TObject);
-var s : string;
+var s : AnsiString;
 begin
 	if InputQuery(Lang[ID_NV_ADDWATCH], Lang[ID_NV_ENTERVAR], s) then
 		AddDebugVar(s);
@@ -5802,7 +5769,7 @@ begin
 	if not PrepareForCompile then
 		Exit;
 	fCompiler.Compile(e.FileName);
-	Application.ProcessMessages;
+	//Application.ProcessMessages;
 end;
 
 procedure TMainForm.actCompileCurrentFileUpdate(Sender: TObject);
@@ -5828,7 +5795,7 @@ procedure TMainForm.BuildOpenWith;
 var
  idx, idx2: integer;
  item: TMenuItem;
- ext, s, s1: string;
+ ext, s, s1: AnsiString;
 begin
 	mnuOpenWith.Clear;
 	if not assigned(fProject) then exit;
@@ -5893,16 +5860,16 @@ begin
 
 	if idx>-1 then // devcpp-based
 		ShellExecute(0, 'open',
-								PChar(devExternalPrograms.ProgramName[idx]),
-								PChar(fProject.Units[idx2].FileName),
-								PChar(ExtractFilePath(fProject.Units[idx2].FileName)),
+								PAnsiChar(devExternalPrograms.ProgramName[idx]),
+								PAnsiChar(fProject.Units[idx2].FileName),
+								PAnsiChar(ExtractFilePath(fProject.Units[idx2].FileName)),
 								SW_SHOW)
 	// idx=-2 means we prompted the user for a program, but didn't select one
 	else if idx<>-2 then // registry-based
 		ShellExecute(0, 'open',
-								PChar(fProject.Units[idx2].FileName),
+								PAnsiChar(fProject.Units[idx2].FileName),
 								nil,
-								PChar(ExtractFilePath(fProject.Units[idx2].FileName)),
+								PAnsiChar(ExtractFilePath(fProject.Units[idx2].FileName)),
 								SW_SHOW);
 end;
 
@@ -5910,7 +5877,7 @@ procedure TMainForm.RebuildClassesToolbar;
 var
 	I: integer;
 	st: PStatement;
-	OldSelection: string;
+	OldSelection: AnsiString;
 begin
 	OldSelection:=cmbClasses.Text;
 
@@ -5972,7 +5939,7 @@ var
 	I: integer;
 	st: PStatement;
 	E: TEditor;
-	fname: string;
+	fname: AnsiString;
 begin
 	I:=Integer(cmbMembers.Items.Objects[cmbMembers.ItemIndex]);
 	st:=PStatement(CppParser.Statements[I]);
@@ -6076,14 +6043,14 @@ end;
 procedure TMainForm.actAttachProcessExecute(Sender: TObject);
 var
 	idx : integer;
-	s : string;
+	s : AnsiString;
 begin
 	PrepareDebugger;
 	if assigned(fProject) then begin
-		 if not FileExists(fProject.Executable) then begin
-			 MessageDlg(Lang[ID_ERR_PROJECTNOTCOMPILED], mtWarning, [mbOK], 0);
-			 exit;
-		 end;
+		if not FileExists(fProject.Executable) then begin
+			MessageDlg(Lang[ID_ERR_PROJECTNOTCOMPILED], mtWarning, [mbOK], 0);
+			exit;
+		end;
 
 		 {if InputQuery(Lang[ID_ITEM_ATTACHPROCESS], Lang[ID_MSG_ATTACH], s) then begin
 			 try
@@ -6092,35 +6059,34 @@ begin
 				 MessageDlg('Invalid PID !', mtWarning, [mbOK], 0);
 				 exit;
 			 end;}
-		 try
-			 ProcessListForm := TProcessListForm.Create(self);
-		 if (ProcessListForm.ShowModal = mrOK) and (ProcessListForm.ProcessCombo.ItemIndex > -1) then begin
-			 s := IntToStr(integer(ProcessListForm.ProcessList[ProcessListForm.ProcessCombo.ItemIndex]));
-			 fDebugger.FileName:= '"' +StringReplace(fProject.Executable, '\', '\\', [rfReplaceAll]) +'"';
+		try
+			ProcessListForm := TProcessListForm.Create(self);
+			if (ProcessListForm.ShowModal = mrOK) and (ProcessListForm.ProcessCombo.ItemIndex > -1) then begin
+				s := IntToStr(integer(ProcessListForm.ProcessList[ProcessListForm.ProcessCombo.ItemIndex]));
+				fDebugger.FileName:= '"' +StringReplace(fProject.Executable, '\', '\\', [rfReplaceAll]) +'"';
 
-			 // add to the debugger the project include dirs
-			 for idx:=0 to fProject.Options.Includes.Count-1 do
-				 fDebugger.AddIncludeDir(fProject.Options.Includes[idx]);
+				// add to the debugger the project include dirs
+				for idx:=0 to fProject.Options.Includes.Count-1 do
+					fDebugger.AddIncludeDir(fProject.Options.Includes[idx]);
 
-			 fDebugger.Execute;
-			 fDebugger.SendCommand(GDB_FILE, fDebugger.FileName);
+				fDebugger.Execute;
+				fDebugger.SendCommand(GDB_FILE, fDebugger.FileName);
 
-			 fDebugger.SendCommand(GDB_ATTACH, s);
+				fDebugger.SendCommand(GDB_ATTACH, s);
 
-			 for idx:=0 to BreakPointList.Count -1 do begin
-					 PBreakPointEntry(BreakPointList.Items[idx])^.breakPointIndex := fDebugger.AddBreakpoint(idx);
-			 end;
+				for idx:=0 to BreakPointList.Count -1 do
+					PBreakPointEntry(BreakPointList.Items[idx])^.breakPointIndex := fDebugger.AddBreakpoint(idx);
 
-			 DebugTree.Items.Clear;
-		 end
-		 finally
-			 ProcessListForm.Free;
-		 end;
-	 end;
+				DebugTree.Items.Clear;
+			end
+		finally
+			ProcessListForm.Free;
+		end;
+	end;
 end;
 
 procedure TMainForm.actModifyWatchExecute(Sender: TObject);
-var s, val : string;
+var s, val : AnsiString;
 		i : integer;
 		n : TTreeNode;
 begin
@@ -6160,12 +6126,12 @@ end;
 procedure TMainForm.RefreshContext;
 var
 	idx, idx2 : integer;
-	s : string;
+	s : AnsiString;
 begin
 	// I'm not sure we should send again debug variables, GDB sends weird results for uninitialized objects (which is quite always the case)
 	for idx := 0 to DebugTree.Items.Count - 1 do begin
 		s := DebugTree.Items[idx].Text;
-		idx2 := AnsiPos(' = ', s);
+		idx2 := Pos(' = ', s);
 		if idx2 > 0 then begin
 			Delete(s, idx2, length(s) - idx2 + 1);
 			if fDebugger.Executing then
@@ -6197,7 +6163,7 @@ end;
 
 procedure TMainForm.actDeleteProfileProjectExecute(Sender: TObject);
 var
-	path : string;
+	path : AnsiString;
 	e : TEditor;
 begin
 	path := '';
@@ -6210,8 +6176,7 @@ begin
 	end;
 
 	if path <> '' then begin
-		if FileExists(path) then begin
-			DeleteFile(path);
+		if DeleteFile(PAnsiChar(path)) then begin
 			SetStatusbarMessage('Deleted profiling data file "' + path + '"');
 		end else
 			SetStatusbarMessage('Could not find profiling file "' + path + '"!');
@@ -6219,189 +6184,171 @@ begin
 end;
 
 // Monolithic function that reads code and tries to find definitons. Uses mouse or caret to determine word and returns a statement or a findpoint
-function TMainForm.FindStatement(const statement : string;cursorpos : TBufferCoord;var localfind : string;var localfindpoint : TPoint) : PStatement;
+function TMainForm.FindStatement(const statement : AnsiString;cursorpos : TBufferCoord;var localfind : AnsiString;var localfindpoint : TBufferCoord) : PStatement;
 var
 	e : TEditor;
-	I : integer;
-	parent : string;
-	// Class getten
-	len,len2 : integer;
-	cpos : integer;
-	ppos : integer;
-	apos : integer;
-	// Class getten 2
-	classline : string;
-	classdefline : string;
-	parampos : integer;
-	// Compare
-	compareto : string;
-	comparewith : string;
-	// globals
-	isglobal : boolean;
-	text : PChar;
+	text : PAnsiChar;
+	ParentType : AnsiString;
+	FoundParentType : boolean;
+	compare1,compare2 : AnsiString;
 	wantbrace : integer;
-	wantcomment : integer;
-	wantquote : boolean;
-	found : boolean;
-	curtext : string;
-	actualtext : TStrings;
+	cursorindex : integer;
+	I, wordstart, wordend : integer;
+	token : AnsiString;
+	HLAttr: TSynHighlighterAttributes;
 begin
-
-	Screen.Cursor := crHourglass;
 	Result := nil;
+
+	// Assume e isn't nil, because if so, this function wouldn't even be called
 	e:=GetEditor;
-	actualtext := e.Text.Lines;
-	len:=0;
-	len2:=0;
-	isglobal:=true;
+	text := PAnsiChar(e.Text.Text);
+	cursorindex := e.Text.RowColToCharIndex(cursorpos,true);
 
-	// See if we clicked on / hovered above something with a parent before it
-	cpos := Pos('::' + statement,actualtext[cursorpos.Line-1]);
-	ppos := Pos('.'  + statement,actualtext[cursorpos.Line-1]);
-	apos := Pos('->' + statement,actualtext[cursorpos.Line-1]);
+	FoundParentType := false;
 
-	// We found something belonging to a class or namespace
-	if cpos > 0 then begin
+	// Try to find the word before :: or -> or .
+	if ((text[cursorindex-2] = ':') and (text[cursorindex-1] = ':')) or
+       ((text[cursorindex-2] = '-') and (text[cursorindex-1] = '>')) or
+        (text[cursorindex-1] = '.') then begin
 
-		// Find the namespace or class, don't check for the type of the class, it's already there
+		if (text[cursorindex-1] = '.') then
+			wordend := cursorindex-2 // Start before the .
+		else
+			wordend := cursorindex-3; // Start before the -> or ::
+
+		// Find the word before the array stuff
+		if text[wordend] = ']' then begin
+			repeat
+				Dec(wordend);
+			until (wordend = 0) or (text[wordend+1] = '[');
+		end;
+
+		// Then find the word itself
+		wordstart := wordend;
 		repeat
-			Inc(len);
-		until not (actualtext[cursorpos.Line-1][cpos-len] in [#48..#57,#65..#90,#95,#97..#122]);
-		parent := Copy(actualtext[cursorpos.Line-1],cpos-len+1,len-1);
-		isglobal := false;
+			Dec(wordstart);
+		until (wordstart = 0) or not (text[wordstart] in e.Text.IdentChars);
+		compare1 := Copy(text,wordstart+2,wordend-wordstart);
 
-	end else if (ppos > 0) or (apos > 0) then begin
+		// Don't bother looking for a match if empty
+		if compare1 <> '' then begin
 
-		// We've found an instance before the word...
-		if ppos > 0 then cpos := ppos else cpos := apos;
-		repeat
-			Inc(len);
-			if actualtext[cursorpos.Line-1][cpos-len] = ']' then begin
-				repeat
-					Inc(len2);
-				until (actualtext[cursorpos.Line-1][cpos-len2+len] in ['[']);
-				cpos := cpos - len2 + len;
-			end;
-		until not (actualtext[cursorpos.Line-1][cpos-len] in [#48..#57,#65..#90,#95,#97..#122]);
-		parent := Copy(actualtext[cursorpos.Line-1],cpos-len+1,len-1);
+			// Don't look for the types of classes, because we'll just find 'class', which is useless
+			if not ((text[cursorindex-2] = ':') and (text[cursorindex-1] = ':')) then begin
 
-		// So do scan for the type of the instance we've found
-		for I:=0 to CppParser.Statements.Count-1 do begin
-			if PStatement(CppParser.Statements[I])^._ParentID = -1 then begin
-				if PStatement(CppParser.Statements[I])^._ScopeCmd <> '' then
-					compareto := PStatement(CppParser.Statements[I])^._ScopeCmd
-				else
-					compareto := PStatement(CppParser.Statements[I])^._ScopelessCmd;
+				// if we previously found an instance, look for its type
+				for I:=0 to CppParser.Statements.Count-1 do begin
+					if PStatement(CppParser.Statements[I])^._ParentID = -1 then begin
 
-				if AnsiCompareStr(compareto,parent)=0 then begin
-					parent := Copy(PStatement(CppParser.Statements[I])^._FullText,1,Pos(' ',PStatement(CppParser.Statements[I])^._FullText)-1);
-					isglobal := false;
-					Break;
+						// Try to find the place where this instance name first showed up
+						if PStatement(CppParser.Statements[I])^._ScopeCmd <> '' then
+							compare2 := PStatement(CppParser.Statements[I])^._ScopeCmd
+						else
+							compare2 := PStatement(CppParser.Statements[I])^._ScopelessCmd;
+
+						if CompareStr(compare1,compare2) = 0 then begin
+
+							// We only need the type of the parent we've found!
+							ParentType := PStatement(CppParser.Statements[I])^._Type;
+							FoundParentType := true;
+							Break;
+						end;
+					end;
 				end;
+			end else begin
+				ParentType := compare1;
+				FoundParentType := true;
 			end;
 		end;
+
+	// otherwise, we clicked an 'unattached' variable. First check if we're inside a class header body
 	end else begin
 
-		// otherwise, we clicked an 'unattached' variable. First check if we're inside a class body
-		for I:=cursorpos.Line-1 downto 0 do begin
+		cursorindex := e.Text.RowColToCharIndex(cursorpos,true);
+		I := cursorindex;
+		while (I > max(0,cursorindex-1024)) do begin
 
 			// We're inside a class definition, save the name of the parent class...
-			if AnsiStartsStr('class ',TrimLeft(actualtext[I])) then begin
-				classdefline := TrimLeft(actualtext[I]);
+			compare1 := Copy(text,I,6);
+			if CompareStr('class ',compare1) = 0 then begin
 
-				len:=7;
-				while (len <= Length(classdefline)) and not (classdefline[len] in ['{',#9,#32]) do
-					Inc(len);
+				wordstart := I + 7; // start at the end of 'class'
+				wordend := wordstart;
+				while text[wordend] in e.Text.IdentChars do
+					Inc(wordend);
 
-				parent := Copy(classdefline,7,len-7);
+				ParentType := Copy(text,wordstart-1,wordend-wordstart+2);
 				break;
 			end;
+			Dec(I);
 		end;
 	end;
 
-	// If we haven't found out its class, assume it belongs to the namespace or function we're currently in
-	if isglobal then begin
-		for I:=cursorpos.Line downto 0 do begin
-			cpos := AnsiPos('::',actualtext[I]);
-			if cpos > 0 then begin
+	// If we couldn't directly find its parent, assume it belongs to the class function we're in
+	if not FoundParentType then begin
 
-				// We zitten in een functie
-				len := 0;
+		// Then scan back trying to find the base function (or class)
+		cursorindex := e.Text.RowColToCharIndex(cursorpos,true);
+		I := cursorindex;
+		while (I > max(0,cursorindex-1024)) do begin
+			if (text[I] = ':') and (text[I+1] = ':') then begin
+				// Then find the word itself
+				wordend := I;
+				wordstart := wordend;
 				repeat
-					Inc(len);
-				until actualtext[I][cpos-len] in [#9,#32];
-				parent := Copy(actualtext[I],cpos-len+1,len-1);
-				classline := actualtext[I];
+					Dec(wordstart);
+				until not (text[wordstart] in e.Text.IdentChars);
+				ParentType := Copy(text,wordstart+2,wordend-wordstart-1);
 				break;
 			end;
-		end;
-
-		// Assemble the name to compare with
-		if (parent <> '') and (parent <> statement) then
-			comparewith := parent + '::' + statement
-		else
-			comparewith := statement;
-
-		// Check if the found class instance contains the variable...
-		for I:=0 to CppParser.Statements.Count-1 do begin
-			if PStatement(CppParser.Statements[I])^._ParentID <> -1 then begin
-				if PStatement(CppParser.Statements[I])^._ScopeCmd <> '' then
-					compareto := PStatement(CppParser.Statements[PStatement(CppParser.Statements[I])^._ParentID])^._FullText + '::' + PStatement(CppParser.Statements[I])^._ScopeCmd
-				else
-					compareto := PStatement(CppParser.Statements[PStatement(CppParser.Statements[I])^._ParentID])^._FullText + '::' + PStatement(CppParser.Statements[I])^._ScopelessCmd;
-				if Pos(' ',compareto) > 0 then
-					compareto := Copy(compareto,Pos(' ',compareto)+1,Length(compareto)-Pos(' ',compareto));
-				if Pos('::',compareto) <> GetLastPos('::',compareto) then
-					compareto := Copy(compareto,Pos('::',compareto)+2,Length(compareto)-Pos('::',compareto)-1);
-
-				if AnsiCompareStr(compareto,comparewith)=0 then begin
-					parent := Copy(compareto,1,Pos('::',compareto)-1);
-					isglobal := false; // !!
-					Break;
-				end;
-			end;
+			Dec(I);
 		end;
 	end;
 
-	// Als we uiteindelijk nog steeds niks hebben gevonden, scan de functie voor locals
-	if isglobal then begin
+	if (ParentType <> '') and not FoundParentType then begin
+		compare1 := ParentType + '::' + statement;
 
-		cpos := e.Text.RowColToCharIndex(cursorpos)-Length(statement)-3;
-		wantbrace := 0;
-		wantquote := false;
-		wantcomment := 0;
-		text := PChar(actualtext.Text);
-		for I:=cpos downto Max(0,(cpos-1024)) do begin
+		// Check if the found class instance actually contains the variable...
+		for I:=0 to CppParser.Statements.Count-1 do begin
+			with PStatement(CppParser.Statements[I])^ do begin
+				if _ParentID <> -1 then begin
+					if _Kind = skFunction then begin
+						if _ScopeCmd <> '' then
+							compare2 := _ScopeCmd
+						else
+							compare2 := _ScopelessCmd;
+					end else begin
+						if _ScopeCmd <> '' then
+							compare2 := PStatement(CppParser.Statements[_ParentID])^._ScopeCmd + '::' + _ScopeCmd
+						else
+							compare2 := PStatement(CppParser.Statements[_ParentID])^._ScopeCmd + '::' + _ScopelessCmd;
+					end;
 
-			if I = 0 then break;
-
-			// if we're entering a new line backwards...
-			if text[I] = #10 then begin
-				len := 0;
-
-				// Then check if that line contains a newline
-				while not (I-len = 1) and not (text[I-len] in [#10]) do begin
-					Inc(len);
-
-					// if the current line is a comment, skip by 'len' steps
-					if (text[I-len] = '/') and (text[I-len+1] = '/') then begin
-						Inc(wantcomment);
-						break;
+					if CompareStr(compare1,compare2) = 0 then begin
+						ParentType := Copy(compare1,1,Pos('::',compare1)-1);
+						FoundParentType := true;
+						Break;
 					end;
 				end;
 			end;
+		end;
+	end;
 
-			// Skip multi-line comments
-			if (text[I] = '*') and (text[I+1] = '/') then
-				Inc(wantcomment);
-			if ((text[I] = '/') and (text[I+1] = '*')) or ((text[I] = '/') and (text[I+1] = '/')) then
-				Dec(wantcomment);
-			if wantcomment > 0 then continue;
+	// Found nothing belonging to any parents? Assume a local variable
+	if not FoundParentType then begin
 
-			// Skip strings
-			if text[I] = '"' then
-				wantquote := not wantquote;
-			if wantquote then continue;
+		compare1 := StringReplace(statement,'*','',[rfReplaceAll]);
+		compare1 := StringReplace(statement,'&','',[rfReplaceAll]);
+
+		wantbrace := 0;
+		cursorindex := e.Text.RowColToCharIndex(cursorpos,true);
+		I := cursorindex;
+		while (I > max(0,cursorindex-2048)) do begin
+			Dec(I);
+
+			if e.Text.GetHighlighterAttriAtRowCol(e.Text.CharIndexToRowCol(I),token,HLAttr) then
+				if (HLAttr = e.Text.Highlighter.StringAttribute) or (HLAttr = e.Text.Highlighter.CommentAttribute) then
+					continue;
 
 			// Skip forbidden scopes
 			if text[I] = '}' then
@@ -6410,187 +6357,151 @@ begin
 				Dec(wantbrace);
 			if wantbrace > 0 then continue;
 
-			curtext := Copy(text,I,length(statement)+2);
-			found := AnsiStartsStr(' '    + statement,curtext);
-			if not found then found := AnsiStartsStr(' *'  + statement,curtext);
-			if not found then found := AnsiStartsStr(' &'  + statement,curtext);
-			if not found then found := AnsiStartsStr('	'  + statement,curtext);
-			if not found then found := AnsiStartsStr('	*' + statement,curtext);
-			if not found then found := AnsiStartsStr('	&' + statement,curtext);
-			if found then begin
+			// Wwe've found a word that matches what we were looking for...
+			compare2 := e.Text.GetWordAtRowCol(e.Text.CharIndexToRowCol(I));
+			if CompareStr(compare1,compare2) = 0 then begin
 
-				// Add starting offset
-				parampos := I;
+				wordstart := e.Text.RowColToCharIndex(e.Text.WordStartEx(e.Text.CharIndexToRowCol(I)),true);
+				wordend := e.Text.RowColToCharIndex(e.Text.WordEndEx(e.Text.CharIndexToRowCol(I)),true);
 
-				// First, starting at the found point, scan backwards until we find a stopping character
-				len := 0;
-				len2 := 0;
-				repeat
-					Inc(len);
+				// The char before the word MUST be blank!
+				if text[wordstart-1] in [#0..#32] then begin
 
-					// Skip single-line comments
-					if text[parampos-len] = #10 then begin
-						repeat
-							Inc(len2);
-							if (text[I-len-len2] = '/') and (text[I-len-len2+1] = '/') then begin
-								len2 := 9999;
-								break;
-							end;
-						until text[I-len-len2] in [#10];
+					// First, starting at the found point, scan backwards until we find an invalid character
+					while (wordstart > 1) do begin
+
+						// Only allow whitespace and standard characters
+						if not (text[wordstart-1] in e.Text.IdentChars) and not (text[wordstart-1] in [#0..#32,'&','*']) then Break;
+
+						// Don't allow comments
+						if e.Text.GetHighlighterAttriAtRowCol(e.Text.CharIndexToRowCol(wordstart-1),token,HLAttr) then
+							if (HLAttr = e.Text.Highlighter.CommentAttribute) then
+								Break;
+
+						Dec(wordstart);
 					end;
 
-				until (len2 = 9999) or (text[parampos-len] in ['>','<','+','-','/','=','(',')',':',';','#','{','}',',']);
+					// Trim whitespace
+					while (text[wordstart] in [#0..#32]) do
+						Inc(wordstart);
 
-				// If we encountered a #define, continue at the end until a newline
-				if AnsiStartsStr('#',text[parampos-len]) then begin
-
-					// Define gevonden
-					len2 := 0;
-					repeat
-						Inc(len2);
-					until (text[parampos+len2] in [#13,#10,'#']);
-
-				// Otherwise, demand a [,=,( or ; after the member...
-				end else begin
-
-					// Whitespace ervoor trimmen
-					repeat
-						Dec(len);
-					until not (text[parampos-len] in [';',#9,#32,#13,#10]);
-
-					// See if we found a correct character, first walk up to the end of the name
-					len2 := Length(statement);
-					if text[parampos] in ['*','&'] then Inc(len2);
-
-					while (text[parampos+len2] in [#9,#32,#10,#13]) do
-						Inc(len2);
-
-					// At this point, we NEED a specific character
-					if not (text[parampos+len2] in ['=',')',';','(','[','(',',']) then
-						len := 0;
-
-					// If we found a correct character, keep going until our useful information stops...
-					while not (text[parampos+len2] in ['=','{',';','=','(',')',',']) do
-						Inc(len2);
-				end;
-
-				// Als er wat zinnigs staat
-				if (len > 2) then begin
-					localfind := Copy(text,parampos-len+1,len+len2);
-					localfindpoint.x := e.Text.CharIndexToRowCol(I).Char-1;
-					localfindpoint.y := e.Text.CharIndexToRowCol(I).Line;
-					Screen.Cursor := crDefault;
-					Exit;
+					if (wordend - wordstart > Length(compare1)) then begin
+						localfind := Copy(text,wordstart + 1,wordend - wordstart);
+						localfindpoint := e.Text.CharIndexToRowCol(wordstart);
+						Exit;
+					end else if(wordstart < I) then
+						I := wordstart;
 				end;
 			end;
 		end;
 	end;
 
-	// Assembleer de uiteindelijke naam, volledig deze keer
-	if (parent <> '') and (parent <> statement) and not isglobal then
-		comparewith := parent + '::' + statement
+	// Use to Parent::Member notation for structs too
+	if FoundParentType then
+		compare1 := ParentType + '::' + statement
 	else
-		comparewith := statement;
+		compare1 := statement;
 
-	// Nu gaan we de database doorlopen (omdat er local niks gevonden is)
+	compare1 := StringReplace(compare1,'*','',[rfReplaceAll]);
+	compare1 := StringReplace(compare1,'&','',[rfReplaceAll]);
+
+	// For every item, try to assemble ParentType :: WordToFind or simply WordToFind
 	for I:=0 to CppParser.Statements.Count-1 do begin
-		// Als we een global zien, niet class ervoor (zou '::global' geven)
-		if (PStatement(CppParser.Statements[I])^._ParentID = -1) then begin
-			compareto := PStatement(CppParser.Statements[I])^._ScopelessCmd;
-		end else begin
-			// Deze zitten in een class
-			if PStatement(CppParser.Statements[I])^._ScopeCmd <> '' then
-				compareto := PStatement(CppParser.Statements[PStatement(CppParser.Statements[I])^._ParentID])^._FullText + '::' + PStatement(CppParser.Statements[I])^._ScopeCmd
-			else
-				compareto := PStatement(CppParser.Statements[PStatement(CppParser.Statements[I])^._ParentID])^._FullText + '::' + PStatement(CppParser.Statements[I])^._ScopelessCmd;
-			if Pos(' ',compareto) > 0 then
-				compareto := Copy(compareto,Pos(' ',compareto)+1,Length(compareto)-Pos(' ',compareto));
-			if Pos('::',compareto) <> GetLastPos('::',compareto) then
-				compareto := Copy(compareto,Pos('::',compareto)+2,Length(compareto)-Pos('::',compareto)-1);
+		with PStatement(CppParser.Statements[I])^ do begin
+
+			// If parentid = -1, then it does NOT have a parent class
+			if _ParentID = -1 then begin
+				compare2 := _ScopelessCmd;
+			end else begin
+				if _Kind = skFunction then begin
+					if _ScopeCmd <> '' then
+						compare2 := _ScopeCmd
+					else
+						compare2 := _ScopelessCmd;
+				end else begin
+					if PStatement(CppParser.Statements[I])^._ScopeCmd <> '' then
+						compare2 := PStatement(CppParser.Statements[_ParentID])^._ScopeCmd + '::' + _ScopeCmd
+					else
+						compare2 := PStatement(CppParser.Statements[_ParentID])^._ScopeCmd + '::' + _ScopelessCmd;
+				end;
+			end;
 		end;
 
-		if AnsiCompareStr(compareto,comparewith)=0 then begin
+		if CompareStr(compare1,compare2) = 0 then begin
 			Result := PStatement(CppParser.Statements[I]);
-			Break;
+			Exit;
 		end;
 	end;
-	Screen.Cursor := crDefault;
+
+	// if we couldn't find anything, just display what we've been able to gather
+	if FoundParentType then begin
+		localfind := compare1;
+		localfindpoint.Char := 12345; // magic number
+		localfindpoint.Line := 12345;
+	end;
 end;
 
 procedure TMainForm.actGotoImplDeclEditorExecute(Sender: TObject);
 var
-	wordtofind : string;
-	atposition : TBufferCoord;
-	P : TPoint;
+	localfind : AnsiString;
+	localfindpoint : TBufferCoord;
 
-	// Opslag voor FindStatement
-	localfind : string;
-	localfindpoint : TPoint;
-
-	// Voor navigeren
 	statement : PStatement;
-	filename : string;
+	filename : AnsiString;
 	line : integer;
 
-	// Current editor
 	e : TEditor;
 begin
 	e:=GetEditor;
 
-	// Scan the word at the mouse cursor or the caret
-	if Sender.ClassName = 'TEditor' then begin
+	if Assigned(e) then begin
 
-		// Ctrl+Click
-		wordtofind := e.Text.WordAtMouse;
+		localfindpoint.Char := 0;
+		localfindpoint.Line := 0;
 
-		GetCursorPos(P);
-		P:=e.Text.ScreenToClient(P);
-		atposition.Char := e.Text.PixelsToRowColumn(P.X,P.Y).Column;
-		atposition.Line := e.Text.PixelsToRowColumn(P.X,P.Y).Row;
-	end else begin
+		// When searching using menu shortcuts, the caret is set to the proper place
+		// When searching using ctrl+click, the cursor is set properly too, so do NOT use WordAtMouse
+		statement:=FindStatement(e.Text.WordAtCursor,e.Text.WordStart,localfind,localfindpoint);
 
-		// Menu shortcut
-		wordtofind := e.GetWordAtCursor;
-		atposition := e.Text.CaretXY;
+		// If we found it locally (not present in the class browser)
+		if (localfind <> '') and (localfindpoint.Char <> 12345) and (localfindpoint.Line <> 12345) then begin
+			e.Text.CaretXY := localfindpoint;
+
+		// Otherwise scan the returned class browser statement
+		end else if Assigned(statement) then begin
+
+			// If the caret position was used
+			if Sender.ClassType = TEditor then begin
+
+				// Switching between declaration and definition
+				if e.Text.CaretY <> statement^._Line then begin
+					filename:=statement^._FileName;
+					line:=statement^._Line;
+				end else begin
+					filename:=statement^._DeclImplFileName;
+					line:=statement^._DeclImplLine;
+				end;
+
+			// Menu item or mouse cursor
+			end else begin
+				if Pos('Decl',(Sender as TCustomAction).Name) > 0 then begin
+					filename:=statement^._FileName;
+					line:=statement^._Line;
+				end else begin
+					filename:=statement^._DeclImplFileName;
+					line:=statement^._DeclImplLine;
+				end;
+			end;
+
+			// Go to the location
+			e:=GetEditorFromFileName(filename);
+			if Assigned(e) then
+				e.GotoLineNr(line);
+
+			SetStatusbarMessage('');
+		end else
+			SetStatusbarMessage('Could not find declaration...');
 	end;
-	statement:=FindStatement(wordtofind,atposition,localfind,localfindpoint);
-
-	// If we found it locally (not present in the class browser)
-	if localfind <> '' then begin
-		e.Text.CaretXY:=BufferCoord(localfindpoint.x,localfindpoint.y);
-
-	// Otherwise scan the returned class browser statement
-	end else if Assigned(statement) then begin
-
-		// If the caret position was used
-		if Sender.ClassName = 'TEditor' then begin
-
-			// Switching between declaration and definition
-			if e.Text.CaretY <> statement^._Line then begin
-				filename:=statement^._FileName;
-				line:=statement^._Line;
-			end else begin
-				filename:=statement^._DeclImplFileName;
-				line:=statement^._DeclImplLine;
-			end;
-
-		// Menu item or mouse cursor
-		end else begin
-			if Pos('Decl',(Sender as TCustomAction).Name) > 0 then begin
-				filename:=statement^._FileName;
-				line:=statement^._Line;
-			end else begin
-				filename:=statement^._DeclImplFileName;
-				line:=statement^._DeclImplLine;
-			end;
-		end;
-
-		// Go to the location
-		e:=GetEditorFromFileName(filename);
-		if Assigned(e) then
-			e.GotoLineNr(line);
-	end else
-		SetStatusbarMessage('Could not find declaration...');
 end;
 
 procedure TMainForm.actHideFSBarExecute(Sender: TObject);
@@ -6654,36 +6565,17 @@ end;
 procedure TMainForm.CompilerOutputAdvancedCustomDrawItem(Sender: TCustomListView; Item: TListItem; State: TCustomDrawState;Stage: TCustomDrawStage; var DefaultDraw: Boolean);
 begin
 	// Color...
-	if AnsiContainsStr(Item.SubItems[2],'[Warning]') then
+	if ContainsStr(Item.SubItems[2],'[Warning]') then
 		Sender.Canvas.Font.Color := TColor($0066FF); // Orange
-	if AnsiContainsStr(Item.SubItems[2],'[Error]') then
+	if ContainsStr(Item.SubItems[2],'[Error]') then
 		Sender.Canvas.Font.Color := clRed;
-	if AnsiContainsStr(Item.SubItems[2],'[Hint]') then
+	if ContainsStr(Item.SubItems[2],'[Hint]') then
 		Sender.Canvas.Font.Color := clYellow;
 
 	// In function/member/etc
-	if AnsiStartsStr('in ',LowerCase(Item.SubItems[2])) or AnsiStartsStr('at ',LowerCase(Item.SubItems[2])) then
+	if StartsStr('in ',LowerCase(Item.SubItems[2])) or StartsStr('at ',LowerCase(Item.SubItems[2])) then
 		Sender.Canvas.Font.Style := [fsBold];
 end;
-
-// Full file path when hovering above tabs...
-{
-procedure TMainForm.PageControlMouseMove(Sender: TObject;Shift: TShiftState; X, Y: Integer);
-var
-	e : TEditor;
-	tabindex : integer;
-begin
-	PageControl.ShowHint := false;
-	tabindex := PageControl.IndexOfTabAt(X,Y);
-	if tabindex >= 0 then begin
-		e:=GetEditor(tabindex);
-		if Assigned(e) then begin
-			PageControl.Hint:=e.FileName;
-			PageControl.ShowHint := true;
-		end;
-	end;
-end;
-}
 
 procedure TMainForm.cmbMembersDropDown(Sender: TObject);
 var
@@ -6701,7 +6593,6 @@ begin
 	for I := 0 to cmbMembers.Items.Count-1 do
 		widestwidth := Max(widestwidth,cmbMembers.Canvas.TextWidth(cmbMembers.Items[I]) + 8); // padding
 
-	// set the width of drop down if needed
 	if(widestwidth > cmbMembers.Width) then begin
 
 		// Add scrollbar width

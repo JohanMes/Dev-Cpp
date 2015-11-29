@@ -124,10 +124,10 @@ type
     procedure cbLinkerAddClick(Sender: TObject);
     procedure FormClose(Sender: TObject; var Action: TCloseAction);
    private
-    fBins: string;
-    fLibs: string;
-    fC: string;
-    fCpp: string;
+    fBins: AnsiString;
+    fLibs: AnsiString;
+    fC: AnsiString;
+    fCpp: AnsiString;
     procedure SetOptions;
     procedure UpdateButtons;
     procedure LoadText;
@@ -158,7 +158,12 @@ end;
 procedure TCompOptForm.btnOkClick(Sender: TObject);
 begin
 	if (fBins = '') then begin
-		MessageDlg('You have not indicated the location of your binaries (compiler).'#13' Please do so now.', mtWarning, [mbOK], 0);
+		MessageDlg('You have not indicated the location of your compiler binaries.'#13' Please do so now.', mtWarning, [mbOK], 0);
+
+		MainPages.ActivePage := tabDirectories;
+		DirTabs.TabIndex := 0;
+		DirTabs.OnChange(nil);
+
 		ModalResult := mrNone;
 		exit;
 	end;
@@ -272,7 +277,7 @@ end;
 procedure TCompOptForm.btnBrowseClick(Sender: TObject);
 var
 {$IFDEF WIN32}
-  NewItem: string;
+  NewItem: AnsiString;
 {$ENDIF}
 {$IFDEF LINUX}
   NewItem: WideString;
@@ -431,14 +436,14 @@ begin
 	lblDelayMsg.Caption:=                Lang[ID_COPT_DELAYMSG];
 
 	// Makefile generation
-	grpMakefileGen.Caption:=             '  '+Lang[ID_COPT_MAKEFILEGEN]+'  ';
+	grpMakefileGen.Caption:=             ' '+Lang[ID_COPT_MAKEFILEGEN]+' ';
 	cbFastDep.Caption:=                  Lang[ID_COPT_FASTDEP];
 
 	// Programs (you may want to...)
 	lblProgramsText.Caption:=            Lang[ID_COPT_PROGRAMS];
 
 	// Text above compiler select
-	grpCompSet.Caption:=                 '  '+Lang[ID_COPT_COMPSETS]+'  ';
+	grpCompSet.Caption:=                 ' '+Lang[ID_COPT_COMPSETS]+' ';
 end;
 
 procedure TCompOptForm.cmbCompilerSetCompChange(Sender: TObject);
@@ -530,7 +535,7 @@ end;
 
 procedure TCompOptForm.btnAddCompilerSetClick(Sender: TObject);
 var
-  S: string;
+  S: AnsiString;
 begin
   S:='New compiler';
   if not InputQuery(Lang[ID_COPT_NEWCOMPSET], Lang[ID_COPT_PROMPTNEWCOMPSET], S) or (S='') then
@@ -559,7 +564,7 @@ end;
 
 procedure TCompOptForm.btnRenameCompilerSetClick(Sender: TObject);
 var
-  S: string;
+  S: AnsiString;
 begin
   S:=cmbCompilerSetComp.Text;
   if not InputQuery(Lang[ID_COPT_RENAMECOMPSET], Lang[ID_COPT_PROMPTRENAMECOMPSET], S) or (S='') or (S=cmbCompilerSetComp.Text) then
@@ -606,10 +611,10 @@ end;
 
 procedure TCompOptForm.OptionsLinkClick(Sender: TObject);
 var
-	s : string;
+	s : AnsiString;
 begin
 	s := (Sender as TLabel).Caption;
-	ShellExecute(GetDesktopWindow(), 'open', PChar(s), nil, nil, SW_SHOWNORMAL);
+	ShellExecute(GetDesktopWindow(), 'open', PAnsiChar(s), nil, nil, SW_SHOWNORMAL);
 end;
 
 procedure TCompOptForm.cbCompAddClick(Sender: TObject);

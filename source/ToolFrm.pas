@@ -36,10 +36,10 @@ type
 
   PToolItem = ^TToolItem;
   TToolItem = record
-   Title: string;
-   Exec: string;
-   WorkDir: string;
-   Params: string;
+   Title: AnsiString;
+   Exec: AnsiString;
+   WorkDir: AnsiString;
+   Params: AnsiString;
    IcoNumGnome: integer;
    IcoNumBlue: integer;
    IcoNumNewLook: integer;
@@ -60,7 +60,7 @@ type
     procedure RemoveItem(index: integer);
     procedure LoadTools;
     procedure SaveTools;
-    function ParseString(const S: string): string;
+    function ParseString(const S: AnsiString): AnsiString;
 
     property Items[index: integer]: PToolItem read GetItem write SetItem; default;
     property Count: integer read GetCount;
@@ -129,8 +129,8 @@ destructor TToolList.Destroy;
 var
 	I : integer;
 begin
-	for I:=0 to fList.Count - 1 do
-		FreeMem(fList[i]);
+	for I := 0 to fList.Count - 1 do
+		Dispose(PToolItem(fList[I]));
 	fList.Free;
 	inherited;
 end;
@@ -171,7 +171,7 @@ var
  idx: integer;
  Item: PToolItem;
  Value,
- section: string;
+ section: AnsiString;
 begin
 	if not FileExists(devDirs.Config + 'devcpp.cfg') then exit;
 	with TINIFile.Create(devDirs.Config + 'devcpp.cfg') do
@@ -206,49 +206,50 @@ var
  Count,
  idx: integer;
  Value,
- section: string;
+ section: AnsiString;
  item: PToolItem;
 begin
-  with TINIFile.Create(devDirs.Config +'devcpp.cfg') do
-   try
-    // remove extra sections if items removed
-    Count:= ReadInteger('Tools', 'Count', 0);
-    if Count> fList.Count then
-     begin
-       tmp:= TStringList.Create;
-       try
-        ReadSections(tmp);
-        for idx:= fList.Count to Count do
-         EraseSection('Tool'+inttostr(idx));
-       finally
-        tmp.Free;
-       end;
-     end;
+	with TINIFile.Create(devDirs.Config +'devcpp.cfg') do
+		try
+			// remove extra sections if items removed
+			Count := ReadInteger('Tools', 'Count', 0);
+			if Count > fList.Count then begin
+				tmp := TStringList.Create;
+				try
+					ReadSections(tmp);
+					for idx := fList.Count to Count do
+						eraseSection('Tool' + inttostr(idx));
+				finally
+					tmp.Free;
+				end;
+			end;
 
-    for idx:= 0 to pred(fList.Count) do
-     begin
-       section:= 'Tool'+inttostr(idx);
-       Item:= fList[idx];
-       WriteString(section, 'Title', Item.Title);
-       Value:= Item.Exec;
-       Value:= ParseString(value);
-       WriteString(section, 'Program', Value);
+			for idx:= 0 to pred(fList.Count) do begin
 
-       Value:= Item.WorkDir;
-       Value:= ParseString(Value);
-       WriteString(section, 'WorkDir', Value);
-       if (Item.Params <> '') and (Item.Params[1] = '"') and (Item.Params[length(Item.Params)] = '"') then // fix the case of param surrounded by quotes
-         WriteString(section, 'Params', '"'+Item.Params+'"')
-       else
-         WriteString(section, 'Params', Item.Params);
-     end;
-    Writeinteger('Tools', 'Count', fList.Count);
-   finally
-    free;
-   end;
+				section := 'Tool' + inttostr(idx);
+				Item:= fList[idx];
+				WriteString(section, 'Title', Item.Title);
+
+				Value:= Item.Exec;
+				Value:= ParseString(value);
+				WriteString(section, 'Program', Value);
+
+				Value:= Item.WorkDir;
+				Value:= ParseString(Value);
+				WriteString(section, 'WorkDir', Value);
+
+				if (Item.Params <> '') and (Item.Params[1] = '"') and (Item.Params[length(Item.Params)] = '"') then // fix the case of param surrounded by quotes
+					WriteString(section, 'Params', '"'+Item.Params+'"')
+				else
+					WriteString(section, 'Params', Item.Params);
+			end;
+			Writeinteger('Tools', 'Count', fList.Count);
+		finally
+			Free;
+		end;
 end;
 
-function TToolList.ParseString(const s: string): string;
+function TToolList.ParseString(const s: AnsiString): AnsiString;
 begin
   result:= StringReplace(s, devDirs.Exec, '<EXECPATH>', [rfReplaceAll]);
   result:= StringReplace(Result, devDirs.Default, '<DEFAULT>', [rfReplaceAll]);
@@ -258,12 +259,12 @@ end;
 
 constructor TToolController.Create;
 begin
-  inherited;
-  fMenu:= nil;
-  fOffset:= -1;
-  fOnClick:= nil;
-  fToolList:= TToolList.Create;
-  fToolList.LoadTools;
+	inherited;
+	fMenu:= nil;
+	fOffset:= -1;
+	fOnClick:= nil;
+	fToolList:= TToolList.Create;
+	fToolList.LoadTools;
 end;
 
 destructor TToolController.Destroy;
@@ -280,7 +281,7 @@ var
 	I: integer;
 	Item: TMenuItem;
 	Icon: TIcon;
-	s: string;
+	s: AnsiString;
 	w: word;
 begin
 	if Assigned(fMenu) then
@@ -324,7 +325,7 @@ begin
 
 						// Er moet een variabele meegegeven worden
 						w:=0;
-						Icon.Handle:=ExtractAssociatedIcon(hInstance, PChar(S), w);
+						Icon.Handle:=ExtractAssociatedIcon(hInstance, PAnsiChar(S), w);
 
 						// Add the icon to the image lists if it exists
 						if Icon.Handle <> 0 then begin

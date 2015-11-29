@@ -109,12 +109,12 @@ uses
 
 var
 	// ConfigMode moved to devcfg, 'cause I need it in enviroform (for AltConfigFile)
-	UserHome, strLocalAppData, strAppData, strIniFile, exefolder: String;
+	UserHome, strLocalAppData, strAppData, strIniFile, exefolder: AnsiString;
 	tempc: array [0..MAX_PATH] of char;
 begin
 
 	strIniFile := ChangeFileExt(ExtractFileName(Application.ExeName), INI_EXT);
-	exefolder := StringReplace(Application.ExeName,ExtractFileName(Application.ExeName),'',[rfReplaceAll]);
+	exefolder := ReplaceFirstStr(Application.ExeName,ExtractFileName(Application.ExeName),'');
 
 	if (ParamCount > 0) and (ParamStr(1) = CONFIG_PARAM) then begin
 		if not DirectoryExists(ParamStr(2)) then
@@ -129,11 +129,11 @@ begin
 		//default dir should be %APPDATA%\Dev-Cpp
 		strLocalAppData := '';
 		if SUCCEEDED(SHGetFolderPath(0, CSIDL_LOCAL_APPDATA, 0, 0, tempc)) then
-			strLocalAppData := IncludeTrailingBackslash(String(tempc));
+			strLocalAppData := IncludeTrailingBackslash(AnsiString(tempc));
 
 		strAppData := '';
 		if SUCCEEDED(SHGetFolderPath(0, CSIDL_APPDATA, 0, 0, tempc)) then
-			strAppData := IncludeTrailingBackslash(String(tempc));
+			strAppData := IncludeTrailingBackslash(AnsiString(tempc));
 
 		if (strLocalAppData <> '') and FileExists(strLocalAppData + strIniFile) then begin
 			UserHome := strLocalAppData;
@@ -180,10 +180,6 @@ begin
 
 	// do the creation stuff when the splashscreen is displayed because it takes quite a while ...
 	MainForm.DoCreateEverything;
-
-	MainForm.UpdateSplash('Creating extra dialogs...');
-	Application.CreateForm(TfrmFind, frmFind);
-	Application.CreateForm(TfrmReplace, frmReplace);
 
 	if not devData.NoSplashScreen then
 		SplashForm.Free;

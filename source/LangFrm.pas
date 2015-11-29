@@ -79,7 +79,7 @@ type
     HasProgressStarted : boolean;
 
     function GetSelected: integer;
-    procedure CppParserTotalProgress(Sender: TObject; const FileName: String; Total, Current: Integer);
+    procedure CppParserTotalProgress(Sender: TObject; const FileName: string; Total, Current: Integer);
 
   public
     procedure UpdateList(const List: TStrings);
@@ -112,17 +112,14 @@ begin
   result:= ListBox.ItemIndex;
 end;
 
-procedure TLangForm.CppParserTotalProgress(Sender: TObject; const FileName: String; Total, Current: Integer);
-var
-	tmp : string;
+procedure TLangForm.CppParserTotalProgress(Sender: TObject; const FileName: string; Total, Current: Integer);
 begin
 	if not HasProgressStarted then begin
 		pbCCCache.Max := Total;
 		HasProgressStarted := true;
 	end;
 	pbCCCache.Position := pbCCCache.Position + Current;
-	tmp := 'Parsing file:' + #13#10 + FileName;
-	ParseLabel.Caption := StringReplace(tmp,devDirs.Exec,'\',[rfReplaceAll, rfIgnoreCase]);
+	ParseLabel.Caption := 'Parsing file:' + #13#10 + ReplaceFirstText(FileName,devDirs.Exec,'\');
 	Application.ProcessMessages;
 end;
 
@@ -130,7 +127,7 @@ procedure TLangForm.OkBtnClick(Sender: TObject);
 var
 	s, f : TStringList;
 	i, j : integer;
-	fullpath : string;
+	fullpath : AnsiString;
 begin
 	if OkBtn.Tag = 0 then begin
 		OkBtn.Tag := 1;
@@ -168,7 +165,7 @@ begin
 			ProgressPanel.Visible := True;
 			OkBtn.Caption := 'Please wait...';
 			MainForm.CacheCreated := true;
-			Application.ProcessMessages;
+			//Application.ProcessMessages;
 			devCodeCompletion.Enabled := true;
 			devCodeCompletion.UseCacheFiles := true;
 			devClassBrowsing.Enabled := true;
@@ -196,13 +193,13 @@ begin
 
 			// Make it look busy
 			Screen.Cursor:=crHourglass;
-			Application.ProcessMessages;
+			//Application.ProcessMessages;
 
 			f := TStringList.Create;
 			if not AltCache.Checked then begin
 				for i := 0 to pred(s.Count) do begin
 					// Relative paths make the recursive/loop searcher go nuts
-					s[i] := StringReplace(s[i],'%path%\',devDirs.exec,[rfReplaceAll]);
+					s[i] := StringReplace(s[i],'%path%\',devDirs.exec,[]);
 					if DirectoryExists(s[i]) then begin
 						FilesFromWildcard(s[i], '*.*', f, false, false, false);
 						for j := 0 to f.Count - 1 do
@@ -232,10 +229,9 @@ begin
 			MainForm.CppParser.ParseList;
 
 			ParseLabel.Caption := 'Saving...';
-
 			Application.ProcessMessages;
 
-			MainForm.CppParser.Save(devDirs.Config+DEV_COMPLETION_CACHE);
+			MainForm.CppParser.Save(devDirs.Config+DEV_COMPLETION_CACHE,devDirs.Exec);
 
 			MainForm.CppParser.OnStartParsing := MainForm.CppParserStartParsing;
 			MainForm.CppParser.OnEndParsing := MainForm.CppParserEndParsing;
@@ -243,7 +239,6 @@ begin
 
 			MainForm.ClassBrowser1.SetUpdateOn;
 
-			Application.ProcessMessages;
 			Screen.Cursor:=crDefault;
 			s.Free;
 			f.Free;
@@ -264,7 +259,7 @@ end;
 
 procedure TLangForm.ThemeChange(Sender: TObject);
 var
-	finalname : string;
+	finalname : AnsiString;
 begin
 	finalname := '';
 	case ThemeBox.ItemIndex of
@@ -282,7 +277,7 @@ end;
 procedure TLangForm.ButtonAddFileClick(Sender: TObject);
 var
 	I: integer;
-	s: string;
+	s: AnsiString;
 begin
 	with dmMain.OpenDialog do begin
 		Filter:= FLT_HEADS;
@@ -311,10 +306,10 @@ end;
 
 procedure TLangForm.ButtonAddFolderClick(Sender: TObject);
 var
-	Dir : string;
+	Dir : AnsiString;
 	f : TStringList;
 	I : integer;
-	s : string;
+	s : AnsiString;
 begin
 	f := TStringList.Create;
 	if SelectDirectory('Select Folder', devDirs.Exec, Dir) then begin

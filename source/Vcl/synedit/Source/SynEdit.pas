@@ -317,8 +317,8 @@ type
     fAllFoldRanges:        TSynEditAllFoldRanges;
     fCodeFolding:          TSynCodeFolding;
     fCodeFoldingPlugin:    TSynEditCodeFoldingPlugin;
-    fActualLines:          TStrings;
-    fActualLinesLength:    Integer;
+    fUncollapsedLines:          TStrings;
+    fUncollapsedLinesLength:    Integer;
     //### End Code Folding ###
 
     fAlwaysShowCaret: Boolean;
@@ -453,7 +453,7 @@ type
 	procedure UncollapseLevel(ALevel: Integer);
 	procedure ReScanForFoldRanges;
 	procedure MoveRangesFromBy(CurrentLine, LineCount: Integer);
-	procedure GetUncollapsedStrings;
+	procedure GetUncollapsedLines;
 	//### End Code Folding ###
 
     procedure BookMarkOptionsChanged(Sender: TObject);
@@ -720,7 +720,7 @@ type
       var TokenType, Start: Integer;
       var Attri: TSynHighlighterAttributes): boolean;
     function GetPositionOfMouse(out aPos: TBufferCoord): Boolean;
-    function GetWordAtRowCol(const XY: TBufferCoord): string;
+    function GetWordAtRowCol(XY: TBufferCoord): string;
     procedure GotoBookMark(BookMark: Integer);
     procedure GotoLineAndCenter(ALine: Integer);
     function IdentChars: TSynIdentChars;
@@ -802,8 +802,8 @@ type
 		procedure UncollapseAll;
 		procedure ReScan;
 		function GetRealLineNumber(aLine: Integer): Integer;
-		property UnCollapsedLines: TStrings read fActualLines;
-		property UnCollapsedLinesLength: Integer read fActualLinesLength;
+		property UnCollapsedLines: TStrings read fUncollapsedLines;
+		property UnCollapsedLinesLength: Integer read fUncollapsedLinesLength;
 		property CodeFolding: TSynCodeFolding read fCodeFolding;
 		//### End Code Folding ###
 
@@ -1445,7 +1445,7 @@ begin
 	fCodeFoldingPlugin := TSynEditCodeFoldingPlugin.Create(Self);
 	fAllFoldRanges := TSynEditAllFoldRanges.Create;
 	fCodeFolding := TSynCodeFolding.Create;
-	fActualLines := TStringList.Create;
+	fUncollapsedLines := TStringList.Create;
 	fPlugins.Add(fCodeFoldingPlugin);
 	InitCodeFolding;
 	//### End Code Folding ###
@@ -1558,7 +1558,7 @@ begin
 
 	//### Code Folding ###
 	fAllFoldRanges.Free;
-	fActualLines.Free;
+	fUncollapsedLines.Free;
 	fCodeFolding.Free;
 	//### End Code Folding ###
 end;
@@ -1708,27 +1708,27 @@ begin
 		case fActiveSelectionMode of
 			smNormal:
 				if (First = Last) then
-					Result := Copy(fActualLines[First], ColFrom, ColTo - ColFrom)
+					Result := Copy(fUncollapsedLines[First], ColFrom, ColTo - ColFrom)
 				else begin
 
 					// step1: calculate total length of result string
-					TotalLen := Max(0, Length(fActualLines[First]) - ColFrom + 1);
+					TotalLen := Max(0, Length(fUncollapsedLines[First]) - ColFrom + 1);
 					for i := First + 1 to Last - 1 do
-						Inc(TotalLen, Length(fActualLines[i]));
+						Inc(TotalLen, Length(fUncollapsedLines[i]));
 					Inc(TotalLen, ColTo - 1);
 					Inc(TotalLen, Length(sLineBreak) * (Last - First));
 
 					// step2: build up result string
 					SetLength(Result, TotalLen);
 					P := PChar(Result);
-					CopyAndForward(fActualLines[First], ColFrom, MaxInt, P);
+					CopyAndForward(fUncollapsedLines[First], ColFrom, MaxInt, P);
 					CopyAndForward(sLineBreak, 1, MaxInt, P);
 
 					for i := First + 1 to Last - 1 do begin
-						CopyAndForward(fActualLines[i], 1, MaxInt, P);
+						CopyAndForward(fUncollapsedLines[i], 1, MaxInt, P);
 						CopyAndForward(sLineBreak, 1, MaxInt, P);
 					end;
-					CopyAndForward(fActualLines[Last], 1, ColTo - 1, P);
+					CopyAndForward(fUncollapsedLines[Last], 1, ColTo - 1, P);
 				end;
 			smColumn:
 				begin
@@ -1758,7 +1758,7 @@ begin
 						vAuxRowCol.Column := ColFrom;
 						vAuxLineChar := DisplayToBufferPos(vAuxRowCol);
 						l := vAuxLineChar.Char;
-						s := fActualLines[vAuxLineChar.Line -1];
+						s := fUncollapsedLines[vAuxLineChar.Line -1];
 						vAuxRowCol.Column := ColTo;
 						r := DisplayToBufferPos(vAuxRowCol).Char;
 {$IFDEF SYN_MBCSSUPPORT}
@@ -1776,19 +1776,19 @@ begin
 					// line break code(s) of the last line will not be added.
 					// step1: calculate total length of result string
 					for i := First to Last do
-						Inc(TotalLen, Length(fActualLines[i]) + Length(sLineBreak));
-					if Last = fActualLines.Count -1 then
+						Inc(TotalLen, Length(fUncollapsedLines[i]) + Length(sLineBreak));
+					if Last = fUncollapsedLines.Count -1 then
 						Dec(TotalLen, Length(sLineBreak));
 
 					// step2: build up result string
 					SetLength(Result, TotalLen);
 					P := PChar(Result);
 					for i := First to Last - 1 do begin
-						CopyAndForward(fActualLines[i], 1, MaxInt, P);
+						CopyAndForward(fUncollapsedLines[i], 1, MaxInt, P);
 						CopyAndForward(sLineBreak, 1, MaxInt, P);
 					end;
-					CopyAndForward(fActualLines[Last], 1, MaxInt, P);
-					if Last < fActualLines.Count -1 then
+					CopyAndForward(fUncollapsedLines[Last], 1, MaxInt, P);
+					if Last < fUncollapsedLines.Count -1 then
 						CopyAndForward(sLineBreak, 1, MaxInt, P);
 				end;
 		end;
@@ -5487,7 +5487,7 @@ var
   Item: TSynEditUndoItem;
   OldChangeNumber: integer;
   SaveChangeNumber: integer;
-  FLastChange : TSynChangeReason;                                          
+  FLastChange : TSynChangeReason;
   FAutoComplete: Boolean;
   FPasteAction: Boolean;
   FSpecial1: Boolean;
@@ -9872,15 +9872,29 @@ begin
     DoChange;
 end;
 
-function TCustomSynEdit.GetWordAtRowCol(const XY: TBufferCoord): string;
+function TCustomSynEdit.GetWordAtRowCol(XY: TBufferCoord): string;
 var
-  v_WordStart: TBufferCoord;
-  v_WordEnd: TBufferCoord;
+  Line: string;
+  Len, Stop: Integer;
 begin
-  v_WordStart := WordStartEx(XY);
-  v_WordEnd := WordEndEx(XY);
-  if (v_WordStart.Line = v_WordEnd.Line) and (v_WordStart.Char < v_WordEnd.Char) then
-    Result := Copy(Lines[XY.Line -1] , v_WordStart.Char, v_WordEnd.Char - v_WordStart.Char);
+  Result := '';
+  if (XY.Line >= 1) and (XY.Line <= Lines.Count) then
+  begin
+    Line := Lines[XY.Line - 1];
+    Len := Length(Line);
+    if Len = 0 then Exit;
+
+    if (XY.Char >= 1) and (XY.Char <= Len + 1) and (Line[XY.Char] in IdentChars) then
+    begin
+      Stop := XY.Char;
+      while (Stop <= Len) and (Line[Stop] in IdentChars) do
+        Inc(Stop);
+      while (XY.Char > 1) and (Line[XY.Char - 1] in IdentChars) do
+        Dec(XY.Char);
+      if Stop > XY.Char then
+        Result := Copy(Line, XY.Char, Stop - XY.Char);
+    end;
+  end;
 end;
 
 function TCustomSynEdit.BufferToDisplayPos(const p: TBufferCoord): TDisplayCoord;
@@ -10047,7 +10061,7 @@ begin
   fFocusList.Remove(aControl);
 end;
 
-function TCustomSynEdit.IdentChars: TSynIdentChars;                        
+function TCustomSynEdit.IdentChars: TSynIdentChars;
 begin
   if Highlighter <> nil then
     Result := Highlighter.IdentChars
@@ -10102,7 +10116,7 @@ begin
 
   { inside the editor, get the word under the mouse pointer }
   aPos := DisplayToBufferPos( PixelsToRowColumn(Point.X,Point.Y) );
-  Result := True;                   
+  Result := True;
 end;
 
 function TCustomSynEdit.GetWordAtMouse: string;
@@ -10128,7 +10142,7 @@ begin
 	if collapsed then
 		text := Lines
 	else
-		text := fActualLines;
+		text := fUncollapsedLines;
 
 	while y < text.Count do begin
 		x := Length(text[y]);
@@ -10155,7 +10169,7 @@ begin
 	if collapsed then
 		text := Lines
 	else
-		text := fActualLines;
+		text := fUncollapsedLines;
 
 	RowCol.Line := Min(text.Count, RowCol.Line) - 1;
 	for i := 0 to RowCol.Line - 1 do
@@ -10569,22 +10583,23 @@ var
 	i: Integer;
 begin
 	Result := nil;
-  for i := 0 to fAllFoldRanges.AllCount - 1 do
-  	with fAllFoldRanges[i] do
-      if (not ParentCollapsed) and (FromLine = Line) then
-      begin
-      	Result := fAllFoldRanges[i];
-        Break;
-      end;
+	for i := 0 to fAllFoldRanges.AllCount - 1 do
+		with fAllFoldRanges[i] do
+			if not ParentCollapsed and (FromLine = Line) then begin
+				Result := fAllFoldRanges[i];
+				Break;
+			end;
 end;
 
 function TCustomSynEdit.GetLineIndent(Strings: TStrings; ALine: Integer): Integer;
 var
 	Line: PChar;
-  TabW, i: Integer;
+	TabW, i: Integer;
 begin
 	Result := 0;
+
 	if ALine >= Strings.Count then exit;//###mod access violation
+
 	Line := PChar(Strings[ALine]);
 	repeat
 		if Line^ = #9 then
@@ -10605,73 +10620,56 @@ begin
 	until (Line^ <> #9) and (Line^ <> #32);
 end;
 
-procedure TCustomSynEdit.GetUncollapsedStrings;
+procedure TCustomSynEdit.GetUncollapsedLines;
 var
-	i : integer;
-	fromtolinebackup : array of integer;
-	collapsedbackup : array of boolean;
-
-	procedure SpecialUncollapseLevel(ALevel : integer);
-	var
-		j,k : integer;
-	begin
-		for j := fAllFoldRanges.AllCount - 1 downto 0 do
-			with fAllFoldRanges[j] do begin
-				if (RealLevel = ALevel) and (Collapsed) then begin
-
-					// This is the UnCollapse part
-					for k := 0 to CollapsedLines.Count - 1 do
-						if FromLine > 0 then
-							fActualLines.Insert(FromLine, CollapsedLines[k]);
-					if FoldRegion.AddEnding then
-						fActualLines[FromLine-1] := Copy(fActualLines[FromLine-1], 1,Length(fActualLines[FromLine-1]) - Length(FoldRegion.Close));
-
-					// Update fold positions
-					Collapsed := False;
-					MoveFoldRangesAfter(fAllFoldRanges[j], CollapsedLines.Count);
-				end;
-			end;
-	end;
+	i,j,k : integer;
 begin
+	// Only scan if we know what to scan for (i.e. { and BEGIN)
+	if not Assigned(fHighlighter) then begin
+		fUncollapsedLines.Assign(fLines);
+		fUncollapsedLinesLength := Length(fLines.Text);
+		Exit;
+	end;
 
-	// Back up the FromLine and ToLine and Collapsed values
-	SetLength(fromtolinebackup,fAllFoldRanges.AllCount*2);
-	SetLength(collapsedbackup,fAllFoldRanges.AllCount);
 	for i:=0 to fAllFoldRanges.AllCount - 1 do begin
-		fromtolinebackup[2*i] := fAllFoldRanges[i].FromLine;
-		fromtolinebackup[2*i+1] := fAllFoldRanges[i].ToLine;
-		collapsedbackup[i] := fAllFoldRanges[i].Collapsed;
+		fAllFoldRanges[i].Backup;
+		fAllFoldRanges[i].BackupPCOfSubFoldRanges;
 	end;
 
 	// Copy the collapsed text
-	fActualLines.Clear;
-	fActualLines.AddStrings(fLines);
+	fUncollapsedLines.Assign(fLines);
 
-	// Unfold to the copy without actually touching the settings
-	fActualLines.BeginUpdate;
-	for i := 0 to 9 do
-		SpecialUncollapseLevel(i);
-	fActualLines.EndUpdate;
-
-	// Cache properties
-	fActualLinesLength := Length(fActualLines.Text);
-
-	// Restore our fold data
-	{for i := 0 to 9 do
+	// Unfold to the copy
+	fUncollapsedLines.BeginUpdate;
+	for i := 0 to 9 do begin
 		for j := fAllFoldRanges.AllCount - 1 downto 0 do
-			with fAllFoldRanges[j] do
-				if (RealLevel = i) and ParentCollapsed then
-					FixPCOfSubFoldRanges(i);}
+			with fAllFoldRanges[j] do begin
 
-	// Restore them
+				if (RealLevel = i) and Collapsed and not ParentCollapsed then begin
+
+					for k := 0 to CollapsedLines.Count - 1 do
+						if FromLine < fUncollapsedLines.Count then
+							fUncollapsedLines.Insert(FromLine, CollapsedLines[k])
+						else
+							fUncollapsedLines.Add(CollapsedLines[k]);
+					if FoldRegion.AddEnding then
+						fUncollapsedLines[FromLine-1] := Copy(fUncollapsedLines[FromLine-1], 1,Length(fUncollapsedLines[FromLine-1]) - Length(FoldRegion.Close));
+
+					Collapsed := False;
+					MoveFoldRangesAfter(fAllFoldRanges[j], CollapsedLines.Count);
+					SetPCOfSubFoldRanges(False, RealLevel);
+				end;
+			end;
+	end;
+	fUncollapsedLines.EndUpdate;
+
 	for i:=0 to fAllFoldRanges.AllCount - 1 do begin
-		fAllFoldRanges[i].FromLine := fromtolinebackup[2*i];
-		fAllFoldRanges[i].ToLine := fromtolinebackup[2*i+1];
-		fAllFoldRanges[i].Collapsed := collapsedbackup[i];
+		fAllFoldRanges[i].Fix;
+		fAllFoldRanges[i].FixPCOfSubFoldRanges;
 	end;
 
-	fromtolinebackup := nil;
-	collapsedbackup := nil;
+	// Cache properties
+	fUncollapsedLinesLength := Length(fUncollapsedLines.Text);
 end;
 
 procedure TCustomSynEdit.MoveFoldRangesAfter(FoldRange: TSynEditFoldRange; LineCount: Integer);
@@ -10697,8 +10695,7 @@ end;
 procedure TCustomSynEdit.ReScan;
 begin
 	ReScanForFoldRanges;
-	GetUnCollapsedStrings;
-	//InvalidateGutter;
+	GetUnCollapsedLines;
 end;
 
 procedure TCustomSynEdit.ReScanForFoldRanges;
@@ -10709,6 +10706,8 @@ var
 	TemporaryLines: TStringList;
 	TemporaryAllFoldRanges: TSynEditAllFoldRanges;
 begin
+	if not Assigned(fHighlighter) then Exit;
+
 	// Delete all uncollapsed folds
 	for i := fAllFoldRanges.AllCount - 1 downto 0 do
 		with fAllFoldRanges[i] do
@@ -10804,6 +10803,30 @@ var
 			Result := (not (FirstChar^ in TSynValidStringChars)) and (not (LastChar^ in TSynValidStringChars));
 		end;
 
+		function LineHasClosingChar(Ptr,CloseChar: PChar): Boolean;
+		begin
+			Result := false;
+			repeat
+				if(Ptr^ = CloseChar^) then begin
+					Result := true;
+					break;
+				end;
+				Dec(Ptr);
+			until (Ptr^ = #13) or (Ptr^ = #10) or (Ptr^ = #0);
+		end;
+
+		function LineHasOpeningChar(Ptr,OpenChar: PChar): Boolean;
+		begin
+			Result := false;
+			repeat
+				if(Ptr^ = OpenChar^) then begin
+					Result := true;
+					break;
+				end;
+				Inc(Ptr);
+			until (Ptr^ = #13) or (Ptr^ = #10) or (Ptr^ = #0);
+		end;
+
 		function SkipCrLf(var Ptr: PChar; var Line: Integer): Boolean;
 		begin
 			Result := False;
@@ -10842,7 +10865,7 @@ var
 				case FoldRegions[i].FoldRegionType of
 					rtChar:
 					begin
-						if (Ptr^ = FoldRegions[i].Open^) and ((not FoldRegions[i].WholeWords) or (IsWholeWord(Ptr-1, Ptr+1))) then begin // Found an open character
+						if (Ptr^ = FoldRegions[i].Open^) and not LineHasClosingChar(Ptr,FoldRegions[i].Close) then begin // Found an open character
 							if Parents.Count > 0 then
 								FoldRange := TSynEditFoldRange(Parents[Parents.Count-1]).SubFoldRanges.AddByParts(
 									TopFoldRanges,
@@ -10866,8 +10889,8 @@ var
 
 								if FoldRegions[i].SubFoldRegions.Count > 0 then
 									ScanUsingFoldRegions(FoldRegions[i].SubFoldRegions, FoldRegions[i]);
-							end else begin // Otherwise find the end keyword
-								while (Ptr^ <> #0) and (Ptr^ <> FoldRegions[i].Close^) do
+							end else begin // Otherwise find the end character
+								while (Ptr^ <> #0) and (Ptr^ <> FoldRegions[i].Close^) and not LineHasOpeningChar(Ptr,FoldRegions[i].Open) do
 									if not SkipCrLf(Ptr, Line) then
 										Inc(Ptr);
 
@@ -10876,7 +10899,8 @@ var
 
 							Break;
 						end;
-						if (Ptr^ = FoldRegions[i].Close^) and ((not FoldRegions[i].WholeWords) or (IsWholeWord(Ptr-1, Ptr+1))) then begin
+						if (Ptr^ = FoldRegions[i].Close^) and not LineHasOpeningChar(Ptr,FoldRegions[i].Open) then begin
+
 							for j := Parents.Count - 1 downto 0 do
 								if StrComp(TSynEditFoldRange(Parents[j]).FoldRegion.Close,FoldRegions[i].Close) = 0 then begin
 									TSynEditFoldRange(Parents[j]).ToLine := Line;
@@ -10899,7 +10923,7 @@ var
 								Inc(KeyWordPtr);
 							end;
 
-							if (KeyWordPtr^ = #0) and ((not FoldRegions[i].WholeWords) or (IsWholeWord(TmpPtr-1, Ptr))) then begin // Keyword found
+							if (KeyWordPtr^ = #0) and IsWholeWord(TmpPtr-1, Ptr) then begin // Keyword found
 								if Parents.Count > 0 then
 									FoldRange := TSynEditFoldRange(Parents[Parents.Count-1]).SubFoldRanges.AddByParts(
 										TopFoldRanges,
@@ -10957,7 +10981,7 @@ var
 								Inc(KeyWordPtr);
 							end;
 
-							if (KeyWordPtr^ = #0) and ((not FoldRegions[i].WholeWords) or (IsWholeWord(TmpPtr-1, Ptr))) then begin
+							if (KeyWordPtr^ = #0) and IsWholeWord(TmpPtr-1, Ptr) then begin
 								FoundParent := False;
 
 								for j := Parents.Count - 1 downto 0 do
@@ -10994,7 +11018,7 @@ var
 							Inc(KeyWordPtr);
 						end;
 
-						if (KeyWordPtr^ = #0) and ((not ParentRegion.WholeWords) or (IsWholeWord(TmpPtr-1, Ptr))) then
+						if (KeyWordPtr^ = #0) and IsWholeWord(TmpPtr-1, Ptr) then
 							ParentClosed := True
 						else
 							Ptr := TmpPtr;
@@ -11202,27 +11226,23 @@ var
 	i, LastLine: Integer;
 begin
 	Result := nil;
-  LastLine := 0;
+	LastLine := 0;
 
-  if FoldCount <> nil then
-  	FoldCount^ := 1;
+	if FoldCount <> nil then
+		FoldCount^ := 1;
 
-  for i := 0 to fAllFoldRanges.AllCount - 1 do
-  	with fAllFoldRanges[i] do
-      if (not ParentCollapsed) and (FromLine = Line) and (Collapsable) then
-      begin
-      	Result := fAllFoldRanges[i];
-      	Break;
-      end
-      else
-      	if FoldCount <> nil then
-      		if LastLine = FromLine then
-          	Inc(FoldCount^)
-        	else
-          begin
-      			LastLine := FromLine;
-          	FoldCount^ := 1;
-          end;
+	for i := 0 to fAllFoldRanges.AllCount - 1 do
+		with fAllFoldRanges[i] do
+			if (not ParentCollapsed) and (FromLine = Line) and (Collapsable) then begin
+				Result := fAllFoldRanges[i];
+				Break;
+			end else if FoldCount <> nil then
+				if LastLine = FromLine then
+					Inc(FoldCount^)
+				else begin
+					LastLine := FromLine;
+					FoldCount^ := 1;
+				end;
 end;
 
 function TCustomSynEdit.GetRealLineNumber(aLine: Integer): Integer;
@@ -11282,25 +11302,27 @@ begin
 	fOwner := AOwner;
 end;
 
-// Removing lines
+// Removing lines with backspace/delete
 procedure TSynEditCodeFoldingPlugin.LinesDeleted(FirstLine, Count: integer);
 var
 	i: Integer;
 begin
+	// Firstline and Count only show information about WHOLE lines being deleted, not parts of them
 	for i := fOwner.fAllFoldRanges.AllCount - 1 downto 0 do
-		with fOwner.fAllFoldRanges[i] do
-			if (Collapsed) and (not ParentCollapsed) and fOwner.SelAvail then
-				if  ((Count = 1) and (FromLine = FirstLine)) or
-					((Count > 1) and (FromLine >= FirstLine) and (FromLine <= Pred(FirstLine + Count))) then begin
+		with fOwner.fAllFoldRanges[i] do begin
+			if Collapsed and not ParentCollapsed then begin
+				if((Count = 1) and (FromLine = FirstLine)) or
+                  ((Count > 1) and (fOwner.fAllFoldRanges[i].FromLine >= FirstLine) and (fOwner.fAllFoldRanges[i].FromLine <= Pred(FirstLine + Count))) then begin
 					fOwner.fAllFoldRanges.Delete(i);
 				end;
+			end;
+		end;
 
 	fOwner.MoveRangesFromBy(FirstLine,-Count);
 	fOwner.ReScan;
 end;
 
-// Adding lines (includes newline character twice (\r\n))
-// TODO: this one is called once for every line loaded from a file!
+// Adding lines by typing newlines
 procedure TSynEditCodeFoldingPlugin.LinesInserted(FirstLine,Count: integer);
 begin
 	fOwner.MoveRangesFromBy(FirstLine, Count);

@@ -128,7 +128,7 @@ begin
       while I < sl.Count - 1 do begin
         // find "Line numbers for"
         while I < sl.Count - 1 do begin
-          if AnsiStartsStr('Line numbers for ', sl[I]) then begin
+          if StartsStr('Line numbers for ', sl[I]) then begin
             idx := Pos('(', sl[I]);
             if idx > 0 then begin
               sUnitName := Copy(sl[I], 18, idx - 18);

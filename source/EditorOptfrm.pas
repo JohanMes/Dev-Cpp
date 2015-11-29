@@ -170,7 +170,7 @@ type
     procedure FormCreate(Sender: TObject);
     procedure SetGutter;
     procedure ElementListClick(Sender: TObject);
-    procedure cpMarginColorHint(Sender: TObject; Cell: Integer;var Hint: String);
+    procedure cpMarginColorHint(Sender: TObject; Cell: Integer;var Hint: string);
     procedure cpMarginColorDefaultSelect(Sender: TObject);
     procedure cppEditStatusChange(Sender: TObject; Changes: TSynStatusChanges);
     procedure DefaultSelect(Sender: TObject);
@@ -201,7 +201,7 @@ type
     procedure chkCCCacheClick(Sender: TObject);
     procedure CppParser1StartParsing(Sender: TObject);
     procedure CppParser1EndParsing(Sender: TObject);
-    procedure CppParser1TotalProgress(Sender: TObject; const FileName: String;Total, Current: Integer);
+    procedure CppParser1TotalProgress(Sender: TObject; const FileName: string;Total, Current: Integer);
     procedure ClassCodePageChange(Sender: TObject);
     procedure chkCBShowInheritedClick(Sender: TObject);
     procedure OnGutterClick(Sender: TObject; Button: TMouseButton; X, Y,Line: Integer; Mark: TSynEditMark);
@@ -235,7 +235,7 @@ type
     procedure GetOptions;
     procedure SaveCodeIns;
     procedure UpdateCIButtons;
-    procedure LoadSyntax(const Value: string);
+    procedure LoadSyntax(const Value: AnsiString);
     procedure FillSyntaxSets;
     procedure FillCCC;
   end;
@@ -389,7 +389,7 @@ begin
   tabSymbols.Caption:=           Lang[ID_EOPT_CPSYMBOLS];
 
 // General Tab
-  grpEditorOpts.Caption:=        '  ' +Lang[ID_EOPT_EDOPTIONS] +'  ';
+  grpEditorOpts.Caption:=        ' '+Lang[ID_EOPT_EDOPTIONS]+' ';
   cbAutoIndent.Caption:=         Lang[ID_EOPT_AUTOINDENT];
   cbInsertMode.Caption:=         Lang[ID_EOPT_INSERTMODE];
   cbUseTabs.Caption:=            Lang[ID_EOPT_TAB2SPC];
@@ -412,14 +412,14 @@ begin
   cbSyntaxHighlight.Caption:=    Lang[ID_EOPT_USESYNTAX];
   lblTabSize.Caption:=           Lang[ID_EOPT_TABSIZE];
 
-  grpMargin.Caption:=            '  '+Lang[ID_EOPT_MARGIN]+'  ';
+  grpMargin.Caption:=            ' '+Lang[ID_EOPT_MARGIN]+' ';
   cbMarginVis.Caption:=          Lang[ID_EOPT_HIGHLIGHTCURRLINE];
   lblMarginWidth.Caption:=       Lang[ID_EOPT_WIDTH];
   lblMarginColor.Caption:=       Lang[ID_EOPT_COLOR];
   HighCurLineBox.Caption:=       Lang[ID_EOPT_HIGHCURLINE];
   cbHighlightColor.Caption:=     Lang[ID_EOPT_COLOR];
 
-  grpCaret.Caption:=             '  '+Lang[ID_EOPT_CARET]+'  ';
+  grpCaret.Caption:=             ' '+Lang[ID_EOPT_CARET]+' ';
   lblInsertCaret.Caption:=       Lang[ID_EOPT_INSCARET];
   lblOverCaret.Caption:=         Lang[ID_EOPT_OVERCARET];
   cbMatch.Caption:=              Lang[ID_EOPT_MATCH];
@@ -439,11 +439,11 @@ begin
   cboOverwriteCaret.Items.Append(Lang[ID_EOPT_CARET4]);
 
 // Display Tab
-  grpEditorFont.Caption:=        '  '+Lang[ID_EOPT_EDFONT]+'  ';
+  grpEditorFont.Caption:=        ' '+Lang[ID_EOPT_EDFONT]+' ';
   lblEditorFont.Caption:=        Lang[ID_EOPT_FONT];
   lblEditorSize.Caption:=        Lang[ID_EOPT_SIZE];
 
-  grpGutter.Caption:=            '  '+Lang[ID_EOPT_GUTTER]+'  ';
+  grpGutter.Caption:=            ' '+Lang[ID_EOPT_GUTTER]+' ';
   cbGutterVis.Caption:=          Lang[ID_EOPT_VISIBLE];
   cbGutterAuto.Caption:=         Lang[ID_EOPT_GUTTERAUTO];
   cbLineNum.Caption:=            Lang[ID_EOPT_LINENUM];
@@ -457,7 +457,7 @@ begin
 // Syntax tab
   lblForeground.Caption:=        Lang[ID_EOPT_FORE];
   lblBackground.Caption:=        Lang[ID_EOPT_BACK];
-  grpStyle.Caption:=             '  '+Lang[ID_EOPT_STYLE] +'  ';
+  grpStyle.Caption:=             ' '+Lang[ID_EOPT_STYLE] +' ';
   cbBold.Caption:=               Lang[ID_EOPT_BOLD];
   cbItalic.Caption:=             Lang[ID_EOPT_ITALIC];
   cbUnderlined.Caption:=         Lang[ID_EOPT_UNDERLINE];
@@ -471,7 +471,7 @@ begin
   cbDefaultCode.Caption:=        Lang[ID_EOPT_DEFCODE];
 
   cbSymbolComplete.Caption:=     Lang[ID_EOPT_SYMBOLCOMPLETE];
-  grpSpecific.Caption:=          Lang[ID_EOPT_SYMBOLGROUP];
+  grpSpecific.Caption:=          ' '+Lang[ID_EOPT_SYMBOLGROUP]+' ';
   cbBraces.Caption:=             Lang[ID_EOPT_SYMBOLBRACES];
   cbParenth.Caption:=            Lang[ID_EOPT_SYMBOLPARENT];
   cbInclude.Caption:=            Lang[ID_EOPT_SYMBOLINCLUDE];
@@ -484,8 +484,8 @@ begin
   lblCompletionColor.Caption:=   Lang[ID_EOPT_COMPLETIONCOLOR];
 
 // Class browsing Tab
-  gbCBEngine.Caption:=           '  '+Lang[ID_EOPT_BROWSERENGINE]+'  ';
-  gbCBView.Caption:=             '  '+Lang[ID_EOPT_BROWSERVIEW]+'  ';
+  gbCBEngine.Caption:=           ' '+Lang[ID_EOPT_BROWSERENGINE]+' ';
+  gbCBView.Caption:=             ' '+Lang[ID_EOPT_BROWSERVIEW]+' ';
   chkEnableClassBrowser.Caption:=Lang[ID_EOPT_BROWSERENABLE];
   lblClassBrowserSample.Caption:=Lang[ID_EOPT_BROWSERSAMPLE];
   chkCBParseLocalH.Caption:=     Lang[ID_EOPT_BROWSERLOCAL];
@@ -511,10 +511,10 @@ begin
   // Autosave
   EnableDisableAutosave.Caption:=Lang[ID_EOPT_ENABLEAUTOSAVE];
   SaveInterval.Caption:=         Lang[ID_EOPT_AUTOSAVEINTERNAL];
-  FileOptions.Caption:=          Lang[ID_EOPT_AUTOSAVEFILE];
+  FileOptions.Caption:=          ' '+Lang[ID_EOPT_AUTOSAVEFILE]+' ';
   FileOptions.Items[0]:=         Lang[ID_EOPT_SAVEONLYOPENFILE];
   FileOptions.Items[1]:=         Lang[ID_EOPT_SAVEALLFILES];
-  OptionsGroup.Caption:=         Lang[ID_EOPT_OPTIONS];
+  OptionsGroup.Caption:=         ' '+Lang[ID_EOPT_OPTIONS]+' ';
 end;
 
 procedure TEditorOptForm.LoadSampleText;
@@ -545,7 +545,7 @@ end;
 
 procedure TEditorOptForm.GetOptions;
 var
-	aName: string;
+	aName: AnsiString;
 	attr: TSynHighlighterAttributes;
 	a, idx: integer;
 begin
@@ -732,7 +732,7 @@ end;
 
 procedure TEditorOptForm.btnOkClick(Sender: TObject);
 var
- s, aName: string;
+ s, aName: AnsiString;
  a, idx: integer;
  e : TEditor;
 begin
@@ -938,17 +938,17 @@ begin
 
 		cpBackground.Enabled := True;
 
-		if AnsiCompareText(ElementList.Items[ElementList.ItemIndex], cSel) = 0 then
+		if CompareText(ElementList.Items[ElementList.ItemIndex], cSel) = 0 then
 			pt:= fSelColor
-		else if AnsiCompareText(ElementList.Items[ElementList.ItemIndex], cBP) = 0 then
+		else if CompareText(ElementList.Items[ElementList.ItemIndex], cBP) = 0 then
 			pt:= fBPColor
-		else if AnsiCompareText(ElementList.Items[ElementList.ItemIndex], cErr) = 0 then
+		else if CompareText(ElementList.Items[ElementList.ItemIndex], cErr) = 0 then
 			pt:= fErrColor
-		else if AnsiCompareText(ElementList.Items[ElementList.ItemIndex], cABP) = 0 then
+		else if CompareText(ElementList.Items[ElementList.ItemIndex], cABP) = 0 then
 			pt:= fABPColor
-		else if AnsiCompareText(ElementList.Items[ElementList.ItemIndex], cGut) = 0 then
+		else if CompareText(ElementList.Items[ElementList.ItemIndex], cGut) = 0 then
 			pt:= fGutColor
-		else if AnsiCompareText(ElementList.Items[ElementList.ItemIndex], cFld) = 0 then begin
+		else if CompareText(ElementList.Items[ElementList.ItemIndex], cFld) = 0 then begin
 			pt:= fFoldColor;
 			cpBackground.Enabled := false;
 		end;
@@ -997,7 +997,7 @@ begin
     SelectionColor:= clNone;
 end;
 
-procedure TEditorOptForm.PickerHint(Sender: TObject; Cell: integer; var Hint: string);
+procedure TEditorOptForm.PickerHint(Sender: TObject; Cell: integer; var Hint: AnsiString);
 begin
   if Cell = DEFAULTCELL then
    Hint:= Lang[ID_EOPT_HINTWHITESPACE];
@@ -1007,7 +1007,7 @@ procedure TEditorOptForm.StyleChange(Sender: TObject);
 var
 	attr: TSynHighlighterAttributes;
 	pt: TPoint;
-	s: string;
+	s: AnsiString;
 begin
 	if not fUpdate then exit;
 	if ElementList.ItemIndex < 0 then exit;
@@ -1015,24 +1015,24 @@ begin
 		pt.x:= cpBackground.SelectionColor;
 		pt.y:= cpForeground.SelectionColor;
 
-		// use local string just to ease readability
+		// use local AnsiString just to ease readability
 		s:= ElementList.Items[ElementList.ItemIndex];
 
 		// if either value is clnone set to Whitespace color values
 		if pt.x = clNone then pt.x:= fbgColor;
 		if pt.y = clNone then pt.y:= ffgColor;
-		if AnsiCompareText(s, cSel) = 0 then
+		if CompareText(s, cSel) = 0 then
 			fSelColor:= pt
-		else if AnsiCompareText(s, cBP) = 0 then
+		else if CompareText(s, cBP) = 0 then
 			fBPColor:= pt
-		else if AnsiCompareText(s, cABP) = 0 then
+		else if CompareText(s, cABP) = 0 then
 			fABPColor:= pt
-		else if AnsiCompareText(s, cerr) = 0 then
+		else if CompareText(s, cerr) = 0 then
 			fErrColor:= pt
-		else if AnsiCompareText(s, cGut) = 0 then begin
+		else if CompareText(s, cGut) = 0 then begin
 			fGutColor:= pt;
 			SetGutter;
-		end else if AnsiCompareText(s, cFld) = 0 then begin
+		end else if CompareText(s, cFld) = 0 then begin
 			fFoldColor:= pt;
 			SetGutter;
 		end;
@@ -1044,7 +1044,7 @@ begin
        Foreground:= cpForeground.SelectionColor;
        if Sender = cpBackground then
         Background:= cpBackground.SelectionColor;
-       if AnsiCompareText(Name, 'WhiteSpace') = 0 then
+       if CompareText(Name, 'WhiteSpace') = 0 then
         begin
           ffgColor:= Foreground;
           fbgColor:= Background;
@@ -1067,7 +1067,7 @@ end;
 procedure TEditorOptForm.cppEditStatusChange(Sender: TObject;
     Changes: TSynStatusChanges);
 var
- Token: string;
+ Token: AnsiString;
  attr: TSynHighlighterAttributes;
 begin
   if assigned(cppEdit.Highlighter) and
@@ -1146,7 +1146,7 @@ begin
 end;
 
 procedure TEditorOptForm.cpMarginColorHint(Sender: TObject; Cell: Integer;
-  var Hint: String);
+  var Hint: AnsiString);
 begin
   if Cell = DEFAULTCELL then
    Hint:= Lang[ID_EOPT_HINTHIGHLIGHT];
@@ -1380,7 +1380,7 @@ procedure TEditorOptForm.btnSaveSyntaxClick(Sender: TObject);
 var
   idx: integer;
   fINI: TIniFile;
-  S: string;
+  S: AnsiString;
   pt: TPoint;
 begin
   s:='New syntax';
@@ -1393,17 +1393,17 @@ begin
       fINI.WriteString('Editor.Custom', Cpp.Attribute[idx].Name, AttrtoStr(Cpp.Attribute[idx]));
 
     for idx:= Cpp.AttrCount to pred(ElementList.Items.Count) do begin
-      if AnsiCompareText(ElementList.Items[idx], cSel) = 0 then
+      if CompareText(ElementList.Items[idx], cSel) = 0 then
         pt:= fSelColor
-      else if AnsiCompareText(ElementList.Items[idx], cBP) = 0 then
+      else if CompareText(ElementList.Items[idx], cBP) = 0 then
         pt:= fBPColor
-      else if AnsiCompareText(ElementList.Items[idx], cErr) = 0 then
+      else if CompareText(ElementList.Items[idx], cErr) = 0 then
         pt:= fErrColor
-      else if AnsiCompareText(ElementList.Items[idx], cABP) = 0 then
+      else if CompareText(ElementList.Items[idx], cABP) = 0 then
         pt:= fABPColor
-      else if AnsiCompareText(ElementList.Items[idx], cGut) = 0 then
+      else if CompareText(ElementList.Items[idx], cGut) = 0 then
         pt:= fGutColor
-      else if AnsiCompareText(ElementList.Items[idx], cFld) = 0 then
+      else if CompareText(ElementList.Items[idx], cFld) = 0 then
         pt:= fFoldColor;
 
       fINI.WriteString('Editor.Custom', ElementList.Items[idx], PointtoStr(pt));
@@ -1416,7 +1416,7 @@ begin
   cboQuickColor.ItemIndex:=cboQuickColor.Items.IndexOf(S);
 end;
 
-procedure TEditorOptForm.LoadSyntax(const Value: string);
+procedure TEditorOptForm.LoadSyntax(const Value: AnsiString);
 var
   idx: integer;
   fINI: TIniFile;
@@ -1437,18 +1437,18 @@ begin
 
 		for idx:= Cpp.AttrCount to pred(ElementList.Items.Count) do begin
 			StrToPoint(pt, fINI.ReadString('Editor.Custom', ElementList.Items[idx], PointToStr(Point(clNone, clNone))));
-			if AnsiCompareText(ElementList.Items[idx], cSel) = 0 then
+			if CompareText(ElementList.Items[idx], cSel) = 0 then
 				fSelColor:= pt
-			else if AnsiCompareText(ElementList.Items[idx], cBP) = 0 then
+			else if CompareText(ElementList.Items[idx], cBP) = 0 then
 				fBPColor:= pt
-			else if AnsiCompareText(ElementList.Items[idx], cErr) = 0 then
+			else if CompareText(ElementList.Items[idx], cErr) = 0 then
 				fErrColor:= pt
-			else if AnsiCompareText(ElementList.Items[idx], cABP) = 0 then
+			else if CompareText(ElementList.Items[idx], cABP) = 0 then
 				fABPColor:= pt
-			else if AnsiCompareText(ElementList.Items[idx], cGut) = 0 then begin
+			else if CompareText(ElementList.Items[idx], cGut) = 0 then begin
 				fGutColor:= pt;
 				SetGutter;
-			end else if AnsiCompareText(ElementList.Items[idx], cFld) = 0 then begin
+			end else if CompareText(ElementList.Items[idx], cFld) = 0 then begin
 				fFoldColor:= pt;
 				SetGutter;
 			end;
@@ -1481,7 +1481,7 @@ var
   Hits: integer;
   MaxHits, MaxIndex: integer;
   sl: TStrings;
-  flt: string;
+  flt: AnsiString;
 begin
   // the following piece of code is a quick'n'dirty way to find the base
   // compiler's include dir (if we 're lucky).
@@ -1504,7 +1504,7 @@ begin
       for I1:=0 to sl.Count-1 do begin
         Hits:=0;
         for I:=0 to sl.Count-1 do
-          if AnsiStartsText(sl[I1], sl[I]) then
+          if StartsText(sl[I1], sl[I]) then
             Inc(Hits);
         if Hits>MaxHits then begin
           MaxHits:=Hits;
@@ -1528,7 +1528,7 @@ begin
       for I:=0 to OpenDialog.Files.Count-1 do
         CppParser.AddFileToScan(OpenDialog.Files[I]);
       CppParser.ParseList;
-      CppParser.Save(devDirs.Config+DEV_COMPLETION_CACHE);
+      CppParser.Save(devDirs.Config+DEV_COMPLETION_CACHE,devDirs.Exec);
       lbCCC.Items.Assign(CppParser.CacheContents);
       Screen.Cursor:=crDefault;
       chkCCCache.Tag:=1; // mark modified
@@ -1559,7 +1559,7 @@ procedure TEditorOptForm.FillCCC;
 begin
   Screen.Cursor:=crHourglass;
   Application.ProcessMessages;
-  CppParser.Load(devDirs.Config+DEV_COMPLETION_CACHE);
+  CppParser.Load(devDirs.Config+DEV_COMPLETION_CACHE,devDirs.Exec);
   lbCCC.Items.Assign(CppParser.CacheContents);
   Screen.Cursor:=crDefault;
 end;
@@ -1582,14 +1582,14 @@ begin
   pbCCCache.Visible:=False;
 end;
 
-procedure TEditorOptForm.CppParser1TotalProgress(Sender: TObject;const FileName: String; Total, Current: Integer);
+procedure TEditorOptForm.CppParser1TotalProgress(Sender: TObject;const FileName: string; Total, Current: Integer);
 begin
-  if not HasProgressStarted then begin
-    pbCCCache.Max := Total;
-    HasProgressStarted := true;
-  end;
-  pbCCCache.Position := pbCCCache.Position + Current;
-  Application.ProcessMessages;
+	if not HasProgressStarted then begin
+		pbCCCache.Max := Total;
+		HasProgressStarted := true;
+	end;
+	pbCCCache.Position := pbCCCache.Position + Current;
+	Application.ProcessMessages;
 end;
 
 procedure TEditorOptForm.ClassCodePageChange(Sender: TObject);

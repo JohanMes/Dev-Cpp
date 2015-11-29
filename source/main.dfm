@@ -1,6 +1,6 @@
 object MainForm: TMainForm
-  Left = 873
-  Top = 464
+  Left = 500
+  Top = 427
   HorzScrollBar.Visible = False
   VertScrollBar.Visible = False
   AutoScroll = False
@@ -18,6 +18,7 @@ object MainForm: TMainForm
   OldCreateOrder = False
   Position = poDefault
   Scaled = False
+  ShowHint = True
   WindowState = wsMaximized
   OnClose = FormClose
   OnContextPopup = FormContextPopup
@@ -50,7 +51,7 @@ object MainForm: TMainForm
     Top = 372
     Width = 784
     Height = 100
-    ActivePage = CloseSheet
+    ActivePage = FindSheet
     Align = alBottom
     Images = dmMain.MenuImages_NewLook
     MultiLine = True
@@ -106,7 +107,7 @@ object MainForm: TMainForm
         Left = 0
         Top = 0
         Width = 776
-        Height = 72
+        Height = 71
         Align = alClient
         BevelInner = bvNone
         BevelOuter = bvNone
@@ -201,7 +202,7 @@ object MainForm: TMainForm
         Left = 0
         Top = 0
         Width = 776
-        Height = 72
+        Height = 71
         ActivePage = tabVars
         Align = alClient
         Style = tsFlatButtons
@@ -581,7 +582,7 @@ object MainForm: TMainForm
             Left = 0
             Top = 0
             Width = 768
-            Height = 41
+            Height = 40
             Align = alClient
             Columns = <
               item
@@ -615,7 +616,7 @@ object MainForm: TMainForm
             Left = 0
             Top = 22
             Width = 768
-            Height = 19
+            Height = 18
             Align = alClient
             Lines.Strings = (
               'Debugger output')
@@ -1250,7 +1251,7 @@ object MainForm: TMainForm
   object MainMenu: TMainMenu
     AutoLineReduction = maManual
     Images = dmMain.MenuImages_NewLook
-    Left = 294
+    Left = 206
     Top = 79
     object FileMenu: TMenuItem
       Action = actFileMenu
@@ -1359,6 +1360,9 @@ object MainForm: TMainForm
         end
         object RTFItem: TMenuItem
           Action = actXRTF
+        end
+        object TEXItem: TMenuItem
+          Action = actXTex
         end
         object N19: TMenuItem
           Caption = '-'
@@ -1470,9 +1474,11 @@ object MainForm: TMainForm
       end
       object CollapseAll: TMenuItem
         Action = actCollapse
+        Caption = 'Collapse All'
       end
       object UncollapseAll: TMenuItem
         Action = actUnCollapse
+        Caption = 'Uncollapse All'
       end
     end
     object SearchMenu: TMenuItem
@@ -1930,11 +1936,9 @@ object MainForm: TMainForm
     Top = 212
     object GotoDeclEditor: TMenuItem
       Action = actGotoDeclEditor
-      Caption = 'Goto Declaration'
     end
     object GotoDefineEditor: TMenuItem
       Action = actGotoImplEditor
-      Caption = 'Goto Definition'
     end
     object N15: TMenuItem
       Caption = '-'
@@ -2331,6 +2335,13 @@ object MainForm: TMainForm
       Category = 'File'
       Caption = 'to &RTF'
       OnExecute = actXRTFExecute
+      OnUpdate = actUpdatePageCount
+    end
+    object actXTex: TAction
+      Tag = 3
+      Category = 'File'
+      Caption = 'to &Tex'
+      OnExecute = actXTexExecute
       OnUpdate = actUpdatePageCount
     end
     object actXProject: TAction
@@ -3155,7 +3166,7 @@ object MainForm: TMainForm
   object MessagePopup: TPopupMenu
     OnPopup = MessagePopupPopup
     Left = 203
-    Top = 355
+    Top = 339
     object MsgCopyItem: TMenuItem
       Caption = '&Copy'
       ShortCut = 16451
@@ -3199,7 +3210,6 @@ object MainForm: TMainForm
     Width = 320
     Height = 240
     Enabled = True
-    HintTimeout = 4000
     MinWidth = 128
     MinHeight = 128
     MaxWidth = 640
@@ -3224,7 +3234,6 @@ object MainForm: TMainForm
     end
     object mnuBrowserGotoImpl: TMenuItem
       Action = actBrowserGotoImpl
-      Caption = 'Goto Definition'
       Default = True
     end
     object mnuBrowserSep1: TMenuItem

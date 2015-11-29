@@ -32,7 +32,7 @@ interface
 uses 
 {$IFDEF WIN32}
   Windows, Classes, Forms, SysUtils, Controls, Graphics, StrUtils, CppParser,
-  ExtCtrls, U_IntList;
+  ExtCtrls, stringutils, U_IntList;
 {$ENDIF}
 {$IFDEF LINUX}
   Xlib, Classes, QForms, SysUtils, QControls, QGraphics, StrUtils, CppParser,
@@ -57,9 +57,6 @@ type
     fWidth: integer;
     fHeight: integer;
     fEnabled: boolean;
-    fHintWindow: THintWindow;
-    fHintTimer: TTimer;
-    fHintTimeout: cardinal;
     fOnKeyPress: TKeyPressEvent;
     fOnResize: TNotifyEvent;
     fOnlyGlobals: boolean;
@@ -67,34 +64,28 @@ type
     fIncludedFiles: TStringList;
     function GetOnCompletion: TCompletionEvent; {** Modified by Peter **}
     procedure SetOnCompletion(Value: TCompletionEvent); {** Modified by Peter **}
-//    procedure GetTypeOfVar(_Value: string; var List, InhList: TIntList);
-    function GetTypeID(_Value: string; il: TIntList): integer;
+    function GetTypeID(_Value: AnsiString; il: TIntList): integer;
     function ApplyStandardFilter(Index: integer): boolean;
     function ApplyClassFilter(Index, ParentID: integer; InheritanceIDs: TIntList): boolean;
-    function ApplyMemberFilter(_Class: string; Index, CurrentID: integer; ClassIDs, InheritanceIDs: TIntList): boolean;
-    procedure GetCompletionFor(_Class, _Value: string; HasDot: boolean = False);
-//    procedure GetCompletionFor1(_Class, _Value: string; HasDot: boolean = False);
-    procedure FilterList(_Class, _Value: string; HasDot: boolean = False);
-    function GetMember(Phrase: string): string;
-    function GetHasDot(Phrase: string): boolean;
+    function ApplyMemberFilter(const _Class: AnsiString; Index, CurrentID: integer; ClassIDs, InheritanceIDs: TIntList): boolean;
+    procedure GetCompletionFor(const _Class, _Value: AnsiString; HasDot: boolean = False);
+    procedure FilterList(const _Class, _Value: AnsiString; HasDot: boolean = False);
+    function GetMember(const Phrase: AnsiString): AnsiString;
+    function GetHasDot(const Phrase: AnsiString): boolean;
     procedure SetParser(Value: TCppParser);
     procedure SetPosition(Value: TPoint);
-    procedure SetHintTimeout(Value: cardinal);
-    procedure HintTimer(Sender: TObject);
     procedure ComplKeyPress(Sender: TObject; var Key: Char);
     procedure OnFormResize(Sender: TObject);
     procedure SetColor(Value: TColor);
-    function IsIncluded(FileName: string): boolean;
+    function IsIncluded(const FileName: AnsiString): boolean;
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
-    procedure Search(Sender: TWinControl; Phrase, Filename: string);
+    procedure Search(Sender: TWinControl;const Phrase, Filename: AnsiString);
     procedure Hide;
     function SelectedStatement: PStatement;
     function SelectedIsFunction: boolean;
-    procedure ShowArgsHint(FuncName: string; Rect: TRect);
-    procedure ShowMsgHint(Rect: TRect; HintText: string);
-    function GetClass(Phrase: string): string;
+    function GetClass(Phrase: AnsiString): AnsiString;
   published
     property Parser: TCppParser read fParser write SetParser;
     property Position: TPoint read fPos write SetPosition;
@@ -102,7 +93,6 @@ type
     property Width: integer read fWidth write fWidth;
     property Height: integer read fHeight write fHeight;
     property Enabled: boolean read fEnabled write fEnabled;
-    property HintTimeout: cardinal read fHintTimeout write SetHintTimeout;
     property MinWidth: integer read fMinWidth write fMinWidth;
     property MinHeight: integer read fMinHeight write fMinHeight;
     property MaxWidth: integer read fMaxWidth write fMaxWidth;
@@ -124,14 +114,6 @@ constructor TCodeCompletion.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
 
-  fHintWindow := THintWindow.Create(Self);
-  fHintWindow.Color := clInfoBk;
-  fHintTimer := TTimer.Create(Self);
-  fHintTimeout := 4000;
-  fHintTimer.Interval := fHintTimeout;
-  fHintTimer.OnTimer := HintTimer;
-  fHintTimer.Enabled := False;
-
   fIncludedFiles := TStringList.Create;
   fIncludedFiles.Sorted := True;
   fIncludedFiles.Duplicates := dupIgnore;
@@ -145,8 +127,8 @@ begin
   fHeight := 240;
   fMinWidth := 256;
   fMinHeight := 128;
-  fMaxWidth := 0;//480;
-  fMaxHeight := 0;//320;
+  fMaxWidth := 0;
+  fMaxHeight := 0;
   fColor := clWindow;
   fEnabled := True;
   fOnlyGlobals := False;
@@ -157,13 +139,11 @@ begin
   FreeAndNil(CodeComplForm);
   FreeAndNil(fCompletionStatementList);
   FreeAndNil(fFullCompletionStatementList);
-  FreeAndNil(fHintWindow);
-  FreeAndNil(fHintTimer);
   FreeAndNil(fIncludedFiles);
   inherited Destroy;
 end;
 
-function TCodeCompletion.GetClass(Phrase: string): string;
+function TCodeCompletion.GetClass(Phrase: AnsiString): AnsiString;
 var
   I: integer;
 begin
@@ -207,11 +187,11 @@ begin
       Dec(I);
     end;
     // check if it is function; if yes, cut-off the arguments ;)
-    if AnsiPos('(', Result) > 0 then
-      Result := Copy(Result, 1, AnsiPos('(', Result) - 1);
+    if Pos('(', Result) > 0 then
+      Result := Copy(Result, 1, Pos('(', Result) - 1);
     // check if it is an array; if yes, cut-off the dimensions ;)
-    if AnsiPos('[', Result) > 0 then
-      Result := Copy(Result, 1, AnsiPos('[', Result) - 1);
+    if Pos('[', Result) > 0 then
+      Result := Copy(Result, 1, Pos('[', Result) - 1);
   end;
 end;
 
@@ -240,7 +220,7 @@ begin
     IsIncluded(PStatement(fParser.Statements[Index])^._DeclImplFileName));
 end;
 
-function TCodeCompletion.ApplyMemberFilter(_Class: string; Index, CurrentID: integer; ClassIDs, InheritanceIDs: TIntList): boolean;
+function TCodeCompletion.ApplyMemberFilter(const _Class: AnsiString; Index, CurrentID: integer; ClassIDs, InheritanceIDs: TIntList): boolean;
 var
   cs: set of TStatementClassScope;
 begin
@@ -270,7 +250,7 @@ begin
     );
 end;
 
-procedure TCodeCompletion.GetCompletionFor(_Class, _Value: string; HasDot: boolean = False);
+procedure TCodeCompletion.GetCompletionFor(const _Class, _Value: AnsiString; HasDot: boolean = False);
 var
   I, I1: integer;
   InheritanceIDs: TIntList;
@@ -359,8 +339,7 @@ begin
   end;
 end;
 
-procedure TCodeCompletion.FilterList(_Class, _Value: string;
-  HasDot: boolean);
+procedure TCodeCompletion.FilterList(const _Class, _Value: AnsiString;HasDot: boolean);
 var
   I: integer;
 begin
@@ -371,7 +350,7 @@ begin
       fCompletionStatementList.Clear;
       for I := 0 to fFullCompletionStatementList.Count - 1 do
         if not HasDot then begin //class only
-          if Assigned(fFullCompletionStatementList[I]) and AnsiStartsText(_Class, PStatement(fFullCompletionStatementList[I])^._ScopelessCmd) then begin
+          if Assigned(fFullCompletionStatementList[I]) and StartsText(_Class, PStatement(fFullCompletionStatementList[I])^._ScopelessCmd) then begin
             fCompletionStatementList.Add(fFullCompletionStatementList[I]);
             CodeComplForm.lbCompletion.Items.Add('');
           end;
@@ -379,7 +358,7 @@ begin
         else begin //class and method
         // ignore "this" pointer as a member
           if Assigned(fFullCompletionStatementList[I]) and (I <> fParser.GetThisPointerID) then
-            if AnsiStartsText(_Value, PStatement(fFullCompletionStatementList[I])^._ScopelessCmd) then begin
+            if StartsText(_Value, PStatement(fFullCompletionStatementList[I])^._ScopelessCmd) then begin
               fCompletionStatementList.Add(fFullCompletionStatementList[I]);
               CodeComplForm.lbCompletion.Items.Add('');
             end;
@@ -396,7 +375,7 @@ begin
   CodeComplForm.lbCompletion.Items.EndUpdate;
 end;
 
-function TCodeCompletion.GetHasDot(Phrase: string): boolean;
+function TCodeCompletion.GetHasDot(const Phrase: AnsiString): boolean;
 var
   I: integer;
 begin
@@ -413,7 +392,7 @@ begin
   end;
 end;
 
-function TCodeCompletion.GetMember(Phrase: string): string;
+function TCodeCompletion.GetMember(const Phrase: AnsiString): AnsiString;
 var
   I: integer;
 begin
@@ -437,26 +416,26 @@ begin
     Result := Copy(Phrase, I + 1, Length(Phrase) - I + 2);
 end;
 
-function TCodeCompletion.GetTypeID(_Value: string; il: TIntList): integer;
+function TCodeCompletion.GetTypeID(_Value: AnsiString; il: TIntList): integer;
 var
-  I: integer;
+	I: integer;
 begin
-  Result := -1;
-  if (_Value <> '') and (_Value[Length(_Value)] = '>') then // template
-    Delete(_Value, Pos('<', _Value), MaxInt);
-  for I := 0 to fParser.Statements.Count - 1 do
-    if (AnsiCompareText(_Value, PStatement(fParser.Statements[I])^._ScopelessCmd) = 0) or
-      (AnsiCompareText(_Value, PStatement(fParser.Statements[I])^._ScopelessCmd + '*') = 0) or
-      (AnsiCompareText(_Value, PStatement(fParser.Statements[I])^._ScopelessCmd + '&') = 0) or
-      (AnsiCompareText(_Value, PStatement(fParser.Statements[I])^._ScopelessCmd + '**') = 0) then begin
-      if (Result = -1) or ((Result <> -1) and (PStatement(fParser.Statements[I])^._ParentID <> Result) {and (PStatement(fParser.Statements[I])^._ParentID <> -1)}) then begin
-        Result := I;
-        if Assigned(il) then
-          il.Add(Result)
-        else
-          Break;
-      end;
-    end;
+	Result := -1;
+	if (_Value <> '') and (_Value[Length(_Value)] = '>') then // template
+		Delete(_Value, Pos('<', _Value), MaxInt);
+	for I := 0 to fParser.Statements.Count - 1 do
+		if (CompareText(_Value, PStatement(fParser.Statements[I])^._ScopelessCmd) = 0) or
+		   (CompareText(_Value, PStatement(fParser.Statements[I])^._ScopelessCmd + '*') = 0) or
+		   (CompareText(_Value, PStatement(fParser.Statements[I])^._ScopelessCmd + '&') = 0) or
+		   (CompareText(_Value, PStatement(fParser.Statements[I])^._ScopelessCmd + '**') = 0) then begin
+			if (Result = -1) or ((Result <> -1) and (PStatement(fParser.Statements[I])^._ParentID <> Result)) then begin
+				Result := I;
+				if Assigned(il) then
+					il.Add(Result)
+				else
+					Break;
+			end;
+		end;
 end;
 
 procedure TCodeCompletion.Hide;
@@ -491,16 +470,16 @@ begin
   else if not PStatement(Item1)^._Loaded and PStatement(Item2)^._Loaded then
     Result := -1;
 
-  // after that, consider string comparison
+  // after that, consider AnsiString comparison
   if Result = 0 then
-    Result := AnsiCompareText(PStatement(Item1)^._ScopelessCmd, PStatement(Item2)^._ScopelessCmd);
+    Result := CompareText(PStatement(Item1)^._ScopelessCmd, PStatement(Item2)^._ScopelessCmd);
 end;
 
-procedure TCodeCompletion.Search(Sender: TWinControl; Phrase, Filename: string);
+procedure TCodeCompletion.Search(Sender: TWinControl;const Phrase, Filename: AnsiString);
 var
   P: TPoint;
-  C: string;
-  M: string;
+  C: AnsiString;
+  M: AnsiString;
   D: boolean;
 begin
   if fEnabled then begin
@@ -626,76 +605,12 @@ begin
   end;
 end;
 
-procedure TCodeCompletion.ShowArgsHint(FuncName: string; Rect: TRect);
-var
-  HintText: string;
-  I: integer;
-  S: string;
-begin
-  HintText := '';
-  fCompletionStatementList.Clear;
-
-  for I := 0 to fParser.Statements.Count - 1 do
-    if AnsiCompareStr(PStatement(fParser.Statements[I])^._ScopelessCmd, FuncName) = 0 then begin
-      S := Trim(PStatement(fParser.Statements[I])^._Args);
-      if S <> '' then begin
-        if HintText <> '' then
-          HintText := HintText + #10;
-        HintText := HintText + S;
-      end;
-    end;
-  if HintText = '' then
-    HintText := '* No parameters known *';
-  ShowMsgHint(Rect, HintText);
-end;
-
-procedure TCodeCompletion.ShowMsgHint(Rect: TRect; HintText: string);
-var
-  P, MaxX, Lines: integer;
-  s, s1: string;
-begin
-  MaxX := 0;
-  Lines := 1;
-  S := HintText;
-
-  repeat
-    P := Pos(#10, S);
-    if P > 0 then begin
-      S1 := Copy(S, 1, P - 1);
-      S := Copy(S, P + 1, MaxInt);
-      if fHintWindow.Canvas.TextWidth(S1) > MaxX then
-        MaxX := fHintWindow.Canvas.TextWidth(S1) + 8;
-      Inc(Lines);
-    end
-    else begin
-      if fHintWindow.Canvas.TextWidth(S) > MaxX then
-        MaxX := fHintWindow.Canvas.TextWidth(S) + 8;
-    end;
-  until P = 0;
-
-  Rect.Right := Rect.Left + MaxX;
-  Rect.Bottom := Rect.Top + fHintWindow.Canvas.TextHeight(HintText) * Lines;
-  fHintWindow.ActivateHint(Rect, HintText);
-  fHintTimer.Enabled := true;
-end;
-
-procedure TCodeCompletion.HintTimer(Sender: TObject);
-begin
-  fHintWindow.ReleaseHandle;
-end;
-
-procedure TCodeCompletion.SetHintTimeout(Value: cardinal);
-begin
-  if Value <> fHintTimer.Interval then
-    fHintTimer.Interval := fHintTimeout;
-end;
-
 procedure TCodeCompletion.SetColor(Value: TColor);
 begin
   fColor := Value;
 end;
 
-function TCodeCompletion.IsIncluded(FileName: string): boolean;
+function TCodeCompletion.IsIncluded(const FileName: AnsiString): boolean;
 begin
   Result := fIncludedFiles.IndexOf(Filename) <> -1;
 end;
