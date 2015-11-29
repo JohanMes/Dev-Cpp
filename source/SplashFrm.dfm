@@ -1,7 +1,6 @@
 object SplashForm: TSplashForm
   Left = 665
   Top = 443
-  Cursor = crHandPoint
   BorderIcons = []
   BorderStyle = bsNone
   ClientHeight = 290
@@ -16,6 +15,7 @@ object SplashForm: TSplashForm
   OldCreateOrder = True
   Position = poScreenCenter
   Scaled = False
+  OnClose = FormClose
   OnCreate = FormCreate
   PixelsPerInch = 96
   TextHeight = 13

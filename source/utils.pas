@@ -23,8 +23,8 @@ interface
 
 uses
 {$IFDEF WIN32}
- Windows, Classes, Sysutils, Forms, ShellAPI, Dialogs, SynEditHighlighter,
- Menus, Registry;
+ Windows, Classes, Sysutils, Forms, ShellAPI, Dialogs, SynEdit, SynEditHighlighter,
+ Menus, Registry, ComCtrls;
 {$ENDIF}
 {$IFDEF LINUX}
  Classes, Sysutils, QForms, QDialogs, QSynEditHighlighter,
@@ -32,13 +32,6 @@ uses
 {$ENDIF}
 
 type
-	PdevSearchResult = ^TdevSearchResult;
-	TdevSearchResult = record
-		pt: TPoint;
-		InFile: AnsiString;
-		msg: AnsiString;
-	end;
-
 	{ File ID types }
 	TExUnitType = (
 		utcSrc,      // c source file (.c)
@@ -69,6 +62,7 @@ type
 	function IncludeQuoteIfSpaces(s : AnsiString) : AnsiString;
 	function IncludeQuoteIfNeeded(s : AnsiString) : AnsiString;
 
+	procedure MsgErr(const text:AnsiString;const caption:AnsiString = 'Error');
 	procedure MsgBox(const text:AnsiString;const caption:AnsiString = 'Message'); overload;
 	procedure MsgBox(textlist:TStrings;const caption:AnsiString = 'Message'); overload;
 	procedure MsgBox(text:integer;const caption:AnsiString = 'Message'); overload;
@@ -117,11 +111,13 @@ type
 
 	function IsNumeric(const s : AnsiString) : boolean;
 
+	function CountChar(const s : AnsiString;c : Char) : integer;
+
 	procedure OpenHelpFile;
 
 	function ProgramHasConsole(const path : AnsiString) : boolean;
 
-// Fast replacements of Ansi functions
+// Fast replacements of localized functions
 function EndsStr(const subtext, text: AnsiString): boolean;
 function EndsText(const subtext, text: AnsiString): boolean;
 
@@ -137,8 +133,17 @@ function NotSameText(const s1,s2 : AnsiString) : boolean;
 function StartsStr(const subtext,text : AnsiString) : boolean;
 function StartsText(const subtext,text : AnsiString) : boolean;
 
-function ReplaceFirstStr(const S, OldPattern, NewPattern : string) : string;
-function ReplaceFirstText(const S, OldPattern, NewPattern : string) : string;
+function ReplaceFirstStr(const S, OldPattern, NewPattern : AnsiString) : AnsiString;
+function ReplaceFirstText(const S, OldPattern, NewPattern : AnsiString) : AnsiString;
+
+function ReplaceLastStr(const S, OldPattern, NewPattern : AnsiString) : AnsiString;
+function ReplaceLastText(const S, OldPattern, NewPattern : AnsiString) : AnsiString;
+
+function IsEmpty(editor : TSynEdit) : boolean;
+
+function GetPrettyLine(hwnd : TListView;i : integer = -1) : AnsiString; // removes #10 subitem delimiters
+
+function CtrlDown : Boolean;
 
 implementation
 
@@ -149,6 +154,42 @@ uses
 {$IFDEF LINUX}
   devcfg, version, QGraphics, StrUtils, MultiLangSupport, main, editor;
 {$ENDIF}
+
+function CtrlDown : Boolean;
+var
+	State : TKeyboardState;
+begin
+	GetKeyboardState(State);
+	Result := ((State[VK_CONTROL] and 128) <> 0);
+end;
+
+function IsEmpty(editor : TSynEdit) : boolean;
+var
+	i : integer;
+begin
+	Result := true;
+	for i := 0 to editor.Lines.Count - 1 do begin
+		if Length(editor.Lines[i]) > 0 then begin
+			Result := false;
+			break;
+		end;
+	end;
+end;
+
+function GetPrettyLine(hwnd : TListView;i : integer) : AnsiString;
+begin
+	if (i = -1) then begin // selection
+		if (hwnd.itemindex <> -1) then
+			result := StringReplace(StringReplace(hwnd.Items[hwnd.itemindex].Caption + ' ' + hwnd.Items[hwnd.itemindex].SubItems.Text, #13#10, ' ', [rfReplaceAll]), #10, ' ', [rfReplaceAll])
+		else
+			result := '';
+	end else begin
+		result := hwnd.Items[i].Caption + #10 + hwnd.Items[i].SubItems.Text;
+		result := StringReplace(result,#10,#9,[]);
+		result := StringReplace(result,#13#10,#9,[]);
+		result := StringReplace(result,#13#10,#9,[]);
+	end;
+end;
 
 function EndsStr(const subtext, text: AnsiString): boolean;
 var
@@ -212,7 +253,7 @@ begin
 	Result := SameText(subtext, Copy(text, 1, Length(subtext)));
 end;
 
-function ReplaceFirstStr(const S, OldPattern, NewPattern : string) : string;
+function ReplaceFirstStr(const S, OldPattern, NewPattern : AnsiString) : AnsiString;
 var
 	Offset: Integer;
 begin
@@ -227,7 +268,7 @@ begin
 	end;
 end;
 
-function ReplaceFirstText(const S, OldPattern, NewPattern : string) : string;
+function ReplaceFirstText(const S, OldPattern, NewPattern : AnsiString) : AnsiString;
 var
 	Offset: Integer;
 	UpperS,UpperOldPattern : string;
@@ -236,6 +277,39 @@ begin
 	UpperOldPattern := UpperCase(OldPattern);
 
 	Offset := Pos(UpperOldPattern, UpperS);
+	if Offset = 0 then begin
+		Result := S;
+	end else begin
+
+		// Copy the preceding stuff, append the new part, append old stuff after old pattern
+		Result := Copy(S, 1, Offset - 1) + NewPattern + Copy(S, Offset + Length(UpperOldPattern), MaxInt);
+	end;
+end;
+
+function ReplaceLastStr(const S, OldPattern, NewPattern : AnsiString) : AnsiString;
+var
+	Offset: Integer;
+begin
+
+	Offset := GetLastPos(OldPattern, S);
+	if Offset = 0 then begin
+		Result := S;
+	end else begin
+
+		// Copy the preceding stuff, append the new part, append old stuff after old pattern
+		Result := Copy(S, 1, Offset - 1) + NewPattern + Copy(S, Offset + Length(OldPattern), MaxInt);
+	end;
+end;
+
+function ReplaceLastText(const S, OldPattern, NewPattern : AnsiString) : AnsiString;
+var
+	Offset: Integer;
+	UpperS,UpperOldPattern : string;
+begin
+	UpperS := UpperCase(S);
+	UpperOldPattern := UpperCase(OldPattern);
+
+	Offset := GetLastPos(UpperOldPattern, UpperS);
 	if Offset = 0 then begin
 		Result := S;
 	end else begin
@@ -270,7 +344,11 @@ begin
 end;
 
 // got tired of typing application.handle,PAnsiChar,PAnsiChar MB_OK, etc ;)
-procedure MsgBox(const text:AnsiString;const caption:AnsiString);
+procedure MsgErr(const text,caption:AnsiString);
+begin
+	MessageBox(application.handle,PAnsiChar(text),PAnsiChar(caption),MB_ICONERROR);
+end;
+procedure MsgBox(const text,caption:AnsiString);
 begin
 	MessageBox(application.handle,PAnsiChar(text),PAnsiChar(caption),MB_OK);
 end;
@@ -293,7 +371,7 @@ procedure OpenHelpFile;
 var
 	abshelp : AnsiString;
 begin
-	abshelp := ReplaceFirstStr(devDirs.Help,  '%path%\',devDirs.Exec) + DEV_MAINHELP_FILE;
+	abshelp := ReplaceFirstStr(devDirs.Help,  '%path%\',devDirs.Exec) + 'devcpp.htm';
 	ShellExecute(GetDesktopWindow(), 'open', PAnsiChar(abshelp), nil, nil, SW_SHOWNORMAL);
 end;
 
@@ -448,7 +526,7 @@ end;
 
 procedure SetPath(const Add: AnsiString;UseOriginal: boolean = TRUE);
 var
-	OldPath: array[0..PATH_LEN] of char;
+	OldPath: array[0..512] of char;
 	NewPath: AnsiString;
 begin
 	NewPath := Add;
@@ -465,7 +543,7 @@ begin
 	if UseOriginal then
 		NewPath:= NewPath + devDirs.OriginalPath
 	else begin
-		GetEnvironmentVariable(PAnsiChar('PATH'), @OldPath, PATH_LEN);
+		GetEnvironmentVariable(PAnsiChar('PATH'), @OldPath, 512);
 		NewPath:= NewPath + AnsiString(OldPath);
 	end;
 
@@ -479,49 +557,38 @@ var
  tmp: TStrings;
  idx: integer;
 begin
-  fName:= ExtractFileName(FileName);
-  if FileExists(FileName) then
-   result:= FileName
-  else
-   if FileExists(WorkPath +fName) then
-    result:= WorkPath +fName
-  else
-   if FileExists(WorkPath +FileName) then
-    result:= FileName
-   else
-    if CheckDirs then
-     begin
-       if (devDirs.Default <> '') and (FileExists(devDirs.Default +fName)) then
-        result:= devDirs.Default +fName
-       else
-       if (devDirs.Exec <> '') and (FileExists(devDirs.Exec +fName)) then
-        result:= devDirs.Exec +fName
-       else
-       if (devDirs.Help <> '') and (FileExists(devDirs.Help +fName)) then
-        result:= devDirs.Help +fName
-       else
-       if (devDirs.Lang <> '') and (FileExists(devDirs.Lang +fName)) then
-        result:= devDirs.Lang +fName
-       else
-       if (devDirs.Icons <> '') then
-        begin
-          tmp:= TStringList.Create;
-          try
-           StrtoList(devDirs.Icons, tmp);
-           if tmp.Count> 0 then
-            for idx:= 0 to pred(tmp.Count) do
-             if FileExists(IncludeTrailingPathDelimiter(tmp[idx]) +fName) then
-              begin
-                result:= IncludeTrailingPathDelimiter(tmp[idx]) +fName;
-                break;
-              end;
-          finally
-           tmp.Free;
-          end;
-        end;
-     end
-    else
-     result:= '';
+	fName:= ExtractFileName(FileName);
+	if FileExists(FileName) then
+		result:= FileName
+	else if FileExists(WorkPath + fName) then
+		result:= WorkPath + fName
+	else if FileExists(WorkPath + FileName) then
+		result:= FileName
+	else if CheckDirs then begin
+		if (devDirs.Default <> '') and FileExists(devDirs.Default + fName) then
+			result:= devDirs.Default + fName
+		else if (devDirs.Exec <> '') and FileExists(devDirs.Exec + fName) then
+			result:= devDirs.Exec + fName
+		else if (devDirs.Help <> '') and FileExists(devDirs.Help + fName) then
+			result:= devDirs.Help + fName
+		else if (devDirs.Lang <> '') and FileExists(devDirs.Lang + fName) then
+			result:= devDirs.Lang +fName
+		else if (devDirs.Icons <> '') then begin
+			tmp:= TStringList.Create;
+			try
+				StrtoList(devDirs.Icons, tmp);
+				if tmp.Count> 0 then
+				for idx:= 0 to pred(tmp.Count) do
+					if FileExists(IncludeTrailingPathDelimiter(tmp[idx]) +fName) then begin
+						result:= IncludeTrailingPathDelimiter(tmp[idx]) +fName;
+						break;
+					end;
+			finally
+				tmp.Free;
+			end;
+		end;
+	end else
+		result:= '';
 end;
 
 procedure LoadFilefromResource(const FileName: AnsiString; ms: TMemoryStream);
@@ -684,18 +751,19 @@ begin
 end;
 
 function CommaStrToStr(s : AnsiString; formatstr : AnsiString) : AnsiString;
-var i : integer;
-    tmp : AnsiString;
+var
+	i : integer;
+	tmp : AnsiString;
 begin
-  result := '';
-  while pos(';', s) > 0 do begin
-    i := pos(';', s);
-    tmp := Copy(s, 1, i - 1);
-    Delete(s, 1, i);
-    result := format(formatstr, [result, tmp]);
-  end;
-  if s <> '' then
-    result := format(formatstr, [result, s]);
+	result := '';
+	while pos(';', s) > 0 do begin
+		i := pos(';', s);
+		tmp := Copy(s, 1, i - 1);
+		Delete(s, 1, i);
+		result := format(formatstr, [result, tmp]);
+	end;
+	if s <> '' then
+		result := format(formatstr, [result, s]);
 end;
 
 procedure StrtoList(s: AnsiString; List: TStrings; delimiter : char);
@@ -1033,5 +1101,16 @@ begin
 			exit;
 		end;
 end;
+
+function CountChar(const s : AnsiString; c : char) : integer;
+var
+	i : integer;
+begin
+	result := 0;
+	for i := 1 to length(s) do
+		if s[i] = c then
+			Inc(result);
+end;
+
 
 end.

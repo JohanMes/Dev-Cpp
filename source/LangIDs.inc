@@ -117,6 +117,8 @@ const
   ID_MARKTEXT                           = 4013;
   ID_ITEM_DATETIME                      = 4014;
   ID_ITEM_COMMENTHEADER                 = 4015;
+  ID_ITEM_COPYALL                       = 4016;
+  ID_ITEM_CLEAR                         = 4017;
 
   //free to 174 for edit menu items
   ID_ITEM_COMMENTSELECTION              = 22001;
@@ -156,6 +158,7 @@ const
   ID_TOOLEDIT                           = 5022;
   ID_TOOLSEARCH                         = 5023;
   ID_ITEM_FLOATREPORT                   = 5024;
+  ID_ITEM_REPLACEFILES                  = 5025;
   //free to 199 for view menu
 
   //project menu
@@ -190,7 +193,7 @@ const
   ID_ITEM_ENVIROOPTIONS                 = 7012;
   ID_ITEM_EDITOROPTIONS                 = 7013;
   ID_ITEM_TOOLCONFIG                    = 7014;
-  ID_ITEM_devShortcutsCONFIG               = 7015;
+  ID_ITEM_SHORTCUTSCONFIG               = 7015;
   // tool items dynamic
   //free to 229 for tool menu items
 
@@ -239,6 +242,9 @@ const
   ID_POP_REMOVEFILE                     = 10018;
   ID_POP_PRJOPTIONS                     = 10019;
   ID_POP_EDITRES                        = 10020;
+  ID_ITEM_NEXTINS                       = 10021;
+  ID_ITEM_STEPINS                       = 10022;
+  ID_ITEM_SKIPFUNCTION                  = 10023;
   //free to 269 for project popup
 
   //unit popup
@@ -321,6 +327,7 @@ const
   ID_DEB_OUTPUT                         = 17003;
   ID_DEB_SENDGDBCOMMAND                 = 17004;
   ID_DEB_SEND                           = 17005;
+  ID_DEB_EVALUATE                       = 17006;
   //free to 339 for column titles
 
   //specials toolbar
@@ -634,23 +641,10 @@ const
   ID_ENV_PAUSECONSOLE                   = 38054;
   ID_ENV_AUTOREMEMBER                   = 38055;
 
-  // Replace form
-  ID_RPLC                               = 39001;
-  ID_RPLC_FINDTEXT                      = 39002;
-  ID_RPLC_REPLACETEXT                   = 39003;
-  ID_RPLC_GRP_OPTIONS                   = 39004;
-  ID_RPLC_CASE                          = 39005;
-  ID_RPLC_WHOLEWORD                     = 39006;
-  ID_RPLC_PROMPT                        = 39007;
-  ID_RPLC_GRP_DIRECTION                 = 39008;
-  ID_RPLC_FORWARD                       = 39009;
-  ID_RPLC_BACKWARD                      = 39010;
-  ID_RPLC_GRP_SCOPE                     = 39011;
-  ID_RPLC_GLOBAL                        = 39012;
-  ID_RPLC_SELONLY                       = 39013;
-  ID_RPLC_GRP_ORIGIN                    = 39014;
-  ID_RPLC_CURSOR                        = 39015;
-  ID_RPLC_ENTIRE                        = 39016;
+  ID_FIND_REPLACE                       = 38056;
+  ID_FIND_REPLACEFILES                  = 38057;
+  ID_FIND_REPLACEWITH                   = 38058;
+  ID_FIND_PROMPTREPLACE                 = 38059;
 
   // Goto function form
   ID_GF_TEXT                            = 40001;
@@ -1193,3 +1187,4 @@ const
   ID_CMPPRG_FILE                        = 74003;
   ID_CMPPRG_ERRORS                      = 74004;
   ID_CMPPRG_WARNINGS                    = 74005;
+  ID_CMPPRG_CAPTION                     = 74006;

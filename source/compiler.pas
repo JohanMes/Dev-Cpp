@@ -79,8 +79,8 @@ type
 		function Clean: Boolean;
 		function RebuildAll: Boolean;
 		function FindDeps(const TheFile: AnsiString): AnsiString;
-		function SwitchToProjectCompilerSet: integer; // returns the original compiler set
-		procedure SwitchToOriginalCompilerSet(Index: integer); // switches the original compiler set to index
+		procedure SwitchToProjectCompilerSet;
+		procedure SwitchToOriginalCompilerSet;
 
 		property Compiling: Boolean read GetCompiling;
 		property Project: TProject read fProject write fProject;
@@ -103,7 +103,6 @@ type
 		fIncludesParams			: AnsiString;
 		fCppIncludesParams		: AnsiString;
 		fBinDirs				: AnsiString;
-		fUserParams				: AnsiString;
 		fDevRun					: TDevRun;
 		fRunAfterCompileFinish	: boolean;
 		fAbortThread			: boolean;
@@ -151,68 +150,66 @@ function TCompiler.GetMakeFile: AnsiString;
 begin
 	if not FileExists(fMakeFile) then
 		BuildMakeFile;
-	result:= fMakefile;
+	result := fMakefile;
 end;
 
-// create makefile for fproject if assigned
 procedure TCompiler.BuildMakeFile;
 begin
-	if not assigned(fProject) then begin
+	if not Assigned(fProject) then begin
 		fMakeFile:= '';
-		exit;
-	end else begin
-		if fProject.UseCustomMakefile then begin
-			fMakefile:=fProject.CustomMakefile;
-			Exit;
-		end;
+		Exit;
+	end else if fProject.UseCustomMakefile then begin
+		fMakefile:=fProject.CustomMakefile;
+		Exit;
 	end;
-	if Assigned(CompileProgressForm) then
-		CompileProgressForm.btnClose.Enabled:=False;
-	case Project.Options.typ of
+
+	case fProject.Options.typ of
 		dptStat: CreateStaticMakeFile;
 		dptDyn: CreateDynamicMakeFile;
 	else
 		CreateMakeFile;
 	end;
+
 	if FileExists(fMakeFile) then
 		FileSetDate(fMakefile, DateTimeToFileDate(Now)); // fix the "Clock skew detected" warning ;)
-	if Assigned(CompileProgressForm) then
-		CompileProgressForm.btnClose.Enabled:=True;
 end;
 
 function TCompiler.NewMakeFile(var F : TextFile) : boolean;
-resourcestring
-	cAppendStr = '%s %s';
 var
 	ObjResFile, Objects, LinkObjects, Comp_ProgCpp, Comp_Prog, ofile, tfile, tmp: AnsiString;
 	i: integer;
-	opt: TCompilerOption;
-	idx: integer;
-
 begin
+
+	// Create OBJ output directory
+	SetPath(fProject.Directory);
+	if fProject.Options.ObjectOutput <> '' then
+		if not DirectoryExists(fProject.Options.ObjectOutput) then
+			MkDir(fProject.Options.ObjectOutput);
+
 	Objects := '';
-	for i:= 0 to Pred(fProject.Units.Count) do begin
-		if GetFileTyp(fProject.Units[i].FileName) = utResSrc then
+
+	// Create a list of object files
+	for i := 0 to Pred(fProject.Units.Count) do begin
+
+		if not fProject.Units[i].Compile and not fProject.Units[i].Link then
 			Continue;
 
-		if (not fProject.Units[i].Compile) and (not fProject.Units[i].Link) then
-			Continue;
-
+		// Only process source files
 		tfile := ExtractRelativePath(fProject.FileName,fProject.Units[i].FileName);
-		if not (GetFileTyp(tfile) in [utcHead,utcppHead]) then begin
+		if not (GetFileTyp(tfile) in [utcHead,utcppHead,utResSrc]) then begin
 			if fProject.Options.ObjectOutput <> '' then begin
-				SetPath(fProject.Directory);
-				if not DirectoryExists(fProject.Options.ObjectOutput) then
-					MkDir(fProject.Options.ObjectOutput);
+
+				// ofile = C:\MyProgram\obj\main.o
 				ofile := IncludeTrailingPathDelimiter(fProject.Options.ObjectOutput)+ExtractFileName(fProject.Units[i].FileName);
 				ofile := GenMakePath(ExtractRelativePath(fProject.FileName, ChangeFileExt(ofile, OBJ_EXT)), True, True);
-				Objects := Format(cAppendStr, [Objects, ofile]);
+				Objects := Objects + ' ' + ofile;
+
 				if fProject.Units[i].Link then
-					LinkObjects := Format(cAppendStr, [LinkObjects, ofile]);
+					LinkObjects := LinkObjects + ' ' + ofile;
 			end else begin
-				Objects := Format(cAppendStr, [Objects,GenMakePath(ChangeFileExt(tfile, OBJ_EXT), True, True)]);
+				Objects := Objects + ' ' + GenMakePath(ChangeFileExt(tfile, OBJ_EXT), True, True);
 				if fProject.Units[i].Link then
-					LinkObjects := Format(cAppendStr, [LinkObjects, GenMakePath1(ChangeFileExt(tfile, OBJ_EXT))]);
+					LinkObjects := LinkObjects + ' ' + GenMakePath1(ChangeFileExt(tfile, OBJ_EXT));
 			end;
 		end;
 	end;
@@ -221,9 +218,6 @@ begin
 		ObjResFile := ''
 	else begin
 		if fProject.Options.ObjectOutput<>'' then begin
-			SetPath(fProject.Directory);
-			if not DirectoryExists(fProject.Options.ObjectOutput) then
-				MkDir(fProject.Options.ObjectOutput);
 			ObjResFile := IncludeTrailingPathDelimiter(fProject.Options.ObjectOutput)+ChangeFileExt(fProject.Options.PrivateResource, RES_EXT);
 			ObjResFile := GenMakePath1(ExtractRelativePath(fProject.FileName, ObjResFile));
 		end else
@@ -240,18 +234,18 @@ begin
 	else
 		Comp_Prog:= GCC_PROGRAM;
 
-	if devCompiler.FindOption('-g3', opt, idx) then
-		if (fProject.Options.CompilerOptions <> '') and (fProject.Options.CompilerOptions[idx+1]='1') then begin
-			Comp_ProgCpp:=Comp_ProgCpp+' -D__DEBUG__';
-			Comp_Prog:=Comp_Prog+' -D__DEBUG__';
-		end;
-
 	GetCompileParams;
 	GetLibrariesParams;
 	GetIncludesParams;
 
-	fMakefile := fProject.Directory + DEV_MAKE_FILE;
-	DoLogEntry('Building Makefile "'+fMakefile +'"');
+	// Include special debugging definition
+	if (Pos(' -g3',fCompileParams) > 0) then begin
+		Comp_ProgCpp := Comp_ProgCpp+' -D__DEBUG__';
+		Comp_Prog := Comp_Prog+' -D__DEBUG__';
+	end;
+
+	fMakefile := fProject.Directory + 'Makefile.win';
+	DoLogEntry('Building Makefile "' + fMakefile + '"');
 	Assignfile(F, fMakefile);
 	try
 		Rewrite(F);
@@ -279,14 +273,14 @@ begin
 		writeln(F, 'WINDRES  = ' + WINDRES_PROGRAM);
 	if(ObjResFile <> '') then
 		writeln(F, 'RES      = ' + ObjResFile);
-	writeln(F, 'OBJ      ='  + Objects     + ' $(RES)');
-	writeln(F, 'LINKOBJ  ='  + LinkObjects + ' $(RES)');
-	tmp:=StringReplace(fLibrariesParams, '\', '/', [rfReplaceAll]);
-	writeln(F, 'LIBS     ='  + tmp);
-	tmp:=StringReplace(fIncludesParams, '\', '/', [rfReplaceAll]);
-	writeln(F, 'INCS     ='  + tmp);
-	tmp:=StringReplace(fCppIncludesParams, '\', '/', [rfReplaceAll]);
-	writeln(F, 'CXXINCS  ='  + tmp);
+	writeln(F, 'OBJ      =' + Objects     + ' $(RES)');
+	writeln(F, 'LINKOBJ  =' + LinkObjects + ' $(RES)');
+	tmp := StringReplace(fLibrariesParams, '\', '/', [rfReplaceAll]);
+	writeln(F, 'LIBS     =' + tmp);
+	tmp := StringReplace(fIncludesParams, '\', '/', [rfReplaceAll]);
+	writeln(F, 'INCS     =' + tmp);
+	tmp := StringReplace(fCppIncludesParams, '\', '/', [rfReplaceAll]);
+	writeln(F, 'CXXINCS  =' + tmp);
 	writeln(F, 'BIN      = ' + GenMakePath1(ExtractRelativePath(Makefile, fProject.Executable)));
 
 	writeln(F, 'CXXFLAGS = $(CXXINCS) ' + fCppCompileParams);
@@ -333,7 +327,7 @@ begin
 	Cmd := GppStr + ' -MM ' + Includes +' '+ GenMakePath2(ExtractRelativePath(Makefile, TheFile));
 	Output := RunAndGetOutput(Cmd, ExtractFileDir(Makefile), nil, nil, nil, True);
 
-	if (Length(Output)>0) then begin
+	if Length(Output) > 0 then begin
 		if (Output[Length(Output)]<>'0') then begin
 			// There are error messages
 			Result := '';
@@ -495,7 +489,8 @@ begin
 end;
 
 procedure TCompiler.CreateDynamicMakefile;
-var F : TextFile;
+var
+	F : TextFile;
 	pfile,tfile: AnsiString;
 begin
 	if not NewMakeFile(F) then
@@ -529,55 +524,52 @@ begin
 end;
 
 procedure TCompiler.GetCompileParams;
-	procedure AppendStr(var s: AnsiString; value: AnsiString);
-	begin
-		s:= s + ' ' + value;
-	end;
 var
 	I, val: integer;
+	option : TCompilerOption;
 begin
-	{ Check user's compiler options }
 	with devCompiler do begin
 		fCompileParams := '';
 		fCppCompileParams := '';
-		fUserParams := '';
 
-		if Assigned(fProject) then begin
-			fCppCompileParams := StringReplace(fProject.Options.cmdlines.CppCompiler, '_@@_', ' ', [rfReplaceAll]);
-			fCompileParams := StringReplace(fProject.Options.cmdlines.Compiler, '_@@_', ' ', [rfReplaceAll]);
+		if Assigned(fProject) and (fTarget = ctProject) and (Length(fProject.Options.cmdlines.Compiler) > 0) then begin
+			fCppCompileParams := TrimRight(StringReplace(fProject.Options.cmdlines.CppCompiler, '_@@_', ' ', [rfReplaceAll]));
+			fCompileParams := TrimRight(StringReplace(fProject.Options.cmdlines.Compiler, '_@@_', ' ', [rfReplaceAll]));
 		end;
 
-		if (devCompilerSet.CompOpts <> '') and devCompilerSet.AddtoComp then
-			AppendStr(fUserParams, devCompilerSet.CompOpts);
+		if (Length(devCompiler.CompOpts) > 0) and devCompiler.AddtoComp then begin
+			fCompileParams := fCompileParams + ' ' + devCompiler.CompOpts;
+			fCppCompileParams := fCppCompileParams + ' ' + devCompiler.CompOpts;
+		end;
 
-		AppendStr(fCompileParams, fUserParams);
-		AppendStr(fCppCompileParams, fUserParams);
+		for I := 0 to devCompiler.fOptionList.Count - 1 do begin
 
-		for I := 0 to devCompiler.OptionsCount - 1 do begin
+			option := PCompilerOption(devCompiler.fOptionList[I])^;
+
 			// consider project specific options for the compiler, else global compiler options
-			if (Assigned(fProject) and (I<Length(fProject.Options.CompilerOptions)) and not (fProject.Options.typ in devCompiler.Options[I].optExcludeFromTypes)) or (not Assigned(fProject) and (devCompiler.Options[I].optValue > 0)) then begin
-				if devCompiler.Options[I].optIsC then begin
-					if Assigned(devCompiler.Options[I].optChoices) then begin
+			if (Assigned(fProject) and (I<Length(fProject.Options.CompilerOptions))) or (not Assigned(fProject) and (option.optValue > 0)) then begin
+				if option.optIsC then begin
+					if Assigned(option.optChoices) then begin
 						if Assigned(fProject) then
-							val := devCompiler.ConvertCharToValue(fProject.Options.CompilerOptions[I+1])
+							val := devCompiler.CharToValue(fProject.Options.CompilerOptions[I+1])
 						else
-							val := devCompiler.Options[I].optValue;
-						if (val > 0) and (val < devCompiler.Options[I].optChoices.Count) then
-							AppendStr(fCompileParams, devCompiler.Options[I].optSetting + devCompiler.Options[I].optChoices.Values[devCompiler.Options[I].optChoices.Names[val]]);
+							val := option.optValue;
+						if (val > 0) and (val < option.optChoices.Count) then
+							fCompileParams := fCompileParams + ' ' + option.optSetting + option.optChoices.Values[option.optChoices.Names[val]];
 					end else if (Assigned(fProject) and (StrToIntDef(fProject.Options.CompilerOptions[I+1], 0)=1)) or (not Assigned(fProject)) then begin
-						AppendStr(fCompileParams, devCompiler.Options[I].optSetting);
+						fCompileParams := fCompileParams + ' ' + option.optSetting;
 					end;
 				end;
-				if devCompiler.Options[I].optIsCpp then begin
-					if Assigned(devCompiler.Options[I].optChoices) then begin
+				if option.optIsCpp then begin
+					if Assigned(option.optChoices) then begin
 						if Assigned(fProject) then
-							val := devCompiler.ConvertCharToValue(fProject.Options.CompilerOptions[I+1])
+							val := devCompiler.CharToValue(fProject.Options.CompilerOptions[I+1])
 						else
-							val := devCompiler.Options[I].optValue;
-						if (val > 0) and (val < devCompiler.Options[I].optChoices.Count) then
-							AppendStr(fCppCompileParams, devCompiler.Options[I].optSetting + devCompiler.Options[I].optChoices.Values[devCompiler.Options[I].optChoices.Names[val]]);
+							val := option.optValue;
+						if (val > 0) and (val < option.optChoices.Count) then
+							fCppCompileParams := fCppCompileParams + ' ' + option.optSetting + option.optChoices.Values[option.optChoices.Names[val]];
 					end else if (Assigned(fProject) and (StrToIntDef(fProject.Options.CompilerOptions[I+1], 0)=1)) or (not Assigned(fProject)) then begin
-						AppendStr(fCppCompileParams, devCompiler.Options[I].optSetting);
+						fCppCompileParams := fCppCompileParams + ' ' + option.optSetting;
 					end;
 				end;
 			end;
@@ -617,20 +609,20 @@ begin
 
 	InitProgressForm('Compiling...');
 
-	DoLogEntry(Format('%s: %s', [Lang[ID_COPT_COMPTAB], devCompilerSet.SetName(devCompiler.CompilerSet)]));
+	DoLogEntry(Format('%s: %s', [Lang[ID_COPT_COMPTAB], devCompiler.Sets[devCompiler.CurrentIndex]]));
 
-	GetCompileParams;
-	GetLibrariesParams;
-	GetIncludesParams;
+	// Done by buildmakefile
+	if not Assigned(fProject) then begin
+		GetCompileParams;
+		GetLibrariesParams;
+		GetIncludesParams;
+	end;
 
 	if fTarget = ctProject then begin
 		BuildMakeFile;
 
 		if SingleFile <> '' then begin
 			if fProject.Options.ObjectOutput<>'' then begin
-				SetPath(fProject.Directory);
-				if not DirectoryExists(fProject.Options.ObjectOutput) then
-					MkDir(fProject.Options.ObjectOutput);
 				ofile := IncludeTrailingPathDelimiter(fProject.Options.ObjectOutput)+ExtractFileName(SingleFile);
 				ofile := GenMakePath1(ExtractRelativePath(fProject.FileName, ChangeFileExt(ofile, OBJ_EXT)));
 			end else
@@ -761,20 +753,18 @@ const
 	cCleanLine = '%s clean -f "%s"';
 	cmsg = ' make clean';
 var
-	cmdLine	: AnsiString;
-	s 		: AnsiString;
-	cs		: integer;
+	cmdLine,s : AnsiString;
 begin
 	fSingleFile:=True; // fool clean; don't run deps checking since all we do is cleaning
 	
-	if Project <> nil then begin
-		cs:=SwitchToProjectCompilerSet;
-		DoLogEntry(Format('%s: %s', [Lang[ID_COPT_COMPTAB], devCompilerSet.SetName(devCompiler.CompilerSet)]));
+	if Assigned(fProject) then begin
+		SwitchToProjectCompilerSet;
+		DoLogEntry(Format('%s: %s', [Lang[ID_COPT_COMPTAB], devCompiler.Sets[devCompiler.CurrentIndex]]));
 		Result := True;
 		InitProgressForm('Cleaning...');
 		BuildMakeFile;
 		if not FileExists(fMakefile) then begin
-			SwitchToOriginalCompilerSet(cs);
+			SwitchToOriginalCompilerSet;
 			DoLogEntry(Lang[ID_ERR_NOMAKEFILE]);
 			DoLogEntry(Lang[ID_ERR_CLEANFAILED]);
 			MessageBox(Application.MainForm.Handle,PAnsiChar(Lang[ID_ERR_NOMAKEFILE]),PAnsiChar(Lang[ID_ERROR]), MB_OK or MB_ICONHAND);
@@ -798,24 +788,23 @@ const
 	cCleanLine = '%s -f "%s" clean all';
 	cmsg = ' make clean';
 var
-	cmdLine	: AnsiString;
-	s		: AnsiString;
-	cs		: integer;
+	cmdLine,s : AnsiString;
 begin
-	fSingleFile:=True; // fool rebuild; don't run deps checking since all files will be rebuilt
+	fSingleFile := True; // fool rebuild; don't run deps checking since all files will be rebuilt
 	Result := True;
-	cs:=SwitchToProjectCompilerSet;
 
-	InitProgressForm('Rebuilding...');
-	if Project <> nil then begin
+	if Assigned(Project) then begin
 
-		DoLogEntry(Format('%s: %s', [Lang[ID_COPT_COMPTAB], devCompilerSet.SetName(devCompiler.CompilerSet)]));
+		SwitchToProjectCompilerSet;
+		InitProgressForm('Rebuilding...');
+
+		DoLogEntry(Format('%s: %s', [Lang[ID_COPT_COMPTAB], devCompiler.Sets[devCompiler.CurrentIndex]]));
 		BuildMakeFile;
 		if not FileExists(fMakefile) then begin
-			SwitchToOriginalCompilerSet(cs);
+			SwitchToOriginalCompilerSet;
 			DoLogEntry(Lang[ID_ERR_NOMAKEFILE]);
 			DoLogEntry(Lang[ID_ERR_CLEANFAILED]);
-			MessageBox(Application.MainForm.Handle,PAnsiChar(Lang[ID_ERR_NOMAKEFILE]),PAnsiChar(Lang[ID_ERROR]), MB_OK or MB_ICONERROR);
+			MessageBox(Application.Handle,PAnsiChar(Lang[ID_ERR_NOMAKEFILE]),PAnsiChar(Lang[ID_ERROR]), MB_OK or MB_ICONERROR);
 			Result := False;
 			Exit;
 		end;
@@ -828,10 +817,8 @@ begin
 			s := MAKE_PROGRAM;
 		cmdLine:= Format(cCleanLine, [s, fMakeFile]);
 		LaunchThread(cmdLine, fProject.Directory);
-	end else begin
+	end else
 		Compile;
-		Result := True;
-	end;
 end;
 
 procedure TCompiler.LaunchThread(const s, dir : AnsiString);
@@ -890,7 +877,7 @@ begin
 		end;
 	end else if fAbortThread then
 		DoLogEntry(Lang[ID_COMPILEABORT]);
-	SwitchToOriginalCompilerSet(fOriginalSet);
+	SwitchToOriginalCompilerSet;
 end;
 
 procedure TCompiler.OnLineOutput(Sender: TObject; const Line: AnsiString);
@@ -967,8 +954,8 @@ begin
 	end;
 
 	// Make errors
-	if (Pos(devCompilerSet.makeName + ': ***', LowerLine) > 0) and (Pos('Clock skew detected. Your build may be incomplete',Line) <= 0) then begin
-		cpos := Length(devCompilerSet.makeName + ': ***');
+	if (Pos(devCompiler.makeName + ': ***', LowerLine) > 0) and (Pos('Clock skew detected. Your build may be incomplete',Line) <= 0) then begin
+		cpos := Length(devCompiler.makeName + ': ***');
 		O_Msg := '[Error] ' + Copy(Line, cpos + 2, Length(Line) - cpos - 1);
 		if Assigned(fProject) then
 			O_File := Makefile
@@ -1359,13 +1346,16 @@ resourcestring
 	cAppendStr = '%s -L"%s"';
 var
 	i, val : integer;
+	option : TCompilerOption;
 begin
-	fLibrariesParams := '';
-	fLibrariesParams := CommaStrToStr(devDirs.lib, cAppendStr);
+	// Add libraries
+	fLibrariesParams := CommaStrToStr(devCompiler.LibDir, cAppendStr);
 
-	//RNC
-	if (devCompilerSet.LinkOpts <> '') and devCompilerSet.AddtoLink then
-		fLibrariesParams := fLibrariesParams + ' ' + devCompilerSet.LinkOpts;
+	// Add global compiler linker extras
+	if devCompiler.AddtoLink and (Length(devCompiler.LinkOpts) > 0) then
+		fLibrariesParams := fLibrariesParams + ' ' + devCompiler.LinkOpts;
+
+	// Add libs added via project
 	if (fTarget = ctProject) and assigned(fProject) then begin
 		for i := 0 to pred(fProject.Options.Libs.Count) do
 			fLibrariesParams := format(cAppendStr, [fLibrariesParams, fProject.Options.Libs[i]]);
@@ -1373,46 +1363,45 @@ begin
 		// got sick of "symbol 'blah blah' is deprecated"
 		if fProject.Options.typ = dptGUI then
 			fLibrariesParams:= fLibrariesParams + ' -mwindows';
-		fLibrariesParams:= fLibrariesParams + ' ' +StringReplace(fProject.Options.cmdLines.Linker, '_@@_', ' ', [rfReplaceAll]);
+
+		// Add project compiler linker extras
+		if Length(fProject.Options.cmdLines.Linker) > 0 then
+			fLibrariesParams := fLibrariesParams + ' ' + StringReplace(fProject.Options.cmdLines.Linker, '_@@_', ' ', [rfReplaceAll])
 	end;
 
-	if (pos(' -pg', fCompileParams) <>  0){ and (pos('-lgmon', fLibrariesParams) = 0)} then
-		fLibrariesParams :=  ' -pg' + fLibrariesParams; // ' -lgmon -pg '
-
-	fLibrariesParams := fLibrariesParams + ' ';
-	for I := 0 to devCompiler.OptionsCount - 1 do
-		if (Assigned(fProject) and (I<Length(fProject.Options.CompilerOptions)) and not (fProject.Options.typ in devCompiler.Options[I].optExcludeFromTypes)) or (not Assigned(fProject) and (devCompiler.Options[I].optValue > 0)) then begin
-			if devCompiler.Options[I].optIsLinker then
-				if Assigned(devCompiler.Options[I].optChoices) then begin
+	// Add project settings that need to be passed to the linker
+	for I := 0 to devCompiler.fOptionList.Count - 1 do begin
+		option := PCompilerOption(devCompiler.fOptionList[I])^;
+		if (Assigned(fProject) and (I<Length(fProject.Options.CompilerOptions))) or (not Assigned(fProject) and (option.optValue > 0)) then begin
+			if option.optIsLinker then
+				if Assigned(option.optChoices) then begin
 					if Assigned(fProject) then
-						val := devCompiler.ConvertCharToValue(fProject.Options.CompilerOptions[I+1])
+						val := devCompiler.CharToValue(fProject.Options.CompilerOptions[I+1])
 					else
-						val := devCompiler.Options[I].optValue;
-					if (val > 0) and (val < devCompiler.Options[I].optChoices.Count) then
-						fLibrariesParams := fLibrariesParams + devCompiler.Options[I].optSetting + devCompiler.Options[I].optChoices.Values[devCompiler.Options[I].optChoices.Names[val]] + ' ';
+						val := option.optValue;
+					if (val > 0) and (val < option.optChoices.Count) then
+						fLibrariesParams := fLibrariesParams + ' ' + option.optSetting + option.optChoices.Values[option.optChoices.Names[val]];
 				end else if (Assigned(fProject) and (StrToIntDef(fProject.Options.CompilerOptions[I+1], 0)=1)) or (not Assigned(fProject)) then
-					fLibrariesParams := fLibrariesParams + devCompiler.Options[I].optSetting + ' ';
+					fLibrariesParams := fLibrariesParams + ' ' + option.optSetting;
 		end;
+	end;
 end;
 
 procedure TCompiler.GetIncludesParams;
 resourcestring
- cAppendStr = '%s -I"%s" ';
+	cAppendStr = '%s -I"%s"';
 var
- i : integer;
+	i : integer;
 begin
-	fIncludesParams := '';
-	fCppIncludesParams := '';
-
-	fIncludesParams := CommaStrToStr(devDirs.C, cAppendStr);
-	fCppIncludesParams := CommaStrToStr(devDirs.Cpp, cAppendStr);
+	fIncludesParams := CommaStrToStr(devCompiler.CDir, cAppendStr);
+	fCppIncludesParams := CommaStrToStr(devCompiler.CppDir, cAppendStr);
 
 	if (fTarget = ctProject) and assigned(fProject) then
 		for i := 0 to pred(fProject.Options.Includes.Count) do
-			if directoryExists(fProject.Options.Includes[i]) then begin
-			fIncludesParams := format(cAppendStr, [fIncludesParams, fProject.Options.Includes[i]]);
-			fCppIncludesParams := format(cAppendStr, [fCppIncludesParams, fProject.Options.Includes[i]]);
-		end;
+			if DirectoryExists(fProject.Options.Includes[i]) then begin
+				fIncludesParams := format(cAppendStr, [fIncludesParams, fProject.Options.Includes[i]]);
+				fCppIncludesParams := format(cAppendStr, [fCppIncludesParams, fProject.Options.Includes[i]]);
+			end;
 end;
 
 function TCompiler.GetCompiling: Boolean;
@@ -1420,33 +1409,17 @@ begin
 	Result := fDevRun <> nil;
 end;
 
-procedure TCompiler.SwitchToOriginalCompilerSet(Index: integer);
+procedure TCompiler.SwitchToOriginalCompilerSet;
 begin
-	if not Assigned(fProject) then
-		Exit;
-
-	if Index = devCompiler.CompilerSet then
-		Exit;
-
-	devCompilerSet.LoadSet(Index);
-	devCompilerSet.AssignToCompiler;
-	devCompiler.CompilerSet:=Index;
+	if Assigned(fProject) and (devCompiler.CurrentIndex <> fOriginalSet) then
+		devCompiler.LoadSet(fOriginalSet);
 end;
 
-function TCompiler.SwitchToProjectCompilerSet: integer;
+procedure TCompiler.SwitchToProjectCompilerSet;
 begin
-	fOriginalSet :=devCompiler.CompilerSet;
-	result := 0;
-
-	if not Assigned(fProject) then
-		Exit;
-
-	if devCompiler.CompilerSet = fProject.Options.CompilerSet then
-		Exit;
-
-	devCompilerSet.LoadSet(fProject.Options.CompilerSet);
-	devCompilerSet.AssignToCompiler;
-	devCompiler.CompilerSet:=fProject.Options.CompilerSet;
+	fOriginalSet := devCompiler.CurrentIndex;
+	if Assigned(fProject) and (devCompiler.CurrentIndex <> fProject.Options.CompilerSet) then
+		devCompiler.LoadSet(fProject.Options.CompilerSet);
 end;
 
 procedure TCompiler.InitProgressForm(const Status: AnsiString);
@@ -1460,11 +1433,11 @@ begin
 	with CompileProgressForm do begin
 
 		memoMiniLog.Lines.Clear;
-		memoMiniLog.Lines.Add(Format('%s: %s', [Lang[ID_COPT_COMPTAB], devCompilerSet.SetName(devCompiler.CompilerSet)]));
+		memoMiniLog.Lines.Add(Format('%s: %s', [Lang[ID_COPT_COMPTAB], devCompiler.Sets[devCompiler.CurrentIndex]]));
 
 		btnClose.OnClick:=OnAbortCompile;
 
-		lblCompiler.Caption:=devCompilerSet.SetName(devCompiler.CompilerSet);
+		lblCompiler.Caption:=devCompiler.Sets[devCompiler.CurrentIndex];
 		lblStatus.Caption:=Status;
 		lblStatus.Font.Style:=[];
 

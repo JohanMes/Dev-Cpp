@@ -1,6 +1,6 @@
 object EnviroForm: TEnviroForm
-  Left = 1045
-  Top = 298
+  Left = 528
+  Top = 317
   BorderStyle = bsDialog
   Caption = 'Environment Options'
   ClientHeight = 462
@@ -13,6 +13,7 @@ object EnviroForm: TEnviroForm
   Font.Style = []
   OldCreateOrder = False
   Position = poOwnerFormCenter
+  OnClose = FormClose
   OnCreate = FormCreate
   OnShow = FormShow
   DesignSize = (
@@ -94,7 +95,7 @@ object EnviroForm: TEnviroForm
         Caption = 'Max Files in History List:'
       end
       object lblMsgTabs: TLabel
-        Left = 312
+        Left = 302
         Top = 62
         Width = 160
         Height = 15
@@ -102,7 +103,7 @@ object EnviroForm: TEnviroForm
         Caption = 'Editor Tab Location:'
       end
       object lblLang: TLabel
-        Left = 312
+        Left = 302
         Top = 110
         Width = 160
         Height = 15
@@ -110,7 +111,7 @@ object EnviroForm: TEnviroForm
         Caption = 'Language'
       end
       object lblTheme: TLabel
-        Left = 312
+        Left = 302
         Top = 158
         Width = 160
         Height = 13
@@ -205,9 +206,9 @@ object EnviroForm: TEnviroForm
       end
       object gbDebugger: TGroupBox
         Left = 15
-        Top = 223
+        Top = 240
         Width = 215
-        Height = 70
+        Height = 53
         Caption = '  Debug Variable Browser  '
         TabOrder = 7
         object cbWatchHint: TCheckBox
@@ -217,14 +218,6 @@ object EnviroForm: TEnviroForm
           Height = 17
           Caption = 'Watch variable under mouse'
           TabOrder = 0
-        end
-        object cbWatchError: TCheckBox
-          Left = 14
-          Top = 43
-          Width = 170
-          Height = 17
-          Caption = 'Report watch errors'
-          TabOrder = 1
         end
       end
       object cbNoSplashScreen: TCheckBox
@@ -271,9 +264,9 @@ object EnviroForm: TEnviroForm
         Value = 0
       end
       object cboTabsTop: TComboBox
-        Left = 312
+        Left = 302
         Top = 80
-        Width = 147
+        Width = 160
         Height = 23
         Style = csDropDownList
         ItemHeight = 15
@@ -285,18 +278,18 @@ object EnviroForm: TEnviroForm
           'Right')
       end
       object cboLang: TComboBox
-        Left = 312
+        Left = 302
         Top = 128
-        Width = 147
+        Width = 160
         Height = 23
         Style = csDropDownList
         ItemHeight = 15
         TabOrder = 12
       end
       object cboTheme: TComboBox
-        Left = 312
+        Left = 302
         Top = 176
-        Width = 147
+        Width = 160
         Height = 23
         Style = csDropDownList
         ItemHeight = 15

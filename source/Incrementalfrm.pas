@@ -17,7 +17,6 @@
     Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 }
 
-(* derived from the free pascal editor project source *)
 unit IncrementalFrm;
 
 interface
@@ -25,7 +24,7 @@ interface
 uses
 {$IFDEF WIN32}
   Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
-  StdCtrls, ActnList, SynEdit, SynEditTypes;
+  StdCtrls, ActnList, SynEdit, SynEditTypes, SynEditSearch, ExtCtrls, Menus;
 {$ENDIF}
 {$IFDEF LINUX}
   SysUtils, Classes, QGraphics, QControls, QForms, QDialogs,
@@ -37,20 +36,38 @@ type
     Edit: TEdit;
     btnPrev: TButton;
     btnNext: TButton;
+    IncrementalPop: TPopupMenu;
+    IncrementalCut: TMenuItem;
+    IncrementalCopy: TMenuItem;
+    IncrementalPaste: TMenuItem;
+    IncrementalSelAll: TMenuItem;
+    IncrementalUndo: TMenuItem;
+    N1: TMenuItem;
+    N2: TMenuItem;
     procedure EditChange(Sender: TObject);
-    procedure FormShow(Sender: TObject);
-    procedure EditKeyPress(Sender: TObject; var Key: Char);
-    procedure EditKeyDown(Sender: TObject; var Key: Word;Shift: TShiftState);
     procedure btnPrevClick(Sender: TObject);
     procedure btnNextClick(Sender: TObject);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+    procedure FormCreate(Sender: TObject);
+    procedure FormShow(Sender: TObject);
+    procedure FormKeyPress(Sender: TObject; var Key: Char);
+    procedure IncrementalCutClick(Sender: TObject);
+    procedure IncrementalCopyClick(Sender: TObject);
+    procedure IncrementalPasteClick(Sender: TObject);
+    procedure IncrementalSelAllClick(Sender: TObject);
+    procedure IncrementalUndoClick(Sender: TObject);
   public
-    SearchString : AnsiString;
-    Editor       : TSynEdit;
-    OrgPt        : TBufferCoord;
-    lastcommand  : integer;
+    Editor : TSynEdit;
+    OrgPt : TBufferCoord;
   private
-    rOptions : TSynSearchOptions;
+    fOptions : TSynSearchOptions;
+    fSearchEngine : TSynEditSearch;
+    fOriginalColor : TColor;
+    procedure DoSearch;
   end;
+
+var
+	frmIncremental : TFrmIncremental = nil;
 
 implementation
 
@@ -58,91 +75,124 @@ implementation
 
 uses
 {$IFDEF WIN32}
-  main;
+  main, MultilangSupport;
 {$ENDIF}
 {$IFDEF LINUX}
   Xlib, main;
 {$ENDIF}
 
+procedure TfrmIncremental.DoSearch;
+begin
+	// When the editor changes, search forwards
+	if Editor.SearchReplace(Edit.Text,'',fOptions) = 0 then begin
+
+		// nothing found? wrap around
+		Include(fOptions, ssoEntireScope);
+		if Editor.SearchReplace(Edit.Text,'',fOptions) = 0 then
+			Edit.Color := clRed
+		else
+			Edit.Color := fOriginalColor;
+	end else
+		Edit.Color := fOriginalColor;
+end;
+
 procedure TfrmIncremental.EditChange(Sender: TObject);
 begin
-	if Editor.SelAvail then
-		Editor.CaretX := Editor.CaretX - Editor.SelLength;
+	if Length(Edit.Text) > 0 then begin
+		fOptions := [];
 
-	// Als we niks vinden...
-	if Editor.SearchReplace(Edit.Text,'',rOptions) = 0 then begin
+		// Stick with the same word when query changes
+		if Editor.SelAvail then
+			Editor.CaretX := Editor.BlockBegin.Char;
 
-		// Zoek dan achterstevoren
-		Include(rOptions, ssoBackwards);
-		Editor.CaretX := Editor.CaretX + Editor.SelLength;
+		DoSearch;
+	end else begin
 
-		// Nog steeds niks? Kleurtje geven
-		if Editor.SearchReplace(Edit.Text,'',rOptions) = 0 then
-			Edit.Font.Color:=clRed
-		else
-			Edit.Font.Color:=clBlack;
-	end else
-		Edit.Font.Color:=clBlack;
-
-	rOptions := [];
-	if Length(Edit.Text) = 0 then begin
-		Editor.BlockBegin := OrgPt;
-		Editor.BlockEnd   := OrgPt;
-		Editor.CaretXY    := OrgPt;
+		// Remove previous find
+		Editor.BlockBegin := Editor.BlockEnd;
 	end;
-end;
-
-procedure TfrmIncremental.FormShow(Sender: TObject);
-begin
-	SearchString := Edit.Text;
-	Edit.Text    := '';
-	OrgPt        := Editor.CaretXY;
-	lastcommand  := 2;
-end;
-
-procedure TfrmIncremental.EditKeyPress(Sender: TObject; var Key: Char);
-begin
-	if Key = #27 then Close; // Escape
-end;
-
-procedure TfrmIncremental.EditKeyDown(Sender: TObject; var Key: Word;Shift: TShiftState);
-begin
-  case Key of
-{$IFDEF WIN32}
-    VK_LEFT, VK_RIGHT, VK_UP, VK_DOWN : Close;
-{$ENDIF}
-{$IFDEF LINUX}
-    XK_LEFT, XK_RIGHT, XK_UP, XK_DOWN : Close;
-{$ENDIF}
-  end;
 end;
 
 procedure TfrmIncremental.btnPrevClick(Sender: TObject);
 begin
-	Include(rOptions,ssoBackWards);
-	if lastcommand = 1 then
-		Editor.SearchReplace(Edit.Text,'',rOptions);
-	if Editor.SearchReplace(Edit.Text,'',rOptions) = 0 then begin
-		Include(rOptions,ssoEntireScope);
-		if Editor.SearchReplace(Edit.Text,'',rOptions) = 0 then
-			Edit.Font.Color:=clRed;
+	if Length(Edit.Text) > 0 then begin
+		// Step over current word
+		if Editor.SelAvail then
+			Editor.CaretX := Editor.BlockBegin.Char;
+
+		fOptions := [ssoBackWards];
+		DoSearch;
 	end;
-	Exclude(rOptions,ssoEntireScope);
-	lastcommand:=0; // 0 == prev
 end;
 
 procedure TfrmIncremental.btnNextClick(Sender: TObject);
 begin
-	Exclude(rOptions,ssoBackWards);
-	if lastcommand = 0 then
-		Editor.SearchReplace(Edit.Text,'',rOptions);
-	if Editor.SearchReplace(Edit.Text,'',rOptions) = 0 then begin
-		Include(rOptions,ssoEntireScope);
-		if Editor.SearchReplace(Edit.Text,'',rOptions) = 0 then
-			Edit.Font.Color:=clRed;
+	if Length(Edit.Text) > 0 then begin
+		// Step over current word
+		if Editor.SelAvail then
+			Editor.CaretX := Editor.BlockEnd.Char;
+
+		fOptions := [];
+		DoSearch;
 	end;
-	Exclude(rOptions,ssoEntireScope);
-	lastcommand:=1; // 1 == next
+end;
+
+procedure TfrmIncremental.FormClose(Sender: TObject;var Action: TCloseAction);
+begin
+	fSearchEngine.Free;
+	Action := caFree;
+	frmIncremental := nil;
+end;
+
+procedure TfrmIncremental.FormCreate(Sender: TObject);
+begin
+	fSearchEngine := TSynEditSearch.Create(Self);
+
+	IncrementalUndo.Caption := Lang[ID_ITEM_UNDO];
+	IncrementalCut.Caption := Lang[ID_ITEM_CUT];
+	IncrementalCopy.Caption := Lang[ID_ITEM_COPY];
+	IncrementalPaste.Caption := Lang[ID_ITEM_PASTE];
+	IncrementalSelAll.Caption := Lang[ID_ITEM_SELECTALL];
+end;
+
+procedure TfrmIncremental.FormShow(Sender: TObject);
+begin
+	editor.SearchEngine := fSearchEngine;
+	ActiveControl := Edit;
+	fOriginalColor := Edit.Color;
+end;
+
+procedure TfrmIncremental.FormKeyPress(Sender: TObject; var Key: Char);
+begin
+	if Key = #27 then begin // Esc
+		Key := #0; // Mute beep
+		Close;
+	end;
+end;
+
+procedure TfrmIncremental.IncrementalUndoClick(Sender: TObject);
+begin
+	Edit.Undo;
+end;
+
+procedure TfrmIncremental.IncrementalCutClick(Sender: TObject);
+begin
+	Edit.CutToClipboard;
+end;
+
+procedure TfrmIncremental.IncrementalCopyClick(Sender: TObject);
+begin
+	Edit.CopyToClipboard;
+end;
+
+procedure TfrmIncremental.IncrementalPasteClick(Sender: TObject);
+begin
+	Edit.PasteFromClipboard;
+end;
+
+procedure TfrmIncremental.IncrementalSelAllClick(Sender: TObject);
+begin
+	Edit.SelectAll;
 end;
 
 end.

@@ -53,7 +53,6 @@ type
     procedure FormDestroy(Sender: TObject);
     procedure TabsMainChange(Sender: TObject);
     procedure ProjViewDblClick(Sender: TObject);
-    procedure btnCancelClick(Sender: TObject);
     procedure btnHelpClick(Sender: TObject);
    private
     procedure AddTemplate(FileName: AnsiString);
@@ -84,7 +83,7 @@ begin
 	fTemplates:= TList.Create;
 	LoadText;
 	ReadTemplateIndex;
-	edProjectName.Text:= format(Lang[ID_NEWPROJECT], [dmMain.GetNumber]);
+	edProjectName.Text:= format(Lang[ID_NEWPROJECT], [dmMain.GetNewFileNumber]);
 end;
 
 procedure TNewProjectForm.FormDestroy(Sender: TObject);
@@ -208,8 +207,8 @@ var
 begin
 	for idx:= 0 to pred(fTemplates.Count) do begin
 		LTemplate:= TTemplate(fTemplates[idx]);
-		if not HasPage(LTemplate.Catagory) then
-			TabsMain.Tabs.Append(LTemplate.Catagory);
+		if not HasPage(LTemplate.Category) then
+			TabsMain.Tabs.Append(LTemplate.Category);
 	end;
 
 	// create current page
@@ -224,9 +223,9 @@ begin
 
 	for idx:= 0 to pred(fTemplates.Count) do begin
 		LTemplate:= TTemplate(fTemplates[idx]);
-		if LTemplate.Catagory = '' then
-			LTemplate.Catagory:= Lang[ID_NP_PRJSHEET];
-		if CompareText(LTemplate.Catagory, TabsMain.Tabs[TabsMain.TabIndex]) = 0 then begin
+		if LTemplate.Category = '' then
+			LTemplate.Category:= Lang[ID_NP_PRJSHEET];
+		if CompareText(LTemplate.Category, TabsMain.Tabs[TabsMain.TabIndex]) = 0 then begin
 			Item:= ProjView.Items.Add;
 			Item.Caption:= LTemplate.Name;
 			Item.Data:= pointer(idx);
@@ -256,11 +255,6 @@ end;
 procedure TNewProjectForm.ProjViewDblClick(Sender: TObject);
 begin
   ModalResult:= mrOk;
-end;
-
-procedure TNewProjectForm.btnCancelClick(Sender: TObject);
-begin
-  Dec(dmMain.fProjectCount);
 end;
 
 procedure TNewProjectForm.btnHelpClick(Sender: TObject);

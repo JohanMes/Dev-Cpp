@@ -55,7 +55,6 @@ type
     cbdblFiles: TCheckBox;
     gbDebugger: TGroupBox;
     cbWatchHint: TCheckBox;
-    cbWatchError: TCheckBox;
     cbNoSplashScreen: TCheckBox;
     gbProgress: TGroupBox;
     cbShowProgress: TCheckBox;
@@ -119,6 +118,7 @@ type
     procedure cbUIfontDrawItem(Control: TWinControl; Index: Integer; Rect: TRect; State: TOwnerDrawState);
     procedure cbUIfontsizeDrawItem(Control: TWinControl; Index: Integer; Rect: TRect; State: TOwnerDrawState);
     procedure cbUIfontsizeChange(Sender: TObject);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
   private
     procedure LoadText;
   end;
@@ -135,20 +135,11 @@ uses
 
 {$R *.dfm}
 
-const
- Help_Topics: array[0..5] of AnsiString =
-    ('EnviroOpt_General',
-     'EnviroOpt_Interface',
-     'EnviroOpt_FilesDirs',
-     'EnviroOpt_ExternalProgs',
-     'EnviroOpt_FilesAssocs',
-     'EnviroOpt_CVSSupport');
-
 procedure TEnviroForm.BrowseClick(Sender: TObject);
 var
  s: AnsiString;
 begin
-  case (Sender as TComponent).Tag of
+  case TComponent(Sender).Tag of
    1: // default dir browse
     begin
       s:= edUserDir.Text;
@@ -205,7 +196,7 @@ end;
 
 procedure TEnviroForm.FormShow(Sender: TObject);
 var
-	idx: integer;
+	idx,sel: integer;
 begin
 	with devData do begin
 		rgbAutoOpen.ItemIndex:= AutoOpen;
@@ -220,10 +211,14 @@ begin
 		seMRUMax.Value:= MRUMax;
 
 		// List the languages
+		cboLang.Items.BeginUpdate;
 		cboLang.Clear;
-		for idx:= 0 to pred(Lang.Langs.Count) do
-			cboLang.Items.append(Lang.Langs.Values[idx]);
-		cboLang.ItemIndex:= cboLang.Items.Indexof(Lang.CurrentLanguage);
+		for idx := 0 to Lang.Langs.Count - 1 do begin
+			sel := cboLang.Items.Add(Lang.Langs.ValueFromIndex[idx]);
+			if SameText(Lang.CurrentLanguage,cboLang.Items[sel]) then
+				cboLang.ItemIndex := idx;
+		end;
+		cboLang.Items.EndUpdate;
 
 		// List the themes
 		cboTheme.Items.Clear;
@@ -234,7 +229,6 @@ begin
 		cbAutoCloseProgress.Checked := AutoCloseProgress;
 
 		cbWatchHint.Checked := WatchHint;
-		cbWatchError.Checked := WatchError;
 
 		cboTabsTop.ItemIndex:= msgTabs;
 
@@ -320,7 +314,6 @@ begin
 		ShowProgress := cbShowProgress.Checked;
 		AutoCloseProgress := cbAutoCloseProgress.Checked;
 		WatchHint := cbWatchHint.Checked;
-		WatchError := cbWatchError.Checked;
 		InterfaceFont := cbUIFont.Text;
 		InterfaceFontSize := strtoint(cbUIfontsize.Text);
 
@@ -397,7 +390,6 @@ begin
   cbAutoCloseProgress.Caption:=  Lang[ID_ENV_AUTOCLOSEPROGRESS];
 
   cbWatchHint.Caption :=         Lang[ID_ENV_WATCHHINT];
-  cbWatchError.Caption :=        Lang[ID_ENV_WATCHERROR];
   gbDebugger.Caption :=          ' '+Lang[ID_ENV_DEBUGGER]+' ';
 
   rgbAutoOpen.Caption:=          ' '+Lang[ID_ENV_AUTOOPEN]+' ';
@@ -501,12 +493,12 @@ end;
 
 procedure TEnviroForm.cvsdownloadlabelClick(Sender: TObject);
 begin
-	ShellExecute(GetDesktopWindow(), 'open', PAnsiChar((Sender as TLabel).Caption), nil, nil, SW_SHOWNORMAL);
+	ShellExecute(GetDesktopWindow(), 'open', PAnsiChar(TLabel(Sender).Caption), nil, nil, SW_SHOWNORMAL);
 end;
 
 procedure TEnviroForm.cbUIfontDrawItem(Control: TWinControl; Index: Integer; Rect: TRect; State: TOwnerDrawState);
 begin
-	with (Control as TComboBox) do begin
+	with TComboBox(Control) do begin
 		Canvas.Font.Name := Items.Strings[Index];
 		Canvas.Font.Size := strtoint(cbUIfontsize.Text);
 		Canvas.FillRect(Rect);
@@ -516,7 +508,7 @@ end;
 
 procedure TEnviroForm.cbUIfontsizeDrawItem(Control: TWinControl; Index: Integer; Rect: TRect; State: TOwnerDrawState);
 begin
-	with (Control as TComboBox) do begin
+	with TComboBox(Control) do begin
 		Canvas.Font.Name := cbUIfont.Text;
 		Canvas.Font.Size := strtoint(Items.Strings[Index]);
 		Canvas.FillRect(Rect);
@@ -527,6 +519,11 @@ end;
 procedure TEnviroForm.cbUIfontsizeChange(Sender: TObject);
 begin
 	cbUIfont.Repaint;
+end;
+
+procedure TEnviroForm.FormClose(Sender: TObject; var Action: TCloseAction);
+begin
+	Action := caFree;
 end;
 
 end.
