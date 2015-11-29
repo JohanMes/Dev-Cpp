@@ -18,7 +18,7 @@
 }
 
 {$WARN UNIT_PLATFORM OFF}
-unit Envirofrm;
+unit EnviroFrm;
 
 interface
 
@@ -57,7 +57,6 @@ type
     cbWatchHint: TCheckBox;
     cbWatchError: TCheckBox;
     cbNoSplashScreen: TCheckBox;
-    rgbOpenStyle: TRadioGroup;
     gbProgress: TGroupBox;
     cbShowProgress: TCheckBox;
     cbAutoCloseProgress: TCheckBox;
@@ -105,6 +104,7 @@ type
     cbUIfont: TComboBox;
     cvsdownloadlabel: TLabel;
     cbUIfontsize: TComboBox;
+    cbPauseConsole: TCheckBox;
     procedure BrowseClick(Sender: TObject);
     procedure btnOkClick(Sender: TObject);
     procedure FormShow(Sender: TObject);
@@ -116,9 +116,9 @@ type
     procedure btnExtDelClick(Sender: TObject);
     procedure chkAltConfigClick(Sender: TObject);
     procedure cvsdownloadlabelClick(Sender: TObject);
-    procedure cbUIfontSelect(Sender: TObject);
     procedure cbUIfontDrawItem(Control: TWinControl; Index: Integer; Rect: TRect; State: TOwnerDrawState);
     procedure cbUIfontsizeDrawItem(Control: TWinControl; Index: Integer; Rect: TRect; State: TOwnerDrawState);
+    procedure cbUIfontsizeChange(Sender: TObject);
   private
     procedure LoadText;
   end;
@@ -216,6 +216,7 @@ begin
 		cbMinOnRun.Checked:= MinOnRun;
 		cbdblFiles.Checked:= DblFiles;
 		cbNoSplashScreen.Checked:= NoSplashScreen;
+		cbPauseConsole.Checked:=ConsolePause;
 		seMRUMax.Value:= MRUMax;
 
 		// List the languages
@@ -223,7 +224,6 @@ begin
 		for idx:= 0 to pred(Lang.Langs.Count) do
 			cboLang.Items.append(Lang.Langs.Values[idx]);
 		cboLang.ItemIndex:= cboLang.Items.Indexof(Lang.CurrentLanguage);
-		rgbOpenStyle.ItemIndex:= OpenStyle;
 
 		// List the themes
 		cboTheme.Items.Clear;
@@ -262,13 +262,15 @@ begin
 		spnCVSCompression.Value:= devCVSHandler.Compression;
 		chkCVSUseSSH.Checked:= devCVSHandler.UseSSH;
 
-		// Font opstellen
+		// Add all fonts and select the current one
 		cbUIfont.Items.Assign(Screen.Fonts);
 		for idx:=0 to pred(cbUIfont.Items.Count) do
 			if cbUIfont.Items.Strings[idx] = InterfaceFont then begin
 				cbUIfont.ItemIndex := idx;
 				break;
 			end;
+
+		// Do the same for the size selection
 		for idx:=0 to pred(cbUIfontsize.Items.Count) do
 			if strtoint(cbUIfontsize.Items.Strings[idx]) = InterfaceFontSize then begin
 				cbUIfontsize.ItemIndex := idx;
@@ -297,15 +299,15 @@ begin
 		BackUps:=  cbBackups.Checked;
 		MinOnRun:= cbMinOnRun.Checked;
 		DblFiles:= cbdblFiles.Checked;
+		ConsolePause:= cbPauseConsole.Checked;
 		MRUMax:= seMRUMax.Value;
-		if MultiLineTab = FALSE then begin
+		if not MultiLineTab then begin
 			if cboTabsTop.ItemIndex in [2,3] then begin
 				MessageBox(application.handle,PChar('Multiline tabs must be enabled when using vertical tabs.'+#13#10#13#10+'Reverting to Top Tabs...'),PChar('Error'),MB_OK);
 				cboTabsTop.ItemIndex := 0;
 			end;
 		end;
 		MsgTabs:= cboTabsTop.ItemIndex;
-		OpenStyle:= rgbOpenStyle.ItemIndex;
 		AutoOpen:= rgbAutoOpen.ItemIndex;
 		Splash:= edSplash.Text;
 
@@ -335,20 +337,9 @@ begin
 		Lang.CheckLanguageFiles;
 	end;
 
-	with dmMain.OpenDialog do
-		case devData.OpenStyle of
-			0: begin // Sidebar Win2000/XP
-				OptionsEx:= [];
-				Options:= Options - [ofOldStyleDialog, ofNoLongNames];
-			end;
-			1: begin // Win98
-				OptionsEx:= [ofExNoPlacesBar];
-				Options:= Options - [ofOldStyleDialog, ofNoLongNames];
-			end;
-			2: begin // Win31
-				OptionsEx:= [ofExNoPlacesBar]; // basically ignored anyway
-				Options:= Options +[ofOldStyleDialog, ofNoLongNames];
-			end;
+	with dmMain.OpenDialog do begin
+		OptionsEx:= [];
+		Options:= Options - [ofOldStyleDialog, ofNoLongNames];
 	end;
 
 	dmMain.SaveDialog.OptionsEx:= dmMain.OpenDialog.OptionsEx;
@@ -373,6 +364,10 @@ end;
 
 procedure TEnviroForm.LoadText;
 begin
+	// Set interface font
+	Font.Name := devData.InterfaceFont;
+	Font.Size := devData.InterfaceFontSize;
+
   Caption:=                  Lang[ID_ENV];
 
   //Tabs
@@ -395,6 +390,7 @@ begin
   cbMinOnRun.Caption:=       Lang[ID_ENV_MINONRUN];
   cbdblFiles.Caption:=       Lang[ID_ENV_DBLFILES];
   cbNoSplashScreen.Caption:= Lang[ID_ENV_NOSPLASH];
+  cbPauseConsole.Caption:=   Lang[ID_ENV_PAUSECONSOLE];
 
   gbProgress.Caption :=      '  '+Lang[ID_ENV_COMPPROGRESSWINDOW]+'  ';
   cbShowProgress.Caption :=  Lang[ID_ENV_SHOWPROGRESS];
@@ -403,11 +399,6 @@ begin
   cbWatchHint.Caption := Lang[ID_ENV_WATCHHINT];
   cbWatchError.Caption := Lang[ID_ENV_WATCHERROR];
   gbDebugger.Caption := Lang[ID_ENV_DEBUGGER];
-
-  rgbOpenStyle.Caption:=     '  '+Lang[ID_ENV_OPENSTYLE]+'  ';
-  rgbOpenStyle.Items[0]:=    Lang[ID_ENV_OPEN2k];
-  rgbOpenStyle.Items[1]:=    Lang[ID_ENV_OPEN9x];
-  rgbOpenStyle.Items[2]:=    Lang[ID_ENV_OPEN31];
 
   rgbAutoOpen.Caption:=      '  '+Lang[ID_ENV_AUTOOPEN]+'  ';
   rgbAutoOpen.Items[0]:=     Lang[ID_ENV_AUTOALL];
@@ -453,8 +444,7 @@ end;
 
 procedure TEnviroForm.FormCreate(Sender: TObject);
 begin
-  LoadText;
-  PagesMain.ActivePageIndex:= 0;
+	LoadText;
 end;
 
 procedure TEnviroForm.vleExternalEditButtonClick(Sender: TObject);
@@ -513,12 +503,6 @@ begin
 	ShellExecute(GetDesktopWindow(), 'open', PChar((Sender as TLabel).Caption), nil, nil, SW_SHOWNORMAL);
 end;
 
-procedure TEnviroForm.cbUIfontSelect(Sender: TObject);
-begin
-	(Sender as TComboBox).Font.Name := cbUIfont.Text;
-	(Sender as TComboBox).Font.Size := strtoint(cbUIfontsize.Text);
-end;
-
 procedure TEnviroForm.cbUIfontDrawItem(Control: TWinControl; Index: Integer; Rect: TRect; State: TOwnerDrawState);
 begin
 	with (Control as TComboBox) do begin
@@ -537,6 +521,11 @@ begin
 		Canvas.FillRect(Rect);
 		Canvas.TextOut(Rect.Left, Rect.Top, Items.Strings[Index]);
 	end;
+end;
+
+procedure TEnviroForm.cbUIfontsizeChange(Sender: TObject);
+begin
+	cbUIfont.Repaint;
 end;
 
 end.

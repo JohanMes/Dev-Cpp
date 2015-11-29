@@ -1432,8 +1432,7 @@ begin
        chdir(Directory);
        fEditor.Init(TRUE, ExtractFileName(FileName), ExpandFileName(FileName), not New);
        if New then
-         if devEditor.DefaulttoPrj then
-           fEditor.InsertDefaultText;
+         fEditor.InsertDefaultText;
        LoadUnitLayout(fEditor, index);
        result:= fEditor;
       except
@@ -1788,11 +1787,10 @@ begin
 			exit;
 		end;
 
-   fName:= aTemplate.ProjectName;
-   finifile.FileName:= aFileName;
-
-   Options:= aTemplate.OptionsRec;
-   AssignOptionsRec(Options, fOptions);
+		fName:= aTemplate.ProjectName;
+		finifile.FileName:= aFileName;
+		Options:= aTemplate.OptionsRec;
+		AssignOptionsRec(Options, fOptions);
 
    if Length(aTemplate.ProjectIcon) > 0 then
    begin

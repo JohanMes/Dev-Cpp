@@ -2,7 +2,7 @@
 # Startup
 
 !define COMPILERNAME "MinGW32"
-!define DEVCPP_VERSION "5.1.1.0"
+!define DEVCPP_VERSION "5.2.0.0"
 !define FINALNAME "devcpp-${DEVCPP_VERSION}_32bit_setup.exe"
 !define DISPLAY_NAME "Dev-C++ ${DEVCPP_VERSION}"
 
@@ -28,8 +28,7 @@ ShowInstDetails show
 AutoCloseWindow false
 SilentInstall normal
 CRCCheck on
-SetCompress force
-SetCompressor /SOLID lzma
+SetCompressor /SOLID /FINAL lzma
 SetDatablockOptimize on
 SetOverwrite try
 XPStyle on
@@ -102,7 +101,7 @@ Section "Dev-C++ program files (required)" SectionMain
   File "devcpp.map"
   File "packman.exe"
   File "Packman.map"
-  
+  File "ConsolePauser.exe"
   File "devcpp.exe.manifest"
   File "copying.txt"
   File "NEWS.txt"
@@ -586,6 +585,7 @@ Section "Uninstall"
   Delete "$INSTDIR\devcpp.map"
   Delete "$INSTDIR\devcpp.exe"
   Delete "$INSTDIR\devcpp.exe.manifest"
+  Delete "$INSTDIR\ConsolePauser.exe"
   Delete "$INSTDIR\copying.txt"
 
   RMDir /r "$INSTDIR\${COMPILERNAME}"

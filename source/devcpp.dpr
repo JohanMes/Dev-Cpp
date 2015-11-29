@@ -20,12 +20,12 @@
 program devcpp;
 {$R 'icons.res' 'icons.rc'}
 {$R 'DefaultFiles.res' 'DefaultFiles.rc'}
-{$R 'LangFrm.res' 'LangFrm.rc'}
+{$R 'LangForm.res' 'LangFrm.rc'}
 
 {%File 'LangIDs.inc'}
 
 uses
-  //MemCheck in 'MemCheck.pas',
+  FastMM4 in 'FastMM4.pas',
 
 {$IFDEF WIN32}
   Windows, Forms, sysUtils, SHFolder, Dialogs,
@@ -36,7 +36,7 @@ uses
 
   main in 'main.pas' {MainForm},
   MultiLangSupport in 'MultiLangSupport.pas',
-  Splash in 'Splash.pas' {SplashForm},
+  SplashFrm in 'SplashFrm.pas' {SplashForm},
   version in 'version.pas',
   utils in 'utils.pas',
   LangFrm in 'LangFrm.pas' {LangForm},
@@ -50,55 +50,54 @@ uses
   compiler in 'compiler.pas',
   devrun in 'devrun.pas',
   ProjectOptionsFrm in 'ProjectOptionsFrm.pas' {ProjectOptionsForm},
-  CompOptionsFrm in 'CompOptionsFrm.pas' {CompForm},
-  ToolFrm in 'ToolFrm.pas' {ToolForm},
+  CompOptionsFrm in 'CompOptionsFrm.pas' {CompOptionsForm},
+  ToolFrm in 'ToolFrm.pas' {ToolFrom},
   ToolEditFrm in 'ToolEditFrm.pas' {ToolEditForm},
   IconFrm in 'IconFrm.pas' {IconForm},
   devcfg in 'devcfg.pas',
   datamod in 'datamod.pas' {dmMain: TDataModule},
-  EditorOptfrm in 'EditorOptfrm.pas' {EditorOptForm},
-  CodeIns in 'CodeIns.pas' {frmCodeEdit},
-  Incrementalfrm in 'Incrementalfrm.pas' {frmIncremental},
+  EditorOptFrm in 'EditorOptFrm.pas' {EditorOptForm},
+  CodeInsFrm in 'CodeInsFrm.pas' {CodeInsForm},
+  IncrementalFrm in 'IncrementalFrm.pas' {IncrementalForm},
   Search_Center in 'Search_Center.pas',
-  Replacefrm in 'Replacefrm.pas' {frmReplace},
-  Findfrm in 'Findfrm.pas' {frmFind},
+  ReplaceFrm in 'ReplaceFrm.pas' {ReplaceForm},
+  FindFrm in 'FindFrm.pas' {FindForm},
   editor in 'editor.pas',
-  Envirofrm in 'Envirofrm.pas' {EnviroForm},
+  EnviroFrm in 'EnviroFrm.pas' {EnviroForm},
   debugwait in 'debugwait.pas',
   debugreader in 'debugreader.pas',
   debugger in 'debugger.pas',
   CFGData in 'CFGData.pas',
   CFGINI in 'CFGINI.pas',
-  CFGReg in 'CFGReg.pas',
   CheckForUpdate in 'CheckForUpdate.pas',
   prjtypes in 'prjtypes.pas',
-  debugfrm in 'debugfrm.pas' {DebugForm},
-  ResourceSelector in 'ResourceSelector.pas' {SelectResource},
+  DebugFrm in 'DebugFrm.pas' {DebugForm},
+  ResourceSelectorFrm in 'ResourceSelectorFrm.pas' {ResourceSelectorForm},
   Macros in 'Macros.pas',
   devExec in 'devExec.pas',
-  NewTemplateFm in 'NewTemplateFm.pas' {NewTemplateForm},
-  FunctionSearchFm in 'FunctionSearchFm.pas' {FunctionSearchForm},
-  NewVarFm in 'NewVarFm.pas' {NewVarForm},
-  NewMemberFm in 'NewMemberFm.pas' {NewMemberForm},
-  NewClassFm in 'NewClassFm.pas' {NewClassForm},
-  ProfileAnalysisFm in 'ProfileAnalysisFm.pas' {ProfileAnalysisForm},
-  FilePropertiesFm in 'FilePropertiesFm.pas' {FilePropertiesForm},
-  AddToDoFm in 'AddToDoFm.pas' {AddToDoForm},
-  ViewToDoFm in 'ViewToDoFm.pas' {ViewToDoForm},
-  ImportMSVCFm in 'ImportMSVCFm.pas' {ImportMSVCForm},
-  ImportCBFm in 'ImportCBFm.pas' {ImportCBForm},
+  NewTemplateFrm in 'NewTemplateFrm.pas' {NewTemplateForm},
+  FunctionSearchFrm in 'FunctionSearchFrm.pas' {FunctionSearchForm},
+  NewVarFrm in 'NewVarFrm.pas' {NewVarForm},
+  NewMemberFrm in 'NewMemberFrm.pas' {NewMemberForm},
+  NewClassFrm in 'NewClassFrm.pas' {NewClassForm},
+  ProfileAnalysisFrm in 'ProfileAnalysisFrm.pas' {ProfileAnalysisForm},
+  FilePropertiesFrm in 'FilePropertiesFrm.pas' {FilePropertiesForm},
+  AddToDoFrm in 'AddToDoFrm.pas' {AddToDoForm},
+  ViewToDoFrm in 'ViewToDoFrm.pas' {ViewToDoForm},
+  ImportMSVCFrm in 'ImportMSVCFrm.pas' {ImportMSVCForm},
+  ImportCBFrm in 'ImportCBFrm.pas' {ImportCBForm},
   CPUFrm in 'CPUFrm.pas' {CPUForm},
   FileAssocs in 'FileAssocs.pas',
-  TipOfTheDayFm in 'TipOfTheDayFm.pas' {TipOfTheDayForm},
-  ExceptionsAnalyzer in 'ExceptionsAnalyzer.pas' {frmExceptionsAnalyzer},
-  CVSFm in 'CVSFm.pas' {CVSForm},
+  TipOfTheDayFrm in 'TipOfTheDayFrm.pas' {TipOfTheDayForm},
+  ExceptionsAnalyzerFrm in 'ExceptionsAnalyzerFrm.pas' {ExceptionsAnalyzerForm},
+  CVSFrm in 'CVSFrm.pas' {CVSForm},
   WindowListFrm in 'WindowListFrm.pas' {WindowListForm},
   CVSThread in 'CVSThread.pas',
-  CVSPasswdFm in 'CVSPasswdFm.pas' {CVSPasswdForm},
+  CVSPasswdFrm in 'CVSPasswdFrm.pas' {CVSPasswdForm},
   DevThemes in 'DevThemes.pas',
   ParamsFrm in 'ParamsFrm.pas' {ParamsForm},
   CompilerOptionsFrame in 'CompilerOptionsFrame.pas' {CompOptionsFrame: TFrame},
-  CompileProgressFm in 'CompileProgressFm.pas' {CompileProgressForm},
+  CompileProgressFrm in 'CompileProgressFrm.pas' {CompileProgressForm},
   WebThread in 'webupdate\WebThread.pas',
   WebUpdate in 'webupdate\WebUpdate.pas' {WebUpdateForm},
   ProcessListFrm in 'ProcessListFrm.pas' {ProcessListForm},
@@ -113,7 +112,6 @@ var
 	UserHome, strLocalAppData, strAppData, strIniFile, exefolder: String;
 	tempc: array [0..MAX_PATH] of char;
 begin
-	//MemChk;
 
 	strIniFile := ChangeFileExt(ExtractFileName(Application.ExeName), INI_EXT);
 	exefolder := StringReplace(Application.ExeName,ExtractFileName(Application.ExeName),'',[rfReplaceAll]);
@@ -153,10 +151,6 @@ begin
 			devData.INIFile:= ChangeFileExt(Application.EXEName, INI_EXT);
 	end;
 
-	devData.UseRegistry:= FALSE;
-	devData.BoolAsWords:= FALSE;
-	devData.INISection:= OPT_OPTIONS;
-
 	// support for user-defined alternate ini file (permanent, but overriden by command-line -c)
 	if ConfigMode <> CFG_PARAM then begin
 		StandardConfigFile:=devData.INIFile;
@@ -181,11 +175,8 @@ begin
 	Application.CreateForm(TMainForm, MainForm);
 
 	// Display it a bit later
-	if not devData.NoSplashScreen then begin
+	if not devData.NoSplashScreen then
 		SplashForm := TSplashForm.Create(Application);
-		SplashForm.Show;
-		SplashForm.Update;
-	end;
 
 	// do the creation stuff when the splashscreen is displayed because it takes quite a while ...
 	MainForm.DoCreateEverything;

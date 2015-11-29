@@ -374,20 +374,29 @@ type
    fAutoIndent: boolean;       // Auto-indent code lines
    fSmartTabs: boolean;        // Tab to next no whitespace char
    fSpecialChar: boolean;      // special line characters visible
-   fTabtoSpaces: boolean;      // convert tabs to spaces
-   fAutoCloseBrace: boolean;   // insert closing braces
+   fUseTabs: boolean;          // convert tabs to spaces
+   fShowFunctionTip: boolean;  // show function tip
    fMarginColor: TColor;       // Color of right margin
    fSyntax: TStrings;          // Holds attributes settings
-   fDefaultIntoPrj: boolean;   // Insert Default Source Code into "empty" project
+   fDefaultCode: boolean;      // Insert Default Source Code into new files
    fParserHints: boolean;      // Show parser's hint for the word under the cursor
    fMatch : boolean;           // Highlight matching parenthesis
    fHighCurrLine: boolean;     // Highlight current line
    fHighColor: TColor;         // Color of current line when highlighted
-
-      // Autosave
+   fTrimTrailingSpaces : boolean;
+  
+   // Autosave
    fEnableAutoSave : boolean;
    fInterval : integer;
    fSaveType : integer;
+
+   // Symbol completion
+   fBraceComplete : boolean;
+   fParentheseComplete : boolean;
+   fIncludeComplete : boolean;
+   fCommentComplete : boolean;
+   fArrayComplete : boolean;
+   fCompleteSymbols : boolean;
   public
    constructor Create;
    destructor Destroy; override;
@@ -400,7 +409,7 @@ type
    //Editor props
    property AutoIndent: boolean read fAutoIndent write fAutoIndent;
    property InsertMode: boolean read fInsertMode write fInsertMode;
-   property TabToSpaces: boolean read fTabToSpaces write fTabToSpaces;
+   property UseTabs: boolean read fUseTabs write fUseTabs;
    property SmartTabs: boolean read fSmartTabs write fSmartTabs;
    property GroupUndo: boolean read fGroupUndo write fGroupUndo;
    property EHomeKey: boolean read fEHomeKey write fEHomeKey;
@@ -412,7 +421,8 @@ type
    property HalfPageScroll: boolean read fHalfPage write fHalfPage;
    property ScrollHint: boolean read fShowScrollHint write fShowScrollHint;
    property SpecialChars: boolean read fSpecialChar write fSpecialChar;
-   property AutoCloseBrace: boolean read fAutoCloseBrace write fAutoCloseBrace;
+   property ShowFunctionTip: boolean read fShowFunctionTip write fShowFunctionTip;
+   property TrimTrailingSpaces: boolean read fTrimTrailingSpaces write fTrimTrailingSpaces;
 
    property TabSize: integer read fTabSize write fTabSize;
    property MarginVis: boolean read fMarginVis write fMarginVis;
@@ -439,7 +449,7 @@ type
    property Syntax: TStrings read fSyntax write fSyntax;
 
    // other
-   property DefaulttoPrj: boolean read fDefaultIntoPrj write fDefaultIntoPrj;
+   property DefaultCode: boolean read fDefaultCode write fDefaultCode;
    property ParserHints: boolean read fParserHints write fParserHints;
    property Match: boolean read fMatch write fMatch;
    property HighCurrLine: boolean read fHighCurrLine write fHighCurrLine;
@@ -449,19 +459,25 @@ type
    property EnableAutoSave: boolean read fEnableAutoSave write fEnableAutoSave;
    property Interval: integer read fInterval write fInterval;
    property SaveType: integer read fSaveType write fSaveType;
+
+   // Brace completion
+   property BraceComplete: boolean read fBraceComplete write fBraceComplete;
+   property ParentheseComplete: boolean read fParentheseComplete write fParentheseComplete;
+   property IncludeComplete: boolean read fIncludeComplete write fIncludeComplete;
+   property CommentComplete: boolean read fCommentComplete write fCommentComplete;
+   property ArrayComplete: boolean read fArrayComplete write fArrayComplete;
+   property CompleteSymbols: boolean read fCompleteSymbols write fCompleteSymbols;
  end;
 
  // master option object -- contains program globals
  TdevData = class(TConfigData)
   private
-   fVersion: string;                 // The configuration file's version
    fLang: string;                    // Language file
    fTheme: string;                   // Theme file
    fFindCols: string;                // Find Column widths (comma sep)
    fCompCols: string;                // Compiler Column Widths (comma sep)
    fMsgTabs: integer;                // Editor Tabs
    fMinOnRun: boolean;               // Minimize IDE on run
-   fOpenStyle: integer;              // Open Dialog Style
    fMRUMax: integer;                 // Max number of files in history list
    fBackup: boolean;                 // Create backup files
    fAutoOpen: integer;               // Auto Open Project Files Style
@@ -478,13 +494,13 @@ type
    fDefCpp: boolean;                 // Default to C++ project (compile with g++)
    fFirst: boolean;                  // first run of dev-c
    fSplash: string;                  // user selected splash screen
-   fWinPlace: TWindowPlacement;      // Main forms size, state and position.
    fdblFiles: boolean;               // double click opens files out of project manager
    fLangChange: boolean;             // flag for language change
-   fthemeChange: boolean;            // did the theme changed
+   fthemeChange: boolean;            // did the theme change?
    fNoSplashScreen : boolean;        // disable splash screen
    fInterfaceFont : string;
    fInterfaceFontSize : integer;
+   fConsolePause : boolean;
 
    fToolbarMain: boolean;            // These ones follow the enable/x-offset/y-offset patern
    fToolbarMainX: integer;
@@ -539,15 +555,11 @@ type
    constructor Create(aOwner: TComponent); override;
    destructor Destroy; override;
    procedure SettoDefaults; override;
-   procedure SaveConfigData; override;
-   procedure ReadConfigData; override;
 
    class function DevData: TDevData;
-   property WindowPlacement: TWindowPlacement read fWinPlace write fWinPlace;
    property LangChange: boolean read fLangChange write fLangChange;
    property ThemeChange: boolean read fThemeChange write fThemeChange;
   published
-   property Version: string read fVersion write fVersion;
    property Language: string read fLang write fLang;
    property Theme: string read fTheme write fTheme;
    property First: boolean read fFirst write fFirst;
@@ -558,7 +570,8 @@ type
 
    //Execution
    property MinOnRun: boolean read fMinOnRun write fMinOnRun;
-   property OpenStyle: integer read fOpenStyle write fOpenStyle;
+   property ConsolePause: boolean read fConsolePause write fConsolePause;
+
 
    property BackUps: boolean read fBackup write fBackup;
    property AutoOpen: integer read fAutoOpen write fAutoOpen;
@@ -917,18 +930,6 @@ begin
   inherited;
 end;
 
-procedure TdevData.ReadConfigData;
-begin
-  inherited;
-  LoadWindowPlacement('Position', fWinPlace);
-end;
-
-procedure TdevData.SaveConfigData;
-begin
-  inherited;
-  SaveWindowPlacement('Position', fWinPlace);
-end;
-
 procedure TdevData.SettoDefaults;
 
   function getAssociation(I: integer): Boolean;
@@ -941,7 +942,6 @@ procedure TdevData.SettoDefaults;
   end;
 
 begin
-  fVersion:=''; // this is filled in MainForm.Create()
   fFirst:= TRUE;
   fLang:= DEFAULT_LANG_FILE;
   fFindCols:= '75, 75, 120, 150';
@@ -961,8 +961,8 @@ begin
   fShowBars:= FALSE;
   fMultiLineTab:= TRUE;
   fDefCpp:= TRUE;
-  fOpenStyle:= 0;
   fdblFiles:= FALSE;
+  fConsolePause:=TRUE;
 
 	fToolbarMain:=TRUE;
 	fToolbarMainX:=11;
@@ -1454,7 +1454,7 @@ destructor TdevEditor.Destroy;
 begin
 	fFont.Free;
 	fGutterfont.Free;
-	fSynTax.Free;
+	fSyntax.Free;
 	inherited;
 end;
 
@@ -1473,7 +1473,7 @@ begin
 	// General
 	fAutoIndent:= TRUE;
 	fInsertMode:= TRUE;
-	fTabtoSpaces:= FALSE; // Use Tab Character (inverse)
+	fUseTabs:= TRUE;
 	fSmartTabs:= FALSE;
 	fGroupUndo:= TRUE;
 	fInsDropFiles:= FALSE;
@@ -1489,7 +1489,8 @@ begin
 	fHalfPage:= FALSE;
 	fShowScrollHint:= TRUE;
 	fParserHints:= TRUE; // Editor hints
-	fAutoCloseBrace:= TRUE;
+	fShowFunctionTip:= TRUE;
+	fTrimTrailingSpaces:= FALSE;
 
 	// Caret
 	fInsertCaret:= 0;
@@ -1523,95 +1524,105 @@ begin
 	fLeadZero:= FALSE;
 	fGutterFont.Name:= 'Courier New';
 	fGutterFont.Size:= 10;
-	fGutterSize:= 32;
+	fGutterSize:= 1;
 
 	// Autosave
 	fEnableAutoSave := FALSE;
 	Interval := 10;
 	fSaveType := 0;
+
+	// Symbol completion
+	fBraceComplete := TRUE;
+	fParentheseComplete := TRUE;
+	fIncludeComplete := TRUE;
+	fCommentComplete := FALSE;
+	fArrayComplete := TRUE;
+	fCompleteSymbols := TRUE;
 end;
 
 procedure TdevEditor.AssignEditor(Editor: TSynEdit);
 var
-	pt,guttercolor: TPoint;
-	x: integer;
+	pt: TPoint;
 begin
 	if (not assigned(Editor)) or (not (Editor is TCustomSynEdit)) then exit;
 	with Editor do begin
 		BeginUpdate;
-	try
-		TabWidth:= fTabSize;
-		Font.Assign(fFont);
-		with Gutter do begin
-			UseFontStyle:= fCustomGutter;
-			Font.Assign(fGutterFont);
-			Width:= fGutterSize;
-			Visible:= fShowGutter;
-			AutoSize:= fGutterAuto;
-			ShowLineNumbers:= fLineNumbers;
-			LeadingZeros:= fLeadZero;
-			ZeroStart:= fFirstisZero;
-			x:= fSyntax.IndexofName(cGut);
-			if x <> -1 then begin
-				// Hacky color fix
-				guttercolor.x:= clBtnFace;
-				guttercolor.y:= clBlack;
-				fSyntax.Values[cGut]:= PointtoStr(guttercolor);
+		try
+			TabWidth:= fTabSize;
+			Font.Assign(fFont);
+			with Gutter do begin
+				Font.Assign(fGutterFont);
+				DigitCount:= fGutterSize;
+				Visible:= fShowGutter;
+				AutoSize:= fGutterAuto;
+				ShowLineNumbers:= fLineNumbers;
+				LeadingZeros:= fLeadZero;
+				ZeroStart:= fFirstisZero;
+
+				// Always apply custom colors, even when not using a custom font
 				StrtoPoint(pt, fSyntax.Values[cGut]);
 				Color:= pt.x;
 				Font.Color:= pt.y;
 			end;
-		end;
 
-		if fMarginVis then
-			RightEdge:= fMarginSize
-		else
-			RightEdge:= 0;
+			// update the selected text color
+			StrtoPoint(pt, devEditor.Syntax.Values[cSel]);
+			SelectedColor.Background:= pt.X;
+			SelectedColor.Foreground:= pt.Y;
 
-		RightEdgeColor:= fMarginColor;
+			StrtoPoint(pt, fSyntax.Values[cFld]);
+			CodeFolding.FolderBarLinesColor := pt.y;
 
-		InsertCaret:= TSynEditCaretType(fInsertCaret);
-		OverwriteCaret:= TSynEditCaretType(fOverwriteCaret);
+			if fMarginVis then
+				RightEdge:= fMarginSize
+			else
+				RightEdge:= 0;
 
-		ScrollHintFormat:= shfTopToBottom;
+			RightEdgeColor:= fMarginColor;
 
-		if HighCurrLine then
-			ActiveLineColor := HighColor
-		else
-			ActiveLineColor := clNone;
+			InsertCaret:= TSynEditCaretType(fInsertCaret);
+			OverwriteCaret:= TSynEditCaretType(fOverwriteCaret);
 
-		Options := [
-			eoAltSetsColumnMode, eoDisableScrollArrows,
-			eoDragDropEditing, eoDropFiles, eoKeepCaretX,
-			eoRightMouseMovesCursor, eoScrollByOneLess, eoAutoSizeMaxScrollWidth
-		];
+			ScrollHintFormat:= shfTopToBottom;
 
-		//Optional synedit options in devData
-		if fAutoIndent then
-			Options := Options + [eoAutoIndent];
-		if fEHomeKey then
-			Options := Options + [eoEnhanceHomeKey];
-		if fGroupUndo then
-			Options := Options + [eoGroupUndo];
-		if fHalfPage then
-			Options := Options + [eoHalfPageScroll];
-		if fShowScrollbars then
-			Options := Options + [eoHideShowScrollbars];
-		if fPastEOF then
-			Options := Options + [eoScrollPastEOF];
-		if fPastEOL then
-			Options := Options + [eoScrollPastEOL];
-		if fShowScrollHint then
-			Options := Options + [eoScrollHintFollows,eoShowScrollHint];
-		if fSmartTabs then
-			Options := Options + [eoSmartTabs];
-		if fSmartTabs then
-			Options := Options + [eoSmartTabDelete];
-		if fTabtoSpaces then
-			Options := Options + [eoTabsToSpaces];
-		if fSpecialChar then
-			Options := Options + [eoShowSpecialChars];
+			if HighCurrLine then
+				ActiveLineColor := HighColor
+			else
+				ActiveLineColor := clNone;
 
+			Options := [
+				eoAltSetsColumnMode, eoDisableScrollArrows,
+				eoDragDropEditing, eoDropFiles, eoKeepCaretX, eoTabsToSpaces,
+				eoRightMouseMovesCursor, eoScrollByOneLess, eoAutoSizeMaxScrollWidth
+			];
+
+			//Optional synedit options in devData
+			if fAutoIndent then
+				Options := Options + [eoAutoIndent];
+			if fEHomeKey then
+				Options := Options + [eoEnhanceHomeKey];
+			if fGroupUndo then
+				Options := Options + [eoGroupUndo];
+			if fHalfPage then
+				Options := Options + [eoHalfPageScroll];
+			if fShowScrollbars then
+				Options := Options + [eoHideShowScrollbars];
+			if fPastEOF then
+				Options := Options + [eoScrollPastEOF];
+			if fPastEOL then
+				Options := Options + [eoScrollPastEOL];
+			if fShowScrollHint then
+				Options := Options + [eoScrollHintFollows,eoShowScrollHint];
+			if fSmartTabs then
+				Options := Options + [eoSmartTabs];
+			if fSmartTabs then
+				Options := Options + [eoSmartTabDelete];
+			if fUseTabs then
+				Options := Options - [eoTabsToSpaces];
+			if fSpecialChar then
+				Options := Options + [eoShowSpecialChars];
+			if fTrimTrailingSpaces then
+				Options := Options + [eoTrimTrailingSpaces];
 		finally
 			EndUpdate;
 		end;
@@ -1649,12 +1660,12 @@ end;
 
 procedure TdevCodeCompletion.SettoDefaults;
 begin
-  fWidth:=320;
-  fHeight:=240;
-  fDelay:=1000;
-  fBackColor:=clWindow;
-  fEnabled:=True;
-  fUseCacheFiles:=False;
+	fWidth:=320;
+	fHeight:=240;
+	fDelay:=1000;
+	fBackColor:=clWindow;
+	fEnabled:=True;
+	fUseCacheFiles:=False;
 end;
 
 { TdevClassBrowsing }

@@ -371,18 +371,22 @@ const
   ID_EOPT_CODETAB                   = 23005;
   ID_EOPT_COMPLETIONTAB             = 23006;
   ID_EOPT_BROWSERTAB                = 23007;
+  ID_EOPT_AUTOSAVETAB               = 23008;
 
     // sub-tab captions
   ID_EOPT_CPINSERTS                 = 24001;
   ID_EOPT_CPDEFAULT                 = 24002;
+  ID_EOPT_AUTOSAVEFILE              = 24003;
+  ID_EOPT_OPTIONS                   = 24004;
+  ID_EOPT_CPSYMBOLS                 = 24005;
 
     // General Tab Items
+  ID_EOPT_SAVESYNTAXQUESTION        = 25001;
   ID_EOPT_EDOPTIONS                 = 25002;
   ID_EOPT_AUTOINDENT                = 25003;
   ID_EOPT_INSERTMODE                = 25004;
   ID_EOPT_TAB2SPC                   = 25005;
   ID_EOPT_SMARTTABS                 = 25006;
-  ID_EOPT_SMARTUN                   = 25007;
   ID_EOPT_TRAILBLANKS               = 25008;
   ID_EOPT_GROUPUNDO                 = 25009;
   ID_EOPT_EHOMEKEY                  = 25010;
@@ -408,6 +412,9 @@ const
   ID_EOPT_CARET3                    = 25030;
   ID_EOPT_CARET4                    = 25031;
   ID_EOPT_HIGHCURLINE               = 25032;
+  ID_EOPT_TRIMTRAILINGSPACES        = 25033;
+  ID_EOPT_GENERICENABLED            = 25034;
+  ID_EOPT_GUTTERWIDTH               = 25035;
 
   ID_EOPT_SPECIALCHARS              = 26001;
   ID_EOPT_PARSERHINTS               = 26002;
@@ -418,8 +425,7 @@ const
   ID_EOPT_HINTWHITESPACE            = 26007;
   ID_EOPT_CLOSEBRACE                = 26008;
 
-
-    // Display Tab
+  // Display Tab
   ID_EOPT_CTRLSCROLLHINT            = 26009;
   ID_EOPT_EDFONT                    = 26010;
   ID_EOPT_FONT                      = 26011;
@@ -443,14 +449,14 @@ const
   ID_EOPT_SPEED                     = 26027;
   ID_EOPT_ELEMENTS                  = 26028;
   ID_EOPT_SAVESYNTAX                = 26029;
-  ID_EOPT_SAVESYNTAXQUESTION        = 25001;
+
 
     // Code Tab -- Inserts
   ID_EOPT_CICODE                    = 26030;
   ID_EOPT_CIMENU                    = 26031;
   ID_EOPT_CISECTION                 = 26032;
   ID_EOPT_CIDESC                    = 26033;
-  ID_EOPT_DEFCODEPRJ                = 26034;
+  ID_EOPT_DEFCODE                   = 26034;
 
     // Completion Tab
   ID_EOPT_CCCACHECHECK              = 26035;
@@ -472,12 +478,19 @@ const
   ID_EOPT_AUTOSAVEINTERNAL          = 26048;
   ID_EOPT_SAVEALLFILES              = 26049;
   ID_EOPT_SAVEONLYOPENFILE          = 26040;
-  ID_EOPT_AUTOSAVEFILE              = 24003;
-  ID_EOPT_OPTIONS                   = 24004;
 
-  // new project
   ID_NP                             = 26050;
   ID_NP_DESC                        = 26051;
+
+  ID_EOPT_SYMBOLCOMPLETE            = 26052;
+  ID_EOPT_SYMBOLGROUP               = 26053;
+  ID_EOPT_SYMBOLBRACES              = 26054;
+  ID_EOPT_SYMBOLPARENT              = 26055;
+  ID_EOPT_SYMBOLINCLUDE             = 26056;
+  ID_EOPT_SYMBOLSQUARE              = 26057;
+  ID_EOPT_SYMBOLCOMMENT             = 26058;
+
+  // new project
   ID_NP_PRJNAME                     = 27001;
   ID_NP_DEFAULTC                    = 27002;
   ID_NP_DEFAULTCPP                  = 27003;
@@ -615,6 +628,8 @@ const
   ID_FIND_GRP_DIRECTION             = 37051;
   ID_FIND_FORE                      = 37052;
   ID_FIND_BACK                      = 37053;
+
+  ID_ENV_PAUSECONSOLE               = 37054;
 
   // Replace form
   ID_RPLC                           = 38001;
@@ -1160,3 +1175,10 @@ const
   ID_COPT_OPTIMIZE                  = 71004;
   ID_COPT_STD                       = 71005;
   ID_COPT_PTRWIDTH                  = 71006;
+
+  // Compile progress window
+  ID_CMPRPG_COMPILER                = 72001;
+  ID_CMPPRG_STATUS                  = 72002;
+  ID_CMPPRG_FILE                    = 72003;
+  ID_CMPPRG_ERRORS                  = 72004;
+  ID_CMPPRG_WARNINGS                = 72005;
