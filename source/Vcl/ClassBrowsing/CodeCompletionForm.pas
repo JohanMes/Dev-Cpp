@@ -23,11 +23,11 @@ interface
 
 uses
 {$IFDEF WIN32}
-  Windows, SysUtils, Variants, Classes, Graphics, Forms, StdCtrls, Controls,
-  CodeCompletion, CppParser, Grids, Dialogs;
+  Windows, Classes, Graphics, Forms, StdCtrls, Controls,
+  CodeCompletion, CppParser;
 {$ENDIF}
 {$IFDEF LINUX}
-  Xlib, SysUtils, Variants, Classes, QGraphics, QForms, QStdCtrls, QControls,
+  Xlib, SysUtils, Classes, QGraphics, QForms, QStdCtrls, QControls,
   CodeCompletion, CppParser, QGrids, QDialogs, Types;
 {$ENDIF}
 
@@ -101,6 +101,7 @@ begin
 	with lbCompletion do begin
 
 		statement := PStatement(Items.Objects[Index]);
+		if not Assigned(statement) then Exit;
 
 		// Draw statement kind string, like 'Preprocessor'
 		if odSelected in State then begin

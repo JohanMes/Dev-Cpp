@@ -31,12 +31,12 @@ interface
 
 uses 
 {$IFDEF WIN32}
-  Windows, Classes, Forms, SysUtils, Controls, Graphics, StrUtils, CppParser,
-  ExtCtrls, stringutils, U_IntList;
+  Windows, Classes, Forms, SysUtils, Controls, Graphics, CppParser,
+  stringutils, U_IntList;
 {$ENDIF}
 {$IFDEF LINUX}
-  Xlib, Classes, QForms, SysUtils, QControls, QGraphics, StrUtils, CppParser,
-  QExtCtrls, U_IntList, QDialogs, Types;
+  Xlib, Classes, QForms, SysUtils, QControls, QGraphics, CppParser,
+  U_IntList, QDialogs, Types;
 {$ENDIF}
 
 type
@@ -60,6 +60,7 @@ type
     fOnlyGlobals: boolean;
     fCurrentIndex: integer;
     fIncludedFiles: TStringList;
+    fHideDelay: integer; // allow empty list once, then hide when empty again
     function ApplyClassFilter(Index, CurrentID: integer; InheritanceIDs: TIntList): boolean;
     function ApplyMemberFilter(Index, CurrentID, ParentID: integer; InheritanceIDs: TIntList): boolean;
     procedure GetCompletionFor(Phrase : AnsiString);
@@ -73,7 +74,6 @@ type
     procedure Search(const Phrase, Filename: AnsiString);
     procedure Hide;
     function SelectedStatement: PStatement;
-    function SelectedIsFunction: boolean;
   published
     property ShowCount : integer read fShowCount write fShowCount;
     property Parser: TCppParser read fParser write fParser;
@@ -92,12 +92,19 @@ type
     property CurrentIndex: integer read fCurrentIndex write fCurrentIndex;
   end;
 
+procedure Register;
+
 implementation
 
 uses
   CodeCompletionForm, Math;
 
 { TCodeCompletion }
+
+procedure Register;
+begin
+  RegisterComponents('Dev-C++', [TCodeCompletion]);
+end;
 
 constructor TCodeCompletion.Create(AOwner: TComponent);
 begin
@@ -119,6 +126,7 @@ begin
   fEnabled := True;
   fOnlyGlobals := False;
   fShowCount := 100; // keep things fast
+  fHideDelay := 0;
 end;
 
 destructor TCodeCompletion.Destroy;
@@ -300,8 +308,6 @@ begin
 		// filter fFullCompletionStatementList to fCompletionStatementList
 		FilterList(Copy(Phrase,I,MaxInt));
 
-		Screen.Cursor := crDefault;
-
 		if fCompletionStatementList.Count > 0 then begin
 			CodeComplForm.lbCompletion.Items.BeginUpdate;
 			CodeComplForm.lbCompletion.Items.Clear;
@@ -316,24 +322,17 @@ begin
 			CodeComplForm.lbCompletion.SetFocus;
 			if CodeComplForm.lbCompletion.Items.Count > 0 then
 				CodeComplForm.lbCompletion.ItemIndex := 0;
-		end else
-			Hide;
-	end;
-end;
 
-function TCodeCompletion.SelectedIsFunction: boolean;
-var
-  st: PStatement;
-begin
-  if fEnabled then begin
-    st := SelectedStatement;
-    if st <> nil then
-      Result := st^._Kind in [skFunction, skConstructor, skDestructor]
-    else
-      Result := False;
-  end
-  else
-    Result := False;
+			fHideDelay := 0;
+		end else if fHideDelay = 0 then begin
+			CodeComplForm.lbCompletion.Items.Clear;
+			fHideDelay := 1;
+		end else begin
+			Hide;
+		end;
+
+		Screen.Cursor := crDefault;
+	end;
 end;
 
 function TCodeCompletion.SelectedStatement: PStatement;
