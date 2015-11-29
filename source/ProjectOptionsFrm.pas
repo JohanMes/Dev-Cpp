@@ -141,12 +141,13 @@ type
     btnObjOutDir: TSpeedButton;
     btnCustomMakeBrowse: TSpeedButton;
     btnMakeBrowse: TSpeedButton;
-    SpeedButton1: TSpeedButton;
     edLogOutput: TEdit;
     lblLogOutput: TLabel;
     btnLogOutputDir: TSpeedButton;
     CheckBox1: TCheckBox;
     Label1: TLabel;
+    OptionsTip: TLabel;
+    OptionsLink: TLabel;
     procedure ListClick(Sender: TObject);
     procedure EditChange(SEnder: TObject);
     procedure ButtonClick(Sender: TObject);
@@ -186,6 +187,7 @@ type
     procedure SetFileVersion(Sender: TObject);
     procedure btnLogOutputDirClick(Sender: TObject);
     procedure CheckBox1Click(Sender: TObject);
+    procedure OptionsLinkClick(Sender: TObject);
   private
     fOptions: TProjOptions;
     fIcon: string;
@@ -661,13 +663,16 @@ begin
   chkSupportXP.Caption:=      Lang[ID_POPT_SUPPORTXP];
 
   // compiler tab
-  //tabCompSet.Caption:=  Lang[ID_POPT_COMPTAB];
-  tabCompOpts.Caption:=  Lang[ID_PARAM_CAPTION];
-  lblAdditions.Caption:=  '  '+Lang[ID_POPT_ADDITIONAL]+'  ';
-  lblCompiler.Caption:=   Lang[ID_POPT_COMP];
-  lblCppCompiler.Caption:=Lang[ID_COPT_GRP_CPP];
-  lblLinker.Caption:=     Lang[ID_COPT_LINKERTAB];
+  //tabCompSet.Caption:=     Lang[ID_POPT_COMPTAB];
+  tabCompOpts.Caption:=    Lang[ID_PARAM_CAPTION];
+  lblAdditions.Caption:=   '  '+Lang[ID_POPT_ADDITIONAL]+'  ';
+  lblCompiler.Caption:=    Lang[ID_POPT_COMP];
+  lblCppCompiler.Caption:= Lang[ID_COPT_GRP_CPP];
+  lblLinker.Caption:=      Lang[ID_COPT_LINKERTAB];
   AddLibBtn.Caption:=      Lang[ID_POPT_ADDLIBRARY];
+
+  // Settings
+  OptionsTip.Caption:=     Lang[ID_COPT_COMPILERTIP];
 
   //dir tab
   SubTabs.Tabs.Clear;
@@ -1231,6 +1236,14 @@ end;
 procedure TfrmProjectOptions.CheckBox1Click(Sender: TObject);
 begin
 	edLogOutput.Enabled := CheckBox1.Checked;
+end;
+
+procedure TfrmProjectOptions.OptionsLinkClick(Sender: TObject);
+var
+	s : string;
+begin
+	s := (Sender as TLabel).Caption;
+	ShellExecute(GetDesktopWindow(), 'open', PChar(s), nil, nil, SW_SHOWNORMAL);
 end;
 
 end.

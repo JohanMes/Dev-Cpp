@@ -94,7 +94,6 @@ type
     btnEdit: TButton;
     btnRemove: TButton;
     lvCodeins: TListView;
-    lblCode: TLabel;
     btnOk: TBitBtn;
     btnCancel: TBitBtn;
     btnHelp: TBitBtn;
@@ -162,6 +161,8 @@ type
     MinutesDelay: TTrackBar;
     Panel1: TPanel;
     FileOptions: TRadioGroup;
+    HighCurLineBox: TGroupBox;
+    HighCurLineLabel: TLabel;
     procedure FormCreate(Sender: TObject);
     procedure FormShow(Sender: TObject);
     procedure FormActivate(Sender: TObject);
@@ -525,6 +526,8 @@ begin
   cbMarginVis.Caption:=          Lang[ID_EOPT_VISIBLE];
   lblMarginWidth.Caption:=       Lang[ID_EOPT_WIDTH];
   lblMarginColor.Caption:=       Lang[ID_EOPT_COLOR];
+  HighCurLineLabel.Caption:=     Lang[ID_EOPT_COLOR];
+  HighCurLineBox.Caption:=       Lang[ID_EOPT_HIGHCURLINE];
 
   grpCaret.Caption:=             '  '+Lang[ID_EOPT_CARET]+'  ';
   lblInsertCaret.Caption:=       Lang[ID_EOPT_INSCARET];
@@ -575,7 +578,6 @@ begin
   btnSaveSyntax.Hint:=           Lang[ID_EOPT_SAVESYNTAX];
 
 // Code Tab
-  lblCode.Caption:=              Lang[ID_EOPT_CICODE];
   lvCodeIns.Columns[0].Caption:= Lang[ID_EOPT_CIMENU];
   lvCodeIns.Columns[1].Caption:= Lang[ID_EOPT_CISECTION];
   lvCodeIns.Columns[2].Caption:= Lang[ID_EOPT_CIDESC];

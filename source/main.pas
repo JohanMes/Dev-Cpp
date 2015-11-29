@@ -426,7 +426,6 @@ type
 		Renamefolder1: TMenuItem;
 		actImportMSVC: TAction;
 		ImportItem: TMenuItem;
-		ImportMSVisualCproject1: TMenuItem;
 		N41: TMenuItem;
 		ToggleBreakpointPopupItem: TMenuItem;
 		AddWatchPopupItem: TMenuItem;
@@ -848,7 +847,6 @@ type
 		procedure actModifyWatchUpdate(Sender: TObject);
 		procedure ClearallWatchPopClick(Sender: TObject);
 		procedure ApplicationEvents1Deactivate(Sender: TObject);
-		procedure PageControlChanging(Sender: TObject;var AllowChange: Boolean);
 		procedure mnuCVSClick(Sender: TObject);
 
 		// Orwell 2011
@@ -860,6 +858,9 @@ type
 
 		function findstatement(var localfind : string; var localfindpoint : TPoint;mousecursor : boolean) : PStatement;
 		procedure FormMouseWheel(Sender: TObject; Shift: TShiftState;WheelDelta: Integer; MousePos: TPoint; var Handled: Boolean);
+    procedure PageControlChanging(Sender: TObject;
+      var AllowChange: Boolean);
+    procedure ImportCBCprojectClick(Sender: TObject);
 
 	private
 		fTab				: integer;
@@ -961,7 +962,7 @@ uses
 	debugfrm, Types, Prjtypes, devExec,
 	NewTemplateFm, FunctionSearchFm, NewMemberFm, NewVarFm, NewClassFm,
 	ProfileAnalysisFm, debugwait, FilePropertiesFm, AddToDoFm, ViewToDoFm,
-	ImportMSVCFm, CPUFrm, FileAssocs, TipOfTheDayFm, Splash,
+	ImportMSVCFm, ImportCBFm, CPUFrm, FileAssocs, TipOfTheDayFm, Splash,
 	WindowListFrm, ParamsFrm, WebUpdate, ProcessListFrm, ModifyVarFrm, SynEditHighlighter;
 {$ENDIF}
 {$IFDEF LINUX}
@@ -1700,10 +1701,10 @@ begin
 	CompilerOutput.Columns[1].Caption:=	Lang[ID_COL_COL];
 	CompilerOutput.Columns[2].Caption:=	Lang[ID_COL_FILE];
 	CompilerOutput.Columns[3].Caption:=	Lang[ID_COL_MSG];
-	FindOutput.Columns[0].Caption :=	Lang[ID_COL_FLINE];
-	FindOutput.Columns[1].Caption :=	Lang[ID_COL_FCOL];
-	FindOutput.Columns[2].Caption :=	Lang[ID_COL_FFILE];
-	FindOutput.Columns[3].Caption :=	Lang[ID_COL_FMSG];
+	FindOutput.Columns[0].Caption :=	Lang[ID_COL_LINE];
+	FindOutput.Columns[1].Caption :=	Lang[ID_COL_COL];
+	FindOutput.Columns[2].Caption :=	Lang[ID_COL_FILE];
+	FindOutput.Columns[3].Caption :=	Lang[ID_COL_MSG];
 	ErrorLabel.Caption :=				Lang[ID_TOTALERRORS];
 	SizeOfOutput.Caption :=				Lang[ID_OUTPUTSIZE];
 	InfoGroupBox.Caption :=				Lang[ID_GRP_INFO];
@@ -3159,7 +3160,10 @@ begin
 end;
 
 procedure TMainForm.actUpdateCheckExecute(Sender: TObject);
+var
+	WebUpdateForm : TWebUpdateForm;
 begin
+	WebUpdateForm:=TWebUpdateForm.Create(self);
 	WebUpdateForm.Show;
 end;
 
@@ -3250,7 +3254,7 @@ end;
 
 procedure TMainForm.actFindExecute(Sender: TObject);
 var
- e: TEditor;
+	e: TEditor;
 begin
 	e:= GetEditor;
 	SearchCenter.Project:= fProject;
@@ -3817,14 +3821,21 @@ procedure TMainForm.actIncrementalExecute(Sender: TObject);
 var
 	pt: TPoint;
 begin
+
 	SearchCenter.Editor := GetEditor;
 	SearchCenter.AssignSearchEngine;
 
 	pt:= ClienttoScreen(point(PageControl.Left, PageControl.Top));
-	frmIncremental.Left:= pt.x;
-	frmIncremental.Top:= pt.y;
-	frmIncremental.Editor:= GetEditor.Text;
-	frmIncremental.ShowModal;
+
+	// Only create the form when we need to do so
+	FrmIncremental:=TFrmIncremental.Create(Self);
+	FrmIncremental.Left:= pt.x;
+	FrmIncremental.Top:= pt.y;
+	FrmIncremental.Editor:= GetEditor.Text;
+	FrmIncremental.ShowModal;
+
+	// After closing, destroy
+	FrmIncremental.Destroy;
 end;
 
 procedure TMainForm.CompilerOutputDblClick(Sender: TObject);
@@ -4581,6 +4592,7 @@ begin
 	if PageControl.ActivePageIndex > -1 then begin
 		e:=GetEditor(PageControl.ActivePageIndex);
 		if Assigned(e) then begin
+			HideCodeTooltip;
 			e.Text.SetFocus;
 
 			// keep statusbar updated
@@ -4904,7 +4916,7 @@ begin
 				prof := false;
 			end;
 		end else
-			prof := optS.optValue > 0;
+			prof := optP.optValue > 0;
 	end;
 
 	// see if exe stripping is enabled
@@ -6834,6 +6846,15 @@ begin
 
 		// We don't like to send the actual scrolling message to the editor when zooming
 		Abort;
+	end;
+end;
+
+
+procedure TMainForm.ImportCBCprojectClick(Sender: TObject);
+begin
+	with TImportCBForm.Create(Self) do begin
+		if ShowModal=mrOK then
+			OpenProject(GetFilename);
 	end;
 end;
 

@@ -402,6 +402,8 @@ const
   ID_EOPT_CARET2                    = 25029;
   ID_EOPT_CARET3                    = 25030;
   ID_EOPT_CARET4                    = 25031;
+  ID_EOPT_HIGHCURLINE               = 25032;
+
   ID_EOPT_SPECIALCHARS              = 26001;
   ID_EOPT_PARSERHINTS               = 26002;
   ID_EOPT_MATCH                     = 26003;
@@ -640,6 +642,7 @@ const
   ID_COPT_CODEGENTAB                = 40004;
   ID_COPT_LINKERTAB                 = 40005;
   ID_COPT_PROGRAMSTAB               = 40006;
+  ID_COPT_COMPILERTIP               = 40007;
   // free to 709 for new tabs
 
   ID_COPT_BIN                       = 41001;
@@ -772,6 +775,15 @@ const
   ID_MSVC_SELECTDEV                 = 52005;
   ID_MSVC_MSG_SUCCESS               = 52006;
   ID_MSVC_MSG_CANTLOCATETARGET      = 52007;
+
+  //Import CB form
+  ID_CB_MENUITEM                    = 52101;
+  ID_CB_SELECTCB                    = 52102;
+  ID_CB_OPTIONS                     = 52103;
+  ID_CB_CONFIGURATION               = 52104;
+  ID_CB_SELECTDEV                   = 52105;
+  ID_CB_MSG_SUCCESS                 = 52106;
+  ID_CB_MSG_CANTLOCATETARGET        = 52107;
 
   //Project Options
   ID_POPT                           = 53001;

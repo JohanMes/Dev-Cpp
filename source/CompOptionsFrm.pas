@@ -92,6 +92,8 @@ type
     btnBrowse6: TSpeedButton;
     btnBrowse7: TSpeedButton;
     btnBrowse8: TSpeedButton;
+    OptionsTip: TLabel;
+    OptionsLink: TLabel;
     procedure btnCancelClick(Sender: TObject);
     procedure btnOkClick(Sender: TObject);
     procedure FormActivate(Sender: TObject);
@@ -119,6 +121,7 @@ type
     procedure WindresEditChange(Sender: TObject);
     procedure DllwrapEditChange(Sender: TObject);
     procedure GprofEditChange(Sender: TObject);
+    procedure OptionsLinkClick(Sender: TObject);
    private
     fBins: string;
     fLibs: string;
@@ -137,7 +140,7 @@ implementation
 
 uses 
 {$IFDEF WIN32}
-  Main, FileCtrl, version, devcfg, utils, MultiLangSupport, datamod;
+  ShellAPI, Main, FileCtrl, version, devcfg, utils, MultiLangSupport, datamod;
 {$ENDIF}
 {$IFDEF LINUX}
   Xlib, Main, version, devcfg, utils, MultiLangSupport, datamod;
@@ -423,6 +426,9 @@ begin
 	tabDirectories.Caption:=             Lang[ID_COPT_DIRTAB];
 	tabPrograms.Caption:=                Lang[ID_COPT_PROGRAMSTAB];
 
+	// Settings tab
+	OptionsTip.Caption:=                 Lang[ID_COPT_COMPILERTIP];
+
 	// Directories, subtabs
 	DirTabs.Tabs.Clear;
 	DirTabs.Tabs.Append(Lang[ID_COPT_BIN]);
@@ -481,8 +487,10 @@ begin
     cbLinkerAdd.Checked:=AddtoLink;
     Commands.Lines.Text:=CompOpts;
     Linker.Lines.Text:=LinkOpts;
-
+    seCompDelay.Value:=Delay;
+    cbFastDep.Checked:=FastDep;
   end;
+
   DirTabsChange(DirTabs);
 
   with devCompilerSet do begin
@@ -616,6 +624,14 @@ end;
 procedure TCompForm.GprofEditChange(Sender: TObject);
 begin
   devCompilerSet.gprofName := GprofEdit.Text;
+end;
+
+procedure TCompForm.OptionsLinkClick(Sender: TObject);
+var
+	s : string;
+begin
+	s := (Sender as TLabel).Caption;
+	ShellExecute(GetDesktopWindow(), 'open', PChar(s), nil, nil, SW_SHOWNORMAL);
 end;
 
 end.
